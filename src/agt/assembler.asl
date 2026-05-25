@@ -57,7 +57,7 @@ my_role_type(assembler).
 
 +!check_expired_task
     : my_active_task(TaskName, _) & step(N)
-      & task_accepted_step(TaskName, AccStep) & (N - AccStep > 200)
+      & task_accepted_step(TaskName, AccStep) & (N - AccStep > 300)
     <- .print("[ASSEMBLER] Task ", TaskName, " timeout (", N - AccStep, " steps). Limpando...");
        !finalize_task(TaskName).
 

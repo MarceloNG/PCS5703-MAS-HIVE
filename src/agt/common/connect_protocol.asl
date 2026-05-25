@@ -71,7 +71,7 @@
 // --- SELF-ASSIGN: idle agents pick up tasks autonomously ---
 
 +step(N)
-    : (N mod 3) == 1
+    : (N mod 7) == 4
       & not my_active_task(_, _) & not collecting(_, _, _)
       & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not searching_dispenser(_)
@@ -79,34 +79,32 @@
       & not waiting_connect_collector(_) & not waiting_connect_result(_, _)
       & not pending_connect(_, _, _, _) & not ready_to_connect(_, _, _, _)
       & my_pos(MX, MY) & step(CS)
-      & known_task(TN, TD, _, 1) & TD - CS > 30
+      & known_task(TN, TD, _, 1) & TD - CS > 40
       & task_req(TN, _, _, BType)
     <- .my_name(Me);
-       claim_task_soloist(TN, Me, Claimed);
-       if (Claimed) {
-           mark_busy(Me);
-           .abolish(collecting(_, _, _));
-           .abolish(has_destination(_, _));
-           .abolish(waiting_request(_, _));
-           .abolish(waiting_attach_result(_, _));
-           .abolish(collected_block(_));
-           .abolish(solo_mode(_));
-           .abolish(solo_block_type(_));
-           .abolish(request_retries(_, _));
-           .abolish(task_accepted_step(_, _));
-           .abolish(my_task_deadline(_, _));
-           .abolish(searching_dispenser(_));
-           +my_task_deadline(TN, TD);
-           +my_active_task(TN, "solo");
-           +solo_mode(TN);
-           +solo_block_type(BType);
-           +task_accepted_step(TN, CS);
-           .print("[SELF] Step ", N, ": Auto-assigned ", TN, " type=", BType, " dl=", TD);
-           if (attached(_, _)) {
-               +needs_clear_blocks(BType)
-           } else {
-               !collect_block(BType)
-           }
+       mark_busy(Me);
+       .abolish(collecting(_, _, _));
+       .abolish(has_destination(_, _));
+       .abolish(waiting_request(_, _));
+       .abolish(waiting_attach_result(_, _));
+       .abolish(collected_block(_));
+       .abolish(solo_mode(_));
+       .abolish(solo_block_type(_));
+       .abolish(request_retries(_, _));
+       .abolish(task_accepted_step(_, _));
+       .abolish(my_task_deadline(_, _));
+       .abolish(searching_dispenser(_));
+       +my_task_deadline(TN, TD);
+       +my_active_task(TN, "solo");
+       +solo_mode(TN);
+       +solo_block_type(BType);
+       +task_accepted_step(TN, CS);
+       .print("[SELF] Step ", N, ": Auto-assigned ", TN, " type=", BType, " dl=", TD);
+       if (attached(_, _)) {
+           +needs_clear_blocks(BType);
+           action("skip")
+       } else {
+           !collect_block(BType)
        }.
 
 // --- SUBMIT: pending_submit e na goal zone ---

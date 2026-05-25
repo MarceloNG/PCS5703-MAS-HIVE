@@ -195,7 +195,7 @@ my_role_type(collector).
 
 +!check_expired_task
     : my_active_task(TaskName, _) & step(N)
-      & task_accepted_step(TaskName, AccStep) & (N - AccStep > 200)
+      & task_accepted_step(TaskName, AccStep) & (N - AccStep > 300)
     <- .print("[COLLECTOR] Task ", TaskName, " timeout (", N - AccStep, " steps). Limpando...");
        !finalize_task(TaskName).
 

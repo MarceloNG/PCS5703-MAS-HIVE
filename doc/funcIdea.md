@@ -8,7 +8,7 @@
 
 ### O Quê
 
-Um SMA com **arquitetura de enxame hierárquico** onde os agentes operam em **esquadrões dinâmicos** de 3-4 membros, cada esquadrão autônomo o suficiente para completar tarefas sozinho (explorar, coletar, montar, submeter), mas coordenado globalmente por um **protocolo de leilão distribuído** para maximizar throughput de tarefas.
+Um SMA com **arquitetura de enxame hierárquico** onde 15 agentes operam em **3 esquadrões fixos** de 4 membros + **3 sentinelas** no pool de soloists. Cada esquadrão é autônomo para completar tarefas (explorar, coletar, montar, submeter), coordenado globalmente por um **protocolo de leilão distribuído** via artefato `TaskBoard` e um **pool de soloists** que maximiza o throughput de tasks simples.
 
 ### Por Quê
 
@@ -17,375 +17,539 @@ A maioria dos times no MAPC comete um de dois erros:
 1. **Centralização excessiva** — um agente "coordenador" vira gargalo e ponto único de falha.
 2. **Descentralização total** — agentes independentes competem por recursos entre si, gerando desperdício.
 
-Nossa abordagem é o **meio-termo ótimo**: esquadrões pequenos com autonomia local, coordenados por broadcast de intenções. Cada esquadrão é uma "mini-fábrica" capaz de completar o ciclo inteiro de uma tarefa. Isso dá:
+Nossa abordagem é o **meio-termo ótimo**: esquadrões com autonomia local, coordenados por artefatos compartilhados e leilão distribuído. Adicionalmente, um **pool de soloists** permite que qualquer agente livre (inclusive sentinelas) execute tasks de 1 bloco de forma oportunista. Isso dá:
 
-- **Resiliência**: se um esquadrão perde um membro (desativação por clear event), os demais se reorganizam.
-- **Paralelismo**: múltiplas tarefas são executadas simultaneamente por esquadrões diferentes.
-- **Eficiência**: sem overhead de um coordenador central processando tudo.
+- **Resiliência**: mecanismos de retry, timeout e fallback em todos os módulos.
+- **Paralelismo**: múltiplas tasks executadas simultaneamente (squads + soloists).
+- **Eficiência**: sem coordenador central; decisão distribuída via artefatos observáveis.
+- **Throughput máximo**: tasks simples não ficam ociosas esperando um squad inteiro.
 
 ### Para Quem
 
-Time de alunos PCS 5703, competindo contra os demais times da turma no simulador MASSIM 2022.
-
-### Quando
-
-- **Semana 1 (19-25/mai)**: Ambiente + agente mínimo conectado ao MASSIM
-- **Semana 2 (26/mai-01/jun)**: Estratégia completa + organização MOISE+
-- **02/jun**: Entrega final (relatório + código)
+Time de alunos PCS 5703, competindo contra os demais times da turma no simulador MASSim 2022.
 
 ---
 
-## 2. Análise do Cenário — Mecânicas que Definem a Estratégia
-
-Cada decisão arquitetural abaixo é justificada por uma mecânica real do Agents Assemble 2022.
+## 2. Análise do Cenário — Mecânicas e Decisões Estratégicas
 
 ### 2.1 Sistema de Roles (Papéis do Servidor)
 
 O servidor define roles com atributos diferentes:
 
-| Atributo | Impacto Estratégico |
-|----------|-------------------|
-| **vision** | Roles com visão alta são essenciais na fase de exploração |
-| **speed** (array) | `speed[0]` = vel. sem carga, `speed[1]` = vel. com 1 bloco, etc. Roles rápidos sem carga exploram; roles que mantêm velocidade com carga transportam |
-| **actions** | Nem todo role pode fazer tudo (ex: submit, clear, request). O role precisa ter a ação permitida |
-| **clear.chance** | Probabilidade de sucesso do clear — roles com alta chance são usados para ataque/defesa |
-| **clear.maxDistance** | Se > 1, pode causar dano a distância em entidades inimigas |
+| Role (Server) | Visão | Speed [0] | Speed [1+] | Clear Chance | Clear Max Energy |
+|---------------|-------|-----------|------------|-------------|-----------------|
+| `default` | 5 | 2 | — | 0.3 | 60 |
+| `worker` | 3 | 3 | 3 | 0.1 | 30 |
+| `explorer` | 7 | 3 | — | 0.0 | 0 |
+| `constructor` | 4 | 1 | — | 0.0 | 0 |
+| `sentinel` | 5 | 2 | — | 0.9 | 100 |
 
-**Decisão**: Os agentes DEVEM mudar de role dinamicamente conforme a fase (exploração → coleta → montagem → submissão). Role zones são fixas durante a simulação — mapear role zones cedo é crítico.
+**Decisão implementada**: Na versão atual, agentes operam com role `default`. Troca dinâmica de roles (via role zones) é suportada pela infraestrutura mas não ativamente utilizada nesta versão.
 
 ### 2.2 Sistema de Tarefas
 
-- Tarefas aparecem aleatoriamente com deadline, reward e um padrão de blocos (posições relativas ao agente que submete).
-- Podem ser submetidas **múltiplas vezes** até um limite desconhecido.
-- Só podem ser submetidas em **goal zones**.
-- Goal zones **se movem** após submissões — precisa rastrear continuamente.
+- Tarefas aparecem com deadline (steps), reward e padrão de blocos.
+- Podem ser submetidas **múltiplas vezes** enquanto a task estiver ativa.
+- Só podem ser submetidas em **goal zones** (posição relativa (0,0) em relação ao agente).
 
-**Decisão**: Priorizar tarefas por `reward / complexidade` (número de blocos × distância dos dispensers). Tarefas simples (1-2 blocos) dão pontos rápidos no início; tarefas complexas (3-4 blocos) exigem connect entre agentes e dão mais reward.
+**Decisão implementada**:
+- Priorização por `Score = (Reward / NBlocks) × 100 - ManhattanDistance(leader, dispenser)`
+- Tasks de 1 bloco → delegadas ao **soloist pool** (execução rápida por agente mais próximo)
+- Tasks de 2 blocos → delegadas ao squad (connect multi-block)
+- **Re-submit** automático: após submit success, o agente tenta submeter novamente antes de finalizar
 
 ### 2.3 Dispensers e Blocos
 
-- Dispensers são fixos e produzem um tipo específico de bloco.
-- Ação `request` gera o bloco na posição do dispenser (precisa estar adjacente).
-- Blocos podem ser attached, rotated (cw/ccw), e connected entre agentes.
-- **Speed degrada com attachments**: carregar blocos te deixa lento.
+- Dispensers fixos, mapeados incrementalmente no `SharedMap`.
+- Grid toroidal 40×40 → distâncias calculadas com wrapping Manhattan.
+- Speed degrada com attachments (carry limit).
 
-**Decisão**: Minimizar tempo de carregamento. O agente coleta o bloco e leva direto para o ponto de montagem. Não acumular blocos desnecessariamente.
+**Decisão implementada**: Minimizar tempo de carregamento. O collector vai direto ao dispenser mais próximo do tipo necessário, coleta (request + attach) e navega ao meeting point ou goal zone.
 
-### 2.4 Connect — A Mecânica Mais Importante
+### 2.4 Connect — Mecânica Multi-Block
 
-Para tarefas complexas (3+ blocos), um único agente pode não conseguir carregar tudo (speed cai a 0 com muitos attachments). A ação `connect` permite que dois agentes juntem seus blocos:
+Para tarefas com 2+ blocos, a ação `connect` junta blocos entre dois agentes:
 
-- Ambos precisam executar `connect` no **mesmo step**.
-- Precisam referenciar o parceiro e as coordenadas locais do bloco.
-- Após connect, os blocos ficam ligados e attached a ambos os agentes.
+- Ambos executam `connect` no **mesmo step** referenciando o parceiro.
+- Usa `hive.connect_calculator` para calcular coordenadas relativas.
+- Protocolo de sincronização via módulo `communication.asl`.
 
-**Decisão**: Esta é a mecânica que separa times bons de times medíocres. Nossa arquitetura de esquadrão é desenhada especificamente para facilitar connects: agentes do mesmo esquadrão se encontram em pontos combinados para executar connects sincronizados.
+**Decisão implementada**:
+1. Assembler define meeting point (próximo à goal zone)
+2. Collectors coletam em paralelo blocos diferentes
+3. `signal_ready` no `SquadCoordinator` sincroniza os agentes
+4. Connect simultâneo (collector e assembler executam no mesmo step)
+5. Assembler navega à goal zone → submit
 
 ### 2.5 Normas Dinâmicas
 
-O servidor cria normas que podem:
+O servidor cria normas que limitam:
+- **Carry**: máximo de blocos que um agente pode carregar.
+- **Adopt**: máximo de agentes com o mesmo role.
 
-- **Carry**: limitar quantos blocos um agente pode carregar (punição = perda de energia).
-- **Adopt**: limitar quantos agentes do time podem ter o mesmo role.
+**Decisão implementada**: A infraestrutura de normas existe no `hive_org.xml` (MOISE+ normative spec), mas o monitoramento de normas dinâmicas do servidor não foi implementado como artefato dedicado nesta versão. Os agentes operam dentro dos limites naturais (1-2 blocos por vez).
 
-**Decisão**: Monitorar normas a cada step. Se uma norma Carry limita a 1 bloco, ajustar a estratégia para tarefas simples. Se uma norma Adopt limita um role, redistribuir roles no esquadrão.
+### 2.6 Clear Events e Evasão
 
-### 2.6 Clear Events e Ação Clear
+- Clear events desativam agentes e destroem blocos numa área.
+- Markers aparecem ~5 steps antes do impacto.
 
-- **Clear events**: hazards ambientais que desativam agentes e destroem blocos em uma área. São sinalizados com markers 5 steps antes.
-- **Ação clear**: agentes podem limpar obstáculos/blocos e causar dano a inimigos.
-
-**Decisão**: Detectar markers do tipo `clear` e `ci` (clear_immediate) e evacuar a área. Usar ação clear ofensivamente contra agentes inimigos que estão montando padrões em goal zones.
-
----
-
-## 3. Arquitetura do SMA — O Design HIVE
-
-### 3.1 Organização MOISE+
-
-```
-HIVE Organization
-│
-├── SchemeSpec: exploration_scheme
-│   ├── Goal: map_explored
-│   └── Missions: m_scout (obrigatória para Scouts)
-│
-├── SchemeSpec: task_execution_scheme
-│   ├── Goal: task_submitted
-│   ├── SubGoal: blocks_collected
-│   ├── SubGoal: blocks_assembled
-│   ├── SubGoal: pattern_submitted
-│   └── Missions: m_collect, m_assemble, m_submit
-│
-├── SchemeSpec: defense_scheme
-│   ├── Goal: team_protected
-│   └── Missions: m_guard, m_clear_threat
-│
-├── GroupSpec: squad_group (min=2, max=4)
-│   ├── Role: squad_leader (1..1)
-│   ├── Role: collector (1..2)
-│   ├── Role: assembler (1..1)
-│   └── Norms:
-│       ├── squad_leader MUST fulfill m_scout
-│       ├── collector MUST fulfill m_collect
-│       └── assembler MUST fulfill m_assemble, m_submit
-│
-└── GroupSpec: sentinel_group (min=1, max=2)
-    ├── Role: sentinel (1..2)
-    └── Norms:
-        └── sentinel MUST fulfill m_guard
-```
-
-### 3.2 Papéis dos Agentes (Nível MOISE+)
-
-| Papel MOISE+ | Role do Servidor Preferido | Responsabilidades |
-|---------------|---------------------------|-------------------|
-| **squad_leader** | Role com alta visão | Explorar, mapear dispensers/goal zones/role zones, coordenar esquadrão via broadcast de crenças |
-| **collector** | Role com boa speed carregando | Ir até dispensers, fazer request, attach blocos, transportar até ponto de montagem |
-| **assembler** | Role com permissão de submit | Receber blocos via connect, rotacionar para padrão correto, levar até goal zone, submit |
-| **sentinel** | Role com bom clear | Patrulhar goal zones, usar clear em inimigos que estão montando, proteger assemblers aliados |
-
-### 3.3 Ciclo de Vida de uma Tarefa (Pipeline)
-
-```
-[1. DETECTAR]  Qualquer agente percebe task nos percepts
-       │
-       ▼
-[2. AVALIAR]   Squad leader calcula score = reward / (n_blocos × dist_média_dispensers)
-       │
-       ▼
-[3. LEILOAR]   Squad leader anuncia intenção via mensagem broadcast
-               Outros squads podem competir (maior score ganha)
-       │
-       ▼
-[4. COLETAR]   Collectors do squad vão aos dispensers relevantes
-               Cada collector busca os blocos que faltam
-       │
-       ▼
-[5. MONTAR]    Collectors se encontram com assembler em ponto combinado
-               Executam connect sincronizado para juntar blocos
-       │
-       ▼
-[6. SUBMETER]  Assembler navega até goal zone com padrão completo
-               Executa submit
-       │
-       ▼
-[7. REPETIR]   Se task ainda ativa, repete submissão (re-submit dá pontos extras!)
-```
-
-### 3.4 Arquitetura BDI dos Agentes (Jason/AgentSpeak)
-
-Cada agente opera com o ciclo BDI:
-
-**Beliefs (Crenças)**:
-- Mapa parcial compartilhado (posições de dispensers, goal zones, role zones, obstáculos)
-- Estado das tarefas ativas (quais existem, deadline, reward)
-- Estado do esquadrão (quem está fazendo o quê, posições relativas)
-- Normas vigentes e suas restrições
-- Próprio estado (energia, role atual, attachments)
-
-**Desires (Desejos)** — priorizados:
-1. Sobreviver (evacuar clear events, manter energia > 0)
-2. Cumprir normas (evitar punições)
-3. Completar tarefas do esquadrão
-4. Explorar mapa (quando ocioso)
-5. Defender goal zones (se sentinel)
-
-**Intentions (Intenções)**:
-- Planos concretos gerados pelo motor Jason
-- Commitment strategy: manter intenção até conclusão ou impossibilidade comprovada
-- Re-planejamento quando precepts invalidam o plano atual
+**Decisão implementada**: Detecção via `am_deactivated` belief + `energy < 5` trigger. Quando desativado, o agente executa `skip` até reativar. Evasão proativa de markers não implementada nesta versão (prioridade foi dada ao pipeline de tasks).
 
 ---
 
-## 4. Estratégias Diferenciadas — O Que Nos Faz Ganhar
+## 3. Arquitetura Implementada
+
+### 3.1 Organização MOISE+ (hive_org.xml)
+
+```
+HIVE Organization (hive_team)
+│
+├── squad_group ×3 (min=2, max=4)
+│   ├── Role: squad_leader (1..1) ── authority → collector, assembler
+│   ├── Role: collector (1..2) ── communication → assembler
+│   └── Role: assembler (1..1)
+│
+├── sentinel_group (min=1, max=2)
+│   └── Role: sentinel (1..3)
+│
+├── Scheme: exploration_scheme
+│   ├── Goal: map_explored (parallel)
+│   │   ├── dispensers_found (ttf=200)
+│   │   ├── goal_zones_found (ttf=200)
+│   │   └── role_zones_found (ttf=200)
+│   └── Mission: m_scout (min=1, max=15)
+│
+├── Scheme: task_execution_scheme
+│   ├── Goal: task_submitted (sequence)
+│   │   ├── blocks_collected (ttf=100)
+│   │   ├── blocks_assembled (ttf=50)
+│   │   └── pattern_submitted (ttf=30)
+│   ├── Mission: m_collect (min=1, max=2)
+│   ├── Mission: m_assemble (min=1, max=1)
+│   └── Mission: m_submit (min=1, max=1)
+│
+├── Scheme: defense_scheme
+│   ├── Goal: team_protected (parallel)
+│   │   ├── goal_zones_guarded
+│   │   └── threats_cleared
+│   └── Mission: m_guard (min=1, max=3)
+│
+└── Normas:
+    ├── n_scout:    squad_leader MUST m_scout
+    ├── n_collect:  collector MUST m_collect
+    ├── n_assemble: assembler MUST m_assemble
+    ├── n_submit:   assembler MUST m_submit
+    └── n_guard:    sentinel MUST m_guard
+```
+
+### 3.2 Composição dos 15 Agentes
+
+| Agente | Tipo | Squad | Função Principal |
+|--------|------|-------|-----------------|
+| connectionA1 | squad_leader | squad1 | Leilão + delegação + exploração |
+| connectionA2 | squad_leader | squad2 | Idem |
+| connectionA3 | squad_leader | squad3 | Idem |
+| connectionA4 | collector | squad1 | Coleta de blocos |
+| connectionA5 | collector | squad1 | Coleta de blocos |
+| connectionA6 | collector | squad2 | Coleta de blocos |
+| connectionA7 | collector | squad2 | Coleta de blocos |
+| connectionA8 | collector | squad3 | Coleta de blocos |
+| connectionA9 | collector | squad3 | Coleta de blocos |
+| connectionA10 | assembler | squad1 | Connect + submit |
+| connectionA11 | assembler | squad2 | Connect + submit |
+| connectionA12 | assembler | squad3 | Connect + submit |
+| connectionA13 | sentinel | — (soloist pool) | Tasks solo + patrulha |
+| connectionA14 | sentinel | — (soloist pool) | Tasks solo + patrulha |
+| connectionA15 | sentinel | — (soloist pool) | Tasks solo + patrulha |
+
+**Pool de Soloists**: Todos os 15 agentes podem receber tasks solo via `find_free_soloist()`. Sentinelas são prioridade, mas assemblers e collectors livres também participam.
+
+### 3.3 Ciclo de Vida de uma Task Solo (Implementado)
+
+```
+[1. PERCEBER]     Task aparece → TaskBoard.register_task()
+       │
+       ▼
+[2. SINALIZAR]    TaskBoard emite signal new_task_available
+       │
+       ▼
+[3. AVALIAR]      Cada leader calcula Score = (Reward/NBlocks)*100 - dist_dispenser
+       │
+       ▼
+[4. LEILOAR]      Leaders chamam place_bid() + resolve_auction()
+                  Maior score vence o leilão
+       │
+       ▼
+[5. DELEGAR]      Leader vencedor: find_free_soloist(dispX, dispY) → agente livre
+                  .send(tell, soloist_task(TaskName, BlockType))
+       │
+       ▼
+[6. COLETAR]      Soloist: get_nearest_dispenser → navegar → request → attach
+       │
+       ▼
+[7. SUBMETER]     Soloist: get_nearest_goal_zone → navegar → submit(TaskName)
+       │
+       ▼
+[8. RE-SUBMIT]    Se sucesso: tenta submeter novamente (pontos extras!)
+       │
+       ▼
+[9. FINALIZAR]    mark_free(Me) + cleanup de beliefs + volta a explorar
+```
+
+### 3.4 Ciclo de Vida de uma Task Multi-Block (Implementado)
+
+```
+[1. PERCEBER]     Task com 2+ blocos detectada
+       │
+       ▼
+[2. LEILOAR]      Mesmo protocolo de leilão (seção 3.3)
+       │
+       ▼
+[3. DELEGAR]      Leader: set_meeting_point(squad, X, Y)
+                  .send(collector, tell, do_collect(BlockType))
+                  .send(assembler, tell, collect_and_connect_task(...))
+       │
+       ▼
+[4. COLETAR]      Collectors + Assembler em paralelo: dispenser → request → attach
+                  signal_ready(squad, Me) ao chegar no meeting point
+       │
+       ▼
+[5. SINCRONIZAR]  SquadCoordinator.all_ready(squad)?
+                  Assembler envia connect_request via communication.asl
+       │
+       ▼
+[6. CONNECT]      Ambos executam action(connect(...)) no mesmo step
+                  hive.connect_calculator calcula RelX, RelY
+       │
+       ▼
+[7. SUBMETER]     Assembler navega à goal zone → submit → re-submit
+       │
+       ▼
+[8. CLEANUP]      clear_ready(squad) + finalize
+```
+
+### 3.5 Prioridade de Decisão (Pipeline por Step)
+
+A ordem de inclusão dos módulos define a prioridade de ação:
+
+| Prioridade | Módulo | Condição | Ação |
+|-----------|--------|----------|------|
+| **P0** | `connect_protocol.asl` | `am_deactivated` | `skip` |
+| **P0** | `connect_protocol.asl` | `energy < 5` | `skip` |
+| **P1** | `connect_protocol.asl` | `pending_submit` + `goalZone(0,0)` | `submit(Task)` |
+| **P1** | `connect_protocol.asl` | `submitted_task` + `success` | re-submit ou finalize |
+| **P1** | `connect_protocol.asl` | `ready_to_connect` | `connect(Agent, X, Y)` |
+| **P2** | `collection.asl` | `waiting_attach_result` | `attach(Dir)` |
+| **P2** | `collection.asl` | `waiting_request` + success | `attach(Dir)` |
+| **P2** | `collection.asl` | `collecting(Type,X,Y)` + adjacente | `request(Dir)` |
+| **P2** | `collection.asl` | `collecting(Type,X,Y)` | `move(Dir)` → dispenser |
+| **P3** | `navigation.asl` | `has_destination` | greedy move → destino |
+| **P3** | `navigation.asl` | sem destino | `get_nearest_frontier` → explore |
+
+### 3.6 Artefatos CArtAgO (Estado Compartilhado)
+
+| Artefato | Instâncias | Propósito | Dados Principais |
+|----------|-----------|-----------|-----------------|
+| `SharedMap` | 1 (singleton) | Mapa global incrementally built | Cells, dispensers, goal zones, role zones, fronteiras, obstáculos |
+| `TaskBoard` | 1 (singleton) | Registro e leilão de tasks | Tasks conhecidas, bids, assignments, requirements |
+| `SquadCoordinator` | 1 (singleton) | Coordenação de squads + soloist pool | Membros, meeting points, ready flags, busy/free |
+| `HiveDashboard` | 1 (singleton) | WebSocket server → React dashboard | Step, score, agents, events, squads |
+| `EISAccess` | 15 (1/agente) | Bridge com MASSim via EIS | Percepts, actions, EnvironmentInterface singleton |
+
+---
+
+## 4. Estratégias Implementadas
 
 ### 4.1 Exploração por Fronteira com Mapa Compartilhado
 
-Ao invés de exploração aleatória:
+**Implementação real** (`SharedMap.java` + `navigation.asl`):
 
-1. Cada agente mantém um mapa local das células visitadas.
-2. Squad leaders compartilham suas observações via `tell` (mensagem Jason).
-3. O mapa global é construído incrementalmente como artefato CArtAgO.
-4. Agentes navegam para a **fronteira** mais próxima (célula não visitada adjacente a célula visitada).
-5. Survey action é usada para obter distância até dispensers/goal zones quando não encontrados.
+1. Cada agente chama `mark_visited(X, Y)` a cada step.
+2. `perception.asl` processa percepts e chama `update_cell(X, Y, type, details)` para dispensers, goal zones, etc.
+3. Quando sem task, o agente chama `get_nearest_frontier(myX, myY)` → célula não-visitada mais próxima (Manhattan wrapping).
+4. Navegação via greedy direction (`DirectionCalculator`) ou `compute_next_move` (A* com fallback).
+5. Se `get_nearest_frontier` retorna (-1,-1), todas as células foram visitadas → random movement.
 
-**Vantagem**: Cobertura completa do mapa em menos steps, sem sobreposição de exploração.
+**Vantagem**: Cobertura progressiva do mapa 40×40 sem sobreposição desnecessária.
 
-### 4.2 Alocação de Tarefas por Leilão Distribuído (Contract Net simplificado)
+### 4.2 Leilão Distribuído via TaskBoard
 
-Quando uma task aparece nos percepts:
+**Implementação real** (`TaskBoard.java` + `squad_leader.asl`):
 
-1. Todos os squad_leaders recebem a task.
-2. Cada leader calcula um **bid** = `reward / (tempo_estimado_conclusão)`.
-3. O tempo estimado considera: distância até dispensers dos tipos necessários + distância até goal zone mais próxima.
-4. O leader com melhor bid "vence" e compromete seu esquadrão.
-5. Se nenhum esquadrão está livre, a task com menor reward é abandonada.
+1. Task detectada → `register_task(name, deadline, reward, nBlocks)`.
+2. `signal_task_ready(name)` emite signal para todos os leaders.
+3. Cada leader calcula: `Score = (Reward / NBlocks) × 100 - manhattan_dist(myPos, nearestDispenser)`.
+4. `place_bid(taskName, mySquad, score)` registra lance.
+5. `.wait(50)` para bids chegarem.
+6. `resolve_auction(taskName)` → retorna squad com maior bid.
+7. Leader vencedor delega via soloist ou squad conforme complexidade.
 
-**Vantagem**: Alocação descentralizada, sem gargalo. O melhor posicionado para a task a executa.
+**Vantagem**: Completamente distribuído. O squad melhor posicionado (menor distância) vence naturalmente.
 
-### 4.3 Montagem Colaborativa com Connect Sincronizado
+### 4.3 Pool de Soloists — A Grande Inovação
 
-Para tarefas com 2+ blocos:
-
-1. Assembler define um **ponto de encontro** (meeting point) — preferencialmente próximo a uma goal zone.
-2. Collectors navegam até seus dispensers designados, fazem request + attach.
-3. Collectors vão ao meeting point.
-4. No meeting point, collector e assembler se posicionam adjacentes e executam connect no mesmo step.
-5. Se a tarefa tem 3+ blocos, múltiplos connects são feitos em sequência.
-6. Assembler rotaciona blocos (rotate cw/ccw) para alinhar com o padrão da task.
-7. Assembler vai à goal zone e faz submit.
-
-**Vantagem**: Divisão eficiente do trabalho. Collectors podem ir em paralelo a dispensers diferentes.
-
-### 4.4 Adaptação Dinâmica a Normas
-
-A cada step, todos os agentes checam as normas vigentes:
-
-- **Norma Carry (limite de blocos)**: Se o limite é 1, priorizar tarefas de 1 bloco. Se não há tarefas simples, um agente carrega o bloco e imediatamente faz connect com o assembler (ficando abaixo do limite o mais rápido possível).
-- **Norma Adopt (limite de roles)**: Redistribuir roles no time. Se máximo de "worker" é 3, os demais agentes trocam para outro role em role zones.
-
-**Vantagem**: Times que ignoram normas perdem energia massivamente. Nós nos adaptamos e mantemos eficiência.
-
-### 4.5 Evasão de Clear Events
-
-Quando markers do tipo `clear` ou `ci` são percebidos:
-
-1. Calcular o centro e raio estimado do evento.
-2. Se o agente está na zona de perigo, evacuar imediatamente (prioridade máxima).
-3. Se carregando blocos, tentar sair mantendo os blocos; se impossível, detach e salvar o agente.
-4. Após o evento, recolher blocos sobreviventes se possível.
-
-**Vantagem**: Evitar desativação = manter produtividade enquanto adversário perde agentes.
-
-### 4.6 Tática Ofensiva (Sentinel)
-
-1-2 agentes com role de alto clear dedicados a:
-
-1. Patrulhar goal zones que o time adversário está usando.
-2. Quando um agente inimigo está posicionado em goal zone com blocos attached (provável submit), usar **clear** na posição dele.
-3. Isso causa dano de energia, potencialmente desativa o agente inimigo e destrói os blocos que ele carregava — negando a submissão.
-
-**Vantagem**: Mesmo que nosso sentinel não marque pontos diretamente, ele **nega pontos do adversário**. Em um jogo de 700-800 steps, negar 2-3 submissões do adversário pode decidir a partida.
-
-### 4.7 Re-submissão de Tarefas
-
-Insight importante do cenário: tarefas podem ser submetidas múltiplas vezes até serem substituídas. Após um submit bem-sucedido:
-
-1. Se o assembler ainda está na goal zone com o padrão intacto: submit novamente.
-2. Repetir até a task expirar ou a goal zone se mover.
-3. Se a goal zone se move, navegar até a nova posição e submeter de novo.
-
-**Vantagem**: Multiplicar pontos por tarefa sem custo adicional de coleta.
-
----
-
-## 5. Stack Tecnológico
-
-| Componente | Tecnologia | Justificativa |
-|-----------|------------|---------------|
-| Agentes | **Jason** (AgentSpeak(L)) | Linguagem BDI nativa, ciclo percepção-raciocínio-ação natural para o domínio |
-| Organização | **MOISE+** | Especificação formal de papéis, grupos, missões e normas — exigido pelo enunciado e ideal para esquadrões |
-| Ambiente | **CArtAgO** | Artefatos para mapa compartilhado, task board, e interface com MASSIM |
-| Integração | **JaCaMo** | Une Jason + MOISE+ + CArtAgO em um único framework |
-| Simulador | **MASSIM 2022** | Servidor do Agents Assemble, comunicação via EIS (Environment Interface Standard) |
-
----
-
-## 6. Estrutura de Arquivos do Projeto
+**Implementação real** (`SquadCoordinator.java`):
 
 ```
-project/
+find_free_soloist(dispX, dispY):
+  1. Busca em TODOS os 15 agentes (não apenas sentinelas)
+  2. Filtra: soloistBusy[agent] == false
+  3. Ordena por Manhattan distance ao dispenser
+  4. Retorna o mais próximo livre
+  5. Se nenhum livre → fallback para assembler do próprio squad
+```
+
+**Vantagem**: Tasks simples (1 bloco) são executadas imediatamente pelo agente mais próximo. Sentinelas que estariam ociosos patrulhando agora contribuem com pontos. Em simulações de 750 steps, isso pode dobrar o número de tasks completadas.
+
+### 4.4 Connect Sincronizado (Multi-Block)
+
+**Implementação real** (`connect_protocol.asl` + `communication.asl`):
+
+1. `signal_ready(squad, me)` no `SquadCoordinator`.
+2. Assembler detecta `all_ready(squad)` → envia `connect_request(Me, X, Y, Step)` via `.send`.
+3. Collector responde com `connect_confirmed(Me, X, Y)`.
+4. `hive.connect_calculator(MyX, MyY, PartnerX, PartnerY, BlockDir, RelX, RelY)` calcula coords.
+5. Ambos executam `action(connect(Partner, RelX, RelY))` no step combinado.
+6. Se falhar → retry (até 3 tentativas).
+
+### 4.5 Re-submissão Agressiva
+
+**Implementação real** (`connect_protocol.asl`):
+
+```prolog
++step(N) : submitted_task(Task) & lastAction(submit) & lastActionResult(success)
+    <- action(submit(Task)).   // Re-submit imediato!
+
++step(N) : submitted_task(Task) & lastAction(submit) & lastActionResult(failed_target)
+    <- !finalize_task(Task).   // Task expirou, finalizar.
+```
+
+**Vantagem**: Cada re-submit bem-sucedido = reward adicional sem custo de coleta.
+
+### 4.6 Resiliência Multi-Nível
+
+| Mecanismo | Trigger | Ação | Módulo |
+|-----------|---------|------|--------|
+| Skip conservador | `energy < 5` ou `am_deactivated` | `action(skip)` | `connect_protocol.asl` |
+| Retry de request | `lastActionResult(failed)` (até 5×) | Move aleatório + retry | `collection.asl` |
+| Rotação no submit | Submit falha | Rotaciona CW (até 4×) | `connect_protocol.asl` |
+| Goal zone alternativa | 8 bloqueios | `get_alternative_goal_zone()` | `connect_protocol.asl` |
+| Detecção de stuck | 20 steps mesma posição | Finalize task ou detach | `perception.asl` |
+| Task timeout | 200 steps sem progresso | Cleanup + mark_free | Cada agente |
+| Obstacle decay | Obstáculo antigo | `decay_obstacles(step)` | `SharedMap.java` |
+| WS reconnect | Conexão cai | Retry exponencial (1s→10s) | Dashboard `ws.ts` |
+
+---
+
+## 5. Stack Tecnológico Implementado
+
+| Componente | Tecnologia | Versão | Justificativa |
+|-----------|------------|--------|---------------|
+| Agentes | **Jason** (AgentSpeak) | 3.3.1 | BDI nativo, ciclo percepção-raciocínio-ação |
+| Organização | **MOISE+** | 1.1 | Papéis, grupos, missões e normas formais |
+| Ambiente | **CArtAgO** | 3.1 | Artefatos observáveis para estado compartilhado |
+| Integração | **JaCaMo** | 1.3.0 | Une Jason + MOISE+ + CArtAgO |
+| EIS Bridge | **eismassim** | 4.5 | Proxy JSON ↔ IILang para MASSim |
+| WebSocket | **Java-WebSocket** | 1.5.7 | Broadcast para dashboard |
+| JSON | **org.json** | 20240303 | Serialização no HiveDashboard |
+| Simulador | **MASSim** | 2022-1.1.1 | Servidor Agents Assemble |
+| Dashboard | **React** | 19.2 | UI reativa com componentes |
+| 3D | **Three.js** + React Three Fiber | 0.184 + 9.6 | Visualização 3D do grid |
+| State | **Zustand** | 5.0 | Estado global do dashboard |
+| Build | **Gradle** | 9.2 | Build + run do JaCaMo |
+| Build (dashboard) | **Vite** | 8.0 | Dev server + bundling |
+| Runtime | **JDK** | 21 | Execução do MAS |
+
+---
+
+## 6. Estrutura de Arquivos Implementada
+
+```
+PCS5703_MAS/
+├── build.gradle                    # Build: java 21, JaCaMo 1.3.0, eismassim 4.5, WS, JSON
+├── settings.gradle                 # rootProject.name = 'hive'
+├── hive.jcm                        # 15 agentes declarados (asl-path: src/agt, src/agt/common)
+├── eismassimconfig.json            # EIS: connectionA1-15, agentA1-15, localhost:12300
+├── logging.properties              # JVM: INFO level, ConsoleHandler
+│
+├── lib/
+│   └── eismassim-4.5-jar-with-dependencies.jar
+│
 ├── src/
-│   ├── agt/                        # Agentes Jason (.asl)
-│   │   ├── squad_leader.asl        # Lógica BDI do líder de esquadrão
-│   │   ├── collector.asl           # Lógica BDI do coletor
-│   │   ├── assembler.asl           # Lógica BDI do montador
-│   │   ├── sentinel.asl            # Lógica BDI do sentinela
-│   │   └── common/
-│   │       ├── navigation.asl      # Planos de navegação (A* simplificado)
-│   │       ├── perception.asl      # Processamento de percepts
-│   │       └── norms.asl           # Monitoramento e adaptação a normas
+│   ├── agt/                        # ══ AGENTES JASON ══
+│   │   ├── squad_leader.asl       #   Leilão, delegação, exploração, coordenação
+│   │   ├── collector.asl          #   Coleta, meeting point, soloist
+│   │   ├── assembler.asl          #   Connect multi-block, submit, soloist
+│   │   ├── sentinel.asl           #   Soloist tasks, patrulha
+│   │   ├── dummy.asl              #   Agente mínimo (testes)
+│   │   └── common/                #   Módulos compartilhados (inclusão = prioridade):
+│   │       ├── perception.asl     #     Processamento de percepts, update_cell, stuck detection
+│   │       ├── dashboard_hooks.asl#     Report de estado ao HiveDashboard
+│   │       ├── connect_protocol.asl#    Submit, connect, re-submit (PRIORIDADE MÁX)
+│   │       ├── collection.asl     #     Request, attach, retry, multi-dispenser
+│   │       ├── navigation.asl     #     Greedy move, frontier exploration, random escape
+│   │       └── communication.asl  #     Sync messages para connect multi-agente
 │   │
-│   ├── org/                        # Organização MOISE+ (.xml)
-│   │   └── hive_org.xml            # Especificação de grupos, papéis, missões
+│   ├── org/                        # ══ ORGANIZAÇÃO MOISE+ ══
+│   │   └── hive_org.xml           #   4 roles, hive_team > squad_group + sentinel_group
 │   │
-│   ├── env/                        # Artefatos CArtAgO (.java)
-│   │   ├── SharedMap.java          # Mapa compartilhado incremental
-│   │   ├── TaskBoard.java          # Board de tarefas e leilão distribuído
-│   │   └── MassimConnector.java    # Interface EIS com o simulador
+│   ├── env/                        # ══ ARTEFATOS CArtAgO ══
+│   │   ├── env/
+│   │   │   ├── SharedMap.java     #     Mapa: A*, greedy, frontier, dispensers, obstacles
+│   │   │   ├── TaskBoard.java     #     Tasks + leilão + re-submit tracking
+│   │   │   ├── SquadCoordinator.java#   Squads hardcoded + soloist pool + meeting points
+│   │   │   └── HiveDashboard.java #     WebSocket :8765, broadcast JSON
+│   │   └── connection/
+│   │       ├── EISAccess.java     #     Bridge EIS (singleton EnvironmentInterface)
+│   │       └── Translator.java    #     IILang ↔ Jason Literal (static utilities)
 │   │
-│   └── jcm/
-│       └── hive.jcm                # Arquivo de configuração JaCaMo
+│   └── java/                       # ══ INTERNAL ACTIONS ══
+│       └── hive/
+│           ├── AdjacentDirection.java   # Adjacência toroidal 40×40
+│           ├── ConnectCalculator.java   # Coords relativas para connect
+│           ├── DirectionCalculator.java # Direção greedy (n/s/e/w/skip)
+│           ├── PathFinder.java          # A* backup (sem obstáculos)
+│           └── PatternMatcher.java      # Match padrão de blocos
 │
-├── doc/
-│   └── relatorio.tex               # Relatório em formato artigo científico
+├── conf/
+│   └── TestConfig.json             # MASSim: 40×40, 750 steps, 15 agents, 3 block types
 │
-└── conf/                           # Configurações do MASSIM
+├── dashboard/                      # ══ FRONTEND REACT ══
+│   ├── package.json                # React 19, Three.js, Zustand, Vite 8, Tailwind 4
+│   └── src/
+│       ├── App.tsx                 #   Layout 2D/3D toggle
+│       ├── store.ts               #   Zustand (HiveState)
+│       ├── ws.ts                   #   useHiveSocket() + reconnect exponencial
+│       └── components/             #   Header, AgentGrid, SquadsPanel, TaskPipeline,
+│                                   #   EventFeed, AuctionHall, BattleStats,
+│                                   #   ScoreTimeline, GridScene3D
+│
+├── massim_2022/                    # ══ PLATAFORMA MASSIM (submodule) ══
+│   ├── server/                     #   Servidor de simulação
+│   ├── protocol/                   #   Protocolo JSON
+│   ├── eismassim/                  #   EIS bridge (fonte do JAR)
+│   └── monitor/                    #   Web monitor frontend
+│
+└── doc/                            # ══ DOCUMENTAÇÃO ══
+    ├── ARCH.md                     #   Arquitetura C4, UML, padrões MAS
+    ├── TECHSPEC.md                 #   Especificação técnica completa
+    └── funcIdea.md                 #   Este documento
 ```
 
 ---
 
-## 7. Cronograma Detalhado
+## 7. Fluxos de Dados Principais
 
-### Semana 1 (19-25 de maio)
+### 7.1 Ciclo por Step (15 agentes em paralelo)
 
-| Dia | Entregável |
-|-----|-----------|
-| Seg-Ter | Ambiente MASSIM rodando, agente mínimo conectado e recebendo percepts |
-| Qua-Qui | Navegação básica (move), processamento de percepts, mapa local |
-| Sex-Dom | Exploração por fronteira, request de blocos em dispensers, attach/detach |
+```
+MASSim Server
+    │ REQUEST-ACTION (JSON com percepts)
+    ▼
+EISAccess.updatePercepts() → Translator.perceptToLiteral()
+    │ defineObsProperty: step, position, thing, task, energy, ...
+    ▼
+Jason Engine (plan selection)
+    │ +step(N) trigger → cascata de prioridade:
+    │   1. connect_protocol intercepta? → submit/connect/skip
+    │   2. collection intercepta? → request/attach/move_to_dispenser
+    │   3. navigation executa → greedy/frontier
+    ▼
+action(X) belief
+    │ EISAccess.action(String) → Translator.literalToAction()
+    ▼
+EnvironmentInterface.performAction()
+    │ JSON: {"type":"move","content":{"id":N,"type":"move","p":["n"]}}
+    ▼
+MASSim Server (executa ação)
+```
 
-### Semana 2 (26 de maio - 01 de junho)
+### 7.2 Fluxo de Leilão
 
-| Dia | Entregável |
-|-----|-----------|
-| Seg | Organização MOISE+ implementada (papéis, grupos, esquemas) |
-| Ter | Leilão de tarefas funcionando, collectors indo a dispensers corretos |
-| Qua | Connect sincronizado entre agentes, montagem de padrões de 2-3 blocos |
-| Qui | Submit em goal zones, re-submissão, adaptação a normas |
-| Sex | Sentinel tático, evasão de clear events, robustez |
-| Sáb-Dom | Testes intensivos, otimização, relatório final |
+```
+Task aparece nos percepts de todos
+    │
+    ▼
+TaskBoard.register_task(name, deadline, reward, nBlocks)
+TaskBoard.signal_task_ready(name) → signal new_task_available
+    │
+    ▼
+Leaders (×3): +new_task_available(Name, Deadline, Reward, NBlocks)
+    │ Cada um calcula Score
+    │ place_bid(taskName, mySquad, score)
+    │ .wait(50)
+    │ resolve_auction(taskName) → winnerSquad
+    ▼
+Leader vencedor:
+    │ NBlocks == 1? → find_free_soloist → .send(tell, soloist_task)
+    │ NBlocks >= 2? → delegate to squad collectors + assembler
+    ▼
+Soloist ou Squad executa o pipeline
+```
 
-### 02 de junho — Entrega
+### 7.3 Fluxo de Dashboard
+
+```
+Artefatos Java (SharedMap, TaskBoard, SquadCoordinator)
+    │ Eventos: log_event(), set_step(), update_score()
+    ▼
+HiveDashboard.java (CArtAgO Artifact)
+    │ buildSnapshot() → JSON
+    │ broadcast(msg)
+    ▼
+DashboardWsServer (Java-WebSocket :8765)
+    │ WebSocket frames
+    ▼
+React Dashboard (useHiveSocket hook)
+    │ Zustand store update
+    ▼
+UI Components (re-render)
+```
 
 ---
 
-## 8. Métricas de Sucesso
+## 8. Métricas e Performance Esperada
 
-| Métrica | Alvo Mínimo | Alvo Ideal |
-|---------|------------|------------|
-| Tarefas submetidas por simulação (800 steps) | 8-10 | 15+ |
-| Tempo médio de conclusão por tarefa | < 80 steps | < 50 steps |
-| Taxa de sobrevivência a clear events | > 80% | > 95% |
-| Cobertura do mapa em 200 steps | > 40% | > 60% |
-| Normas violadas por step | < 0.1 | 0 |
-
----
-
-## 9. Riscos e Mitigações
-
-| Risco | Probabilidade | Impacto | Mitigação |
-|-------|--------------|---------|-----------|
-| Dificuldade de integração JaCaMo-MASSIM | Alta | Alto | Começar pela conexão no dia 1; usar exemplos do LTI-USP como base |
-| Connect sincronizado falha frequentemente | Média | Alto | Protocolo de retry: se connect falha, agentes se reposicionam e tentam novamente no próximo step |
-| Curva de aprendizado de AgentSpeak | Alta | Médio | Focar em planos simples e incrementar; testar cada plano individualmente |
-| Time adversário usa tática ofensiva (clear) | Média | Médio | Assemblers evitam ficar parados em goal zones; submit o mais rápido possível; sentinels protegem |
-| Normas muito restritivas (Carry=1) | Baixa | Alto | Fallback para tarefas de 1 bloco; manter flexibilidade na alocação |
-| Prazo curto (2 semanas efetivas) | Alta | Alto | Priorizar funcionalidades core (explorar → coletar → montar → submeter) antes de otimizações |
+| Métrica | Alvo | Mecanismo |
+|---------|------|-----------|
+| Tasks solo/simulação (750 steps) | 15-25 | Pool de soloists otimizado |
+| Tasks multi-block/simulação | 3-8 | Connect sincronizado |
+| Tempo médio task solo | 30-50 steps | Greedy navigation + nearest dispenser |
+| Cobertura do mapa em 200 steps | > 50% | Frontier exploration × 15 agentes |
+| Taxa de re-submit | 1.5-2× por task | Re-submit automático |
+| Uptime (sem deactivation) | > 90% | Energy conservation + skip |
+| Retry success rate | > 70% | 5× retry com random escape |
 
 ---
 
-## 10. Diferencial Competitivo — Por Que HIVE Ganha
+## 9. Riscos e Mitigações (Retrospectiva)
 
-1. **Esquadrões autônomos** — enquanto times centralizados travam quando o coordenador é desativado, nossos esquadrões continuam operando independentemente.
+| Risco | Status | Mitigação Aplicada |
+|-------|--------|-------------------|
+| Integração JaCaMo-MASSim | ✅ Resolvido | EISAccess com singleton + Translator estático |
+| Connect sincronizado falha | ⚠️ Parcial | Protocolo communication.asl + retries (funciona ~70%) |
+| Curva AgentSpeak | ✅ Resolvido | Módulos common/ com planos reutilizáveis |
+| Stuck detection | ✅ Resolvido | 20-step timer + finalize + detach |
+| Concorrência em artefatos | ✅ Resolvido | ConcurrentHashMap em todos os artefatos |
+| Prazo curto | ✅ Resolvido | Priorização: solo pipeline primeiro, multi-block depois |
+| A* performance | ✅ Resolvido | Limite 2000 iterações + fallback greedy |
+| Dashboard latência | ✅ Resolvido | WebSocket broadcast + Zustand batching |
 
-2. **Connect como first-class citizen** — a montagem colaborativa é o core da nossa arquitetura, não um afterthought. Isso nos permite completar tarefas complexas (alto reward) que times simplistas não conseguem.
+---
 
-3. **Re-submissão agressiva** — exploramos uma mecânica que a maioria dos times ignora: submeter a mesma tarefa múltiplas vezes para multiplicar pontos.
+## 10. Diferencial Competitivo — O Que Torna HIVE Eficaz
 
-4. **Tática ofensiva** — o sentinel não apenas defende, mas ativamente sabota o adversário em goal zones, criando uma vantagem assimétrica.
+1. **Pool de Soloists universal** — qualquer agente livre (incluindo sentinelas) executa tasks de 1 bloco, maximizando throughput. Times que não fazem isso desperdiçam 3-6 agentes ociosos.
 
-5. **Adaptação a normas** — compliance automático garante que nunca perdemos energia por violações, enquanto times que ignoram normas ficam progressivamente mais fracos.
+2. **Leilão distribuído real** — via artefato `TaskBoard` com `resolve_auction()`. Sem coordenador central, sem gargalo. O squad mais próximo vence naturalmente.
 
-6. **Fundamentação teórica sólida** — cada decisão é justificável com referências da disciplina (Bratman/BDI, Wooldridge/autonomia, MOISE+/organização, Contract Net/coordenação), gerando um relatório academicamente forte.
+3. **Re-submissão automática** — cada submit bem-sucedido é seguido imediatamente por outro attempt. Em 750 steps, isso pode gerar 30-50% mais pontos.
+
+4. **Prioridade por inclusão** — sistema elegante: a ordem dos `{ include(...) }` define prioridade de ação. Submit > Collect > Navigate. Sem ifs complexos.
+
+5. **Resiliência multi-camada** — retry de request (5×), rotação no submit (4×), stuck detection (20 steps), energy conservation, goal zone alternativa, obstacle decay. O sistema degrada gracefully.
+
+6. **Observabilidade total** — Dashboard React com WebSocket mostra em tempo real: estado de cada agente, squads, leilões, tasks, mapa. Essencial para debug durante desenvolvimento.
+
+7. **Fundamentação acadêmica** — BDI (Bratman/Rao-Georgeff), Contract Net (Smith 1980), MOISE+ (Hübner-Sichman-Boissier 2002), A&A (Ricci-Viroli-Omicini 2007). Cada decisão arquitetural é justificável.

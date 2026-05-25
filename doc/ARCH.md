@@ -1,15 +1,14 @@
 # Arquitetura do Sistema — Projeto HIVE / MAPC 2022
 
-Documento de arquitetura completo com diagramas C4, UML e padrões MAS.
-Todos os diagramas utilizam Mermaid.
+Documento de arquitetura completo do sistema multi-agente **Hive**, desenvolvido para a competição MASSim 2022 (Agents Assemble III). Inclui diagramas C4, UML, padrões MAS e detalhamento de todos os componentes implementados. Todos os diagramas utilizam Mermaid.
+
+**Tecnologias:** JaCaMo 1.3.0 (Jason + CArtAgO + MOISE) | Java 21 | MASSim 2022 | React 19 + Three.js
 
 ---
 
 ## 1. Modelo C4
 
 ### 1.1 Nível 1 — Diagrama de Contexto
-
-Visão de mais alto nível: o sistema HIVE, os atores e sistemas externos com os quais interage.
 
 ```mermaid
 graph TB
@@ -18,245 +17,279 @@ graph TB
     end
 
     subgraph Sistema
-        HIVE["🔷 HIVE MAS<br/>SMA com esquadoes autonomos BDI<br/>coordenados por leilao distribuido"]
+        HIVE["🔷 HIVE MAS<br/>SMA com 15 agentes BDI<br/>coordenados por leilao e pool de soloists"]
     end
 
-    subgraph Sistemas Externos
-        MASSIM["🔶 Servidor MASSIM 2022<br/>Simulador Agents Assemble<br/>Gerencia ambiente, acoes,<br/>normas e pontuacao"]
-        MONITOR["🔶 Web Monitor<br/>Visualizacao em tempo real<br/>da simulacao e replays"]
-        OPPONENT["🔶 Time Adversario<br/>SMA concorrente competindo<br/>no mesmo cenario"]
+    subgraph Sistemas_Externos["Sistemas Externos"]
+        MASSIM["🔶 Servidor MASSim 2022<br/>Simulador Agents Assemble<br/>Grid 40×40, tasks, normas"]
+        MONITOR["🔶 MASSim Web Monitor<br/>Visualização da simulação<br/>HTTP :8000"]
+        DASHBOARD["🔶 Hive Dashboard<br/>Command Center React/3D<br/>WebSocket :8765"]
     end
 
-    TEAM -->|"Configura e monitora<br/>(JCM + JSON)"| HIVE
-    HIVE -->|"Envia acoes / Recebe percepts<br/>(TCP/JSON porta 12300)"| MASSIM
-    MASSIM -->|"Streaming do estado<br/>(HTTP porta 8000)"| MONITOR
-    TEAM -->|"Visualiza simulacao<br/>(Browser)"| MONITOR
-    OPPONENT -->|"Envia acoes / Recebe percepts<br/>(TCP/JSON)"| MASSIM
+    TEAM -->|"Configura (JCM + JSON)"| HIVE
+    HIVE -->|"Envia ações / Recebe percepts<br/>(TCP/JSON porta 12300)"| MASSIM
+    MASSIM -->|"Streaming do estado"| MONITOR
+    HIVE -->|"Eventos em tempo real<br/>(WebSocket JSON)"| DASHBOARD
+    TEAM -->|"Monitora simulação"| MONITOR
+    TEAM -->|"Monitora agentes"| DASHBOARD
 
     style HIVE fill:#1168bd,color:#fff,stroke:#0b4884
     style MASSIM fill:#999,color:#fff,stroke:#666
     style MONITOR fill:#999,color:#fff,stroke:#666
-    style OPPONENT fill:#999,color:#fff,stroke:#666
+    style DASHBOARD fill:#438a5e,color:#fff,stroke:#2d5e3f
     style TEAM fill:#08427b,color:#fff,stroke:#052e56
 ```
 
 ### 1.2 Nível 2 — Diagrama de Containers
 
-Decomposição do sistema HIVE nos seus containers (processos/runtimes).
-
 ```mermaid
 graph TB
     subgraph HIVE_MAS["HIVE MAS (System Boundary)"]
         direction TB
-        JACAMO["JaCaMo Runtime<br/><i>Java 21 + Gradle</i><br/>Integra agentes,<br/>organizacao e ambiente"]
+        JACAMO["JaCaMo Runtime<br/><i>Java 21 + Gradle 9.2</i><br/>Integra agentes,<br/>organizacao e ambiente"]
 
-        JASON["Jason Engine<br/><i>AgentSpeak-L</i><br/>Motor BDI: squad_leader,<br/>collector, assembler, sentinel"]
+        JASON["Jason Engine<br/><i>AgentSpeak-L (15 agentes)</i><br/>squad_leader ×3, collector ×6<br/>assembler ×3, sentinel ×3"]
 
-        MOISE["MOISE+ Engine<br/><i>XML + NPL</i><br/>Papeis, grupos,<br/>missoes e normas"]
+        MOISE["MOISE+ Engine<br/><i>hive_org.xml</i><br/>4 roles, 2 groups,<br/>3 schemes, 5 norms"]
 
-        CARTAGO["CArtAgO Workspace<br/><i>Java</i><br/>SharedMap, TaskBoard,<br/>NormMonitor, SquadCoordinator"]
+        CARTAGO["CArtAgO Workspace<br/><i>Java (5 artefatos)</i><br/>SharedMap, TaskBoard,<br/>SquadCoordinator, HiveDashboard"]
 
-        EISMASSIM["EISMASSim<br/><i>Java / EIS 0.5</i><br/>Proxy JSON - IILang"]
+        EISMASSIM["EISAccess Artifacts<br/><i>eismassim-4.5.jar</i><br/>15 instâncias (1 por agente)<br/>EnvironmentInterface singleton"]
     end
 
-    MASSIM_EXT["Servidor MASSIM<br/>Simulador Agents Assemble 2022"]
+    subgraph Dashboard_App["Hive Dashboard (React)"]
+        DASH_UI["React 19 + Three.js<br/>Zustand state<br/>Framer Motion"]
+    end
+
+    MASSIM_EXT["Servidor MASSim 2022<br/>TCP :12300"]
 
     JACAMO -->|"Gerencia ciclo de vida"| JASON
     JACAMO -->|"Carrega spec organizacional"| MOISE
     JACAMO -->|"Instancia artefatos"| CARTAGO
-    JASON -->|"Consulta obrigacoes e papeis"| MOISE
     JASON -->|"Observa propriedades /<br/>Executa operacoes"| CARTAGO
-    JASON -->|"Percepts IILang /<br/>Actions IILang"| EISMASSIM
+    JASON -->|"Percepts / Actions<br/>(via EIS API)"| EISMASSIM
     EISMASSIM -->|"JSON sobre TCP<br/>porta 12300"| MASSIM_EXT
+    CARTAGO -->|"WebSocket JSON<br/>porta 8765"| DASH_UI
 
     style JACAMO fill:#1168bd,color:#fff,stroke:#0b4884
     style JASON fill:#1168bd,color:#fff,stroke:#0b4884
     style MOISE fill:#1168bd,color:#fff,stroke:#0b4884
     style CARTAGO fill:#1168bd,color:#fff,stroke:#0b4884
     style EISMASSIM fill:#1168bd,color:#fff,stroke:#0b4884
+    style DASH_UI fill:#438a5e,color:#fff,stroke:#2d5e3f
     style MASSIM_EXT fill:#999,color:#fff,stroke:#666
 ```
 
 ### 1.3 Nível 3 — Diagrama de Componentes
 
-Detalhamento dos componentes dentro de cada container.
-
 ```mermaid
 graph TB
-    subgraph "Jason Engine — Agentes BDI"
-        SL["squad_leader.asl<br/><i>Exploração, coordenação,<br/>leilão de tarefas</i>"]
-        CO["collector.asl<br/><i>Coleta de blocos,<br/>transporte ao meeting point</i>"]
-        AS["assembler.asl<br/><i>Montagem de padrões,<br/>submit em goal zones</i>"]
-        SE["sentinel.asl<br/><i>Patrulha, clear ofensivo,<br/>proteção de assemblers</i>"]
+    subgraph "Jason Engine — 15 Agentes BDI"
+        SL["squad_leader.asl ×3<br/><i>Leilão, delegação,<br/>coordenação de squad</i>"]
+        CO["collector.asl ×6<br/><i>Coleta de blocos,<br/>soloist tasks, meeting point</i>"]
+        AS["assembler.asl ×3<br/><i>Solo/multi-block,<br/>connect + submit</i>"]
+        SE["sentinel.asl ×3<br/><i>Patrulha,<br/>soloist tasks</i>"]
 
-        subgraph "common/ — Planos Reutilizáveis"
-            NAV["navigation.asl<br/><i>Pathfinding A*</i>"]
+        subgraph "common/ — Módulos Compartilhados"
+            CP["connect_protocol.asl<br/><i>Submit + Connect<br/>(PRIORIDADE MAX)</i>"]
+            CL["collection.asl<br/><i>Request + Attach cycle</i>"]
+            NAV["navigation.asl<br/><i>Greedy + Frontier exploration</i>"]
             PER["perception.asl<br/><i>Processamento de percepts</i>"]
-            COM["communication.asl<br/><i>Protocolos de mensagem</i>"]
-            NOR["norms.asl<br/><i>Compliance de normas</i>"]
+            COM["communication.asl<br/><i>Sync msgs para connect</i>"]
+            DSH["dashboard_hooks.asl<br/><i>Reportar estado via WS</i>"]
         end
     end
 
     subgraph "CArtAgO Workspace — Artefatos Java"
-        SM["SharedMap.java<br/><i>Mapa incremental<br/>compartilhado</i>"]
-        TB["TaskBoard.java<br/><i>Board de tarefas +<br/>protocolo de leilão</i>"]
-        NM["NormMonitor.java<br/><i>Tracking de normas<br/>do servidor</i>"]
-        SC["SquadCoordinator.java<br/><i>Estado dos esquadrões,<br/>meeting points</i>"]
+        SM["SharedMap.java<br/><i>Mapa compartilhado<br/>A* + fronteira + dispensers</i>"]
+        TB["TaskBoard.java<br/><i>Registro de tasks +<br/>leilão distribuído</i>"]
+        SC["SquadCoordinator.java<br/><i>Squads, meeting points,<br/>pool de soloists</i>"]
+        HD["HiveDashboard.java<br/><i>WebSocket :8765<br/>broadcast JSON</i>"]
     end
 
-    subgraph "MOISE+ — Organização"
-        ORG["hive_org.xml"]
-        SS["Structural Spec<br/><i>Papéis + Grupos + Links</i>"]
-        FS["Functional Spec<br/><i>Schemes + Goals + Missions</i>"]
-        NS["Normative Spec<br/><i>Obrigações por papel</i>"]
-        ORG --> SS
-        ORG --> FS
-        ORG --> NS
+    subgraph "Internal Actions — Java (hive.*)"
+        AD["AdjacentDirection.java<br/><i>Adjacência com wrap 40×40</i>"]
+        CC["ConnectCalculator.java<br/><i>Coords relativas connect</i>"]
+        PF["PathFinder.java<br/><i>A* (2000 iter max)</i>"]
+        DC["DirectionCalculator.java<br/><i>Direção greedy</i>"]
+        PM["PatternMatcher.java<br/><i>Verifica padrão de blocos</i>"]
     end
 
-    subgraph "Internal Actions — Java"
-        PF["PathFinder.java<br/><i>A* em grade com obstáculos</i>"]
-        PM["PatternMatcher.java<br/><i>Match padrão de blocos</i>"]
-        DC["DirectionCalculator.java<br/><i>Direção relativa n/s/e/w</i>"]
+    subgraph "EIS Bridge"
+        EIS["EISAccess.java ×15<br/><i>Singleton EnvironmentInterface</i>"]
+        TR["Translator.java<br/><i>IILang ↔ Jason AST</i>"]
     end
 
-    subgraph "EISMASSim"
-        EIS["EIS Proxy<br/><i>JSON ↔ IILang</i>"]
-        CFG["eismassimconfig.json"]
-    end
+    SL & CO & AS & SE --> CP & CL & NAV & PER & DSH
+    CO & AS --> COM
 
-    SL --> NAV & PER & COM & NOR
-    CO --> NAV & PER & COM & NOR
-    AS --> NAV & PER & COM & NOR
-    SE --> NAV & PER & COM & NOR
-
-    SL & CO & AS & SE --> SM & TB & NM & SC
-    SL & CO & AS & SE --> PF & PM & DC
+    SL & CO & AS & SE --> SM & TB & SC & HD
+    SL & CO & AS & SE --> AD & CC & PF & DC & PM
     SL & CO & AS & SE --> EIS
+    EIS --> TR
 
-    EIS --> MASSIM["Servidor MASSIM<br/>TCP:12300"]
+    EIS --> MASSIM["MASSim Server<br/>TCP :12300"]
+    HD --> DASHBOARD["Dashboard React<br/>WS :8765"]
 ```
 
-### 1.4 Nível 4 — Código (Estrutura interna de um agente BDI)
+### 1.4 Nível 4 — Código (Fluxo interno de um step)
 
 ```mermaid
-graph TD
-    subgraph "squad_leader.asl — Estrutura Interna"
-        B["Beliefs<br/><i>my_role, squad_id, energy,<br/>known_dispensers, known_goals,<br/>active_tasks, active_norms</i>"]
+flowchart TD
+    PERCEPT["MASSim envia REQUEST-ACTION"] --> EIS["EISAccess.updatePercepts()"]
+    EIS --> OBS["DefineObsProperty (step, position, thing, task...)"]
+    OBS --> PERC["perception.asl: +position(X,Y)<br/>→ mark_visited, update_cell, check_stuck"]
 
-        G["Goals<br/><i>!explore_map<br/>!evaluate_tasks<br/>!coordinate_squad<br/>!monitor_norms</i>"]
+    PERC --> STEP["+step(N) trigger cascata"]
 
-        subgraph "Plans (regras de seleção por contexto)"
-            P1["+!explore_map<br/>: frontier(X,Y)<br/>← navigate_to(X,Y)"]
-            P2["+!evaluate_tasks<br/>: task(N,D,R,Reqs)<br/>← calculate_bid(N,R,Reqs)"]
-            P3["+!coordinate_squad<br/>: assigned_task(T)<br/>← delegate_collection(T)"]
-            P4["+!monitor_norms<br/>: norm(Id,_,_,Reqs,_)<br/>← check_compliance(Reqs)"]
-            P5["+clear_marker(X,Y,R)<br/>: in_danger_zone(X,Y,R)<br/>← !evacuate"]
-        end
+    STEP --> CP_CHECK{"connect_protocol<br/>intercepta?"}
+    CP_CHECK -->|"deactivated"| SKIP1["action(skip)"]
+    CP_CHECK -->|"energy < 5"| SKIP2["action(skip)"]
+    CP_CHECK -->|"pending_submit + goalZone(0,0)"| SUBMIT["action(submit(TaskName))"]
+    CP_CHECK -->|"ready_to_connect"| CONNECT["action(connect(...))"]
+    CP_CHECK -->|"Não"| CL_CHECK
 
-        B --> P1 & P2 & P3 & P4 & P5
-        G --> P1 & P2 & P3 & P4
-    end
+    CL_CHECK{"collection<br/>intercepta?"}
+    CL_CHECK -->|"waiting_attach_result"| ATTACH["action(attach(Dir))"]
+    CL_CHECK -->|"waiting_request"| REQUEST["action(request(Dir))"]
+    CL_CHECK -->|"collecting + adjacente"| REQUEST
+    CL_CHECK -->|"collecting"| MOVE_DISP["action(move(Dir)) → dispenser"]
+    CL_CHECK -->|"Não"| NAV_CHECK
+
+    NAV_CHECK{"navigation<br/>executa"}
+    NAV_CHECK -->|"has_destination"| MOVE_DEST["action(move(Dir)) → destino"]
+    NAV_CHECK -->|"sem destino"| EXPLORE["do_explore → get_nearest_frontier"]
+    EXPLORE --> MOVE_FRONT["action(move(Dir)) → fronteira"]
 ```
 
 ---
 
 ## 2. Diagramas UML
 
-### 2.1 Diagrama de Classes — Artefatos CArtAgO
+### 2.1 Diagrama de Classes — Artefatos CArtAgO (Implementação Real)
 
 ```mermaid
 classDiagram
     class Artifact {
-        <<abstract>>
+        <<CArtAgO>>
         #defineObsProperty(name, args)
         #signal(name, args)
+        #removeObsProperty(name)
     }
 
     class SharedMap {
         -cells: ConcurrentHashMap~String,String~
-        -dispensers: List~Position~
-        -goalZones: List~Position~
-        -roleZones: List~Position~
-        -obstacles: Set~Position~
-        +update_cell(x, y, content) void
-        +get_nearest_frontier(agX, agY) Position
-        +get_nearest_dispenser(agX, agY, type) Position
-        +get_nearest_goal_zone(agX, agY) Position
-        +get_path(fromX, fromY, toX, toY) List~Direction~
-        +is_explored(x, y) boolean
+        -knownDispensers: Set~String~
+        -knownGoalZones: Set~String~
+        -knownRoleZones: Set~String~
+        -visitedCells: Set~String~
+        -obstacles: ConcurrentHashMap~String,Integer~
+        -gridWidth: int = 40
+        -gridHeight: int = 40
+        +update_cell(x, y, type, details)
+        +mark_visited(x, y)
+        +get_nearest_dispenser(agX, agY, type) → (x, y)
+        +get_nearest_goal_zone(agX, agY) → (x, y)
+        +get_alternative_goal_zone(agX, agY, curX, curY) → (x, y)
+        +get_nearest_frontier(agX, agY) → (x, y)
+        +compute_next_move(fx, fy, tx, ty) → dir
+        +manhattan_dist(x1, y1, x2, y2) → dist
+        +mark_obstacle(x, y, step)
+        +decay_obstacles(step)
+        +get_map_stats() → (visited, disp, goal, role)
+        +set_grid_dimensions(width, height)
+        -astar(fx, fy, tx, ty): String
+        -astarCost(fx, fy, tx, ty): int
+        -greedy(fx, fy, tx, ty): String
+        -wrappedManhattan(x1, y1, x2, y2): int
     }
 
     class TaskBoard {
-        -availableTasks: Map~String,Task~
-        -assignedTasks: Map~String,String~
-        -bids: Map~String,List~Bid~~
-        +register_task(name, deadline, reward, reqs) void
-        +evaluate_task(name) double
-        +place_bid(taskName, squadId, bidValue) void
-        +resolve_auction(taskName) String
-        +claim_task(taskName, squadId) void
-        +complete_task(taskName) void
-        +remove_expired() void
-    }
-
-    class NormMonitor {
-        -activeNorms: Map~String,Norm~
-        -violations: Set~String~
-        +update_norms(normsList) void
-        +get_carry_limit() int
-        +get_role_limit(roleName) int
-        +check_compliance(agentName) boolean
-        +is_norm_active(normId) boolean
+        -knownTasks: ConcurrentHashMap~String,TaskInfo~
+        -bids: ConcurrentHashMap~String,List~Bid~~
+        -assignedTasks: ConcurrentHashMap~String,String~
+        -taskRequirements: ConcurrentHashMap~String,List~
+        -signaledTasks: ConcurrentHashMap~String,Long~
+        +register_task(name, deadline, reward, nBlocks)
+        +signal_task_ready(name)
+        +evaluate_task(name, deadline, reward, nBlocks) → score
+        +place_bid(taskName, squadId, bidValue)
+        +resolve_auction(taskName) → winnerSquad
+        +complete_task(taskName)
+        +remove_expired(currentStep)
+        +register_task_block(taskName, blockType)
+        +get_task_first_block(taskName) → blockType
+        +get_task_blocks(taskName) → (block1, block2)
+        +is_task_assigned(taskName) → boolean
     }
 
     class SquadCoordinator {
-        -squads: Map~String,Squad~
-        -meetingPoints: Map~String,Position~
-        -readySignals: Map~String,Set~String~~
-        +join_squad(squadId, agentName, role) void
-        +set_meeting_point(squadId, x, y) void
-        +signal_ready(squadId, agentName) void
-        +all_ready(squadId) boolean
-        +get_squad_members(squadId) List~String~
-        +reassign_member(squadId, agentName, newRole) void
+        -agentSquad: ConcurrentHashMap~String,String~
+        -squadMembers: ConcurrentHashMap~String,List~
+        -squadRole: ConcurrentHashMap~String,String~
+        -meetingPoints: ConcurrentHashMap~String,int[]~
+        -readyAgents: ConcurrentHashMap~String,Set~
+        -soloistBusy: ConcurrentHashMap~String,Boolean~
+        -agentPositions: ConcurrentHashMap~String,int[]~
+        -squadActiveTask: ConcurrentHashMap~String,String~
+        +get_my_squad(agent) → squadId
+        +get_squad_collectors(squad) → (col1, col2)
+        +get_squad_assembler(squad) → assembler
+        +set_meeting_point(squad, x, y)
+        +get_meeting_point(squad) → (x, y)
+        +signal_ready(squad, agent)
+        +all_ready(squad) → boolean
+        +clear_ready(squad)
+        +find_free_soloist(dispX, dispY) → winner
+        +mark_busy(agent) / mark_free(agent)
+        +update_agent_pos(agent, x, y)
+        +set_squad_task(squad, taskName)
+        +get_squad_task(squad) → taskName
     }
 
-    class Task {
-        +name: String
-        +deadline: int
-        +reward: int
-        +requirements: List~BlockReq~
+    class HiveDashboard {
+        -wsServer: DashboardWsServer
+        -currentStep: int
+        -currentScore: int
+        -squads: ConcurrentHashMap~String,JSONObject~
+        -tasks: ConcurrentHashMap~String,JSONObject~
+        -events: CopyOnWriteArrayList~JSONObject~
+        -agentStates: ConcurrentHashMap~String,JSONObject~
+        +log_event(type, agent, data)
+        +set_step(step)
+        +update_score(score)
+        +update_task_phase(task, phase, progress)
+        +update_squad(squadId, membersJson)
+        +register_map_dispenser(x, y, type)
+        +register_map_goal_zone(x, y)
+        -buildSnapshot(): String
+        -broadcast(msg)
     }
 
-    class BlockReq {
-        +x: int
-        +y: int
-        +type: String
+    class EISAccess {
+        -sharedEI: EnvironmentInterface$
+        -agName: String
+        -receiving: boolean
+        -currentPercepts: List~Percept~
+        +init(conf, entityName)
+        +action(String)
+        ~updatePercepts() [INTERNAL_OPERATION]
     }
 
-    class Squad {
-        +id: String
-        +members: Map~String,String~
-        +currentTask: String
-        +state: SquadState
-    }
-
-    class Position {
-        +x: int
-        +y: int
-        +manhattanDistance(other) int
+    class Translator {
+        +perceptToLiteral(Percept): Literal$
+        +literalToAction(Literal): Action$
+        +parametersToTerms(List): Term[]$
+        +parameterToTerm(Parameter): Term$
+        +termToParameter(Term): Parameter$
     }
 
     Artifact <|-- SharedMap
     Artifact <|-- TaskBoard
-    Artifact <|-- NormMonitor
     Artifact <|-- SquadCoordinator
-
-    TaskBoard --> "*" Task
-    Task --> "*" BlockReq
-    SquadCoordinator --> "*" Squad
-    SharedMap --> "*" Position
+    Artifact <|-- HiveDashboard
+    Artifact <|-- EISAccess
+    EISAccess --> Translator
 ```
 
 ### 2.2 Diagrama de Classes — Internal Actions Java
@@ -264,630 +297,563 @@ classDiagram
 ```mermaid
 classDiagram
     class DefaultInternalAction {
-        <<abstract>>
+        <<Jason>>
         +execute(ts, un, args) Object
     }
 
-    class PathFinder {
-        -openSet: PriorityQueue~Node~
-        -closedSet: Set~Position~
-        +execute(ts, un, args) Object
-        -astar(from, to, obstacles) List~Direction~
-        -heuristic(a, b) int
-        -reconstructPath(node) List~Direction~
+    class AdjacentDirection {
+        -GRID_WIDTH: int = 40$
+        -GRID_HEIGHT: int = 40$
+        +execute(ts, un, args) → unifica Dir (n/s/e/w/none)
+        -wrapDelta(d, size): int
     }
 
-    class PatternMatcher {
-        +execute(ts, un, args) Object
-        -matchPattern(attachments, requirements) boolean
-        -rotatePattern(reqs, direction) List~BlockReq~
-        -calculateRotationsNeeded(current, target) int
+    class ConnectCalculator {
+        +execute(ts, un, args) → unifica RelX, RelY
     }
 
     class DirectionCalculator {
-        +execute(ts, un, args) Object
-        -relativeDirection(fromX, fromY, toX, toY) String
-        -adjacentDirection(agX, agY, targetX, targetY) String
+        +execute(ts, un, args) → unifica Dir (n/s/e/w/skip)
     }
 
+    class PathFinder {
+        +execute(ts, un, args) → unifica Dir
+        -astar(fromX, fromY, toX, toY, obstacles): String
+        -firstDirection(goal, fromX, fromY): String
+    }
+
+    class PatternMatcher {
+        +execute(ts, un, args) → unifica Result (true/false)
+    }
+
+    DefaultInternalAction <|-- AdjacentDirection
+    DefaultInternalAction <|-- ConnectCalculator
+    DefaultInternalAction <|-- DirectionCalculator
     DefaultInternalAction <|-- PathFinder
     DefaultInternalAction <|-- PatternMatcher
-    DefaultInternalAction <|-- DirectionCalculator
 ```
 
-### 2.3 Diagrama de Sequência — Ciclo Completo de uma Tarefa
+### 2.3 Diagrama de Sequência — Fluxo Completo de Task Solo (Soloist)
 
 ```mermaid
 sequenceDiagram
-    participant MASSIM as Servidor MASSIM
-    participant EIS as EISMASSim
-    participant SL as Squad Leader
+    participant MASSIM as MASSim Server
+    participant EIS as EISAccess
+    participant LEAD as Squad Leader
     participant TB as TaskBoard
-    participant C1 as Collector 1
-    participant C2 as Collector 2
-    participant AS as Assembler
-    participant SM as SharedMap
     participant SC as SquadCoordinator
+    participant MAP as SharedMap
+    participant SOL as Soloist (Sentinel/Collector)
 
-    Note over MASSIM,SC: FASE 1 — Detecção e Leilão
+    Note over MASSIM,SOL: FASE 1 — Detecção e Leilão
 
-    MASSIM->>EIS: REQUEST-ACTION (percepts com task)
-    EIS->>SL: task(task5, 300, 60, [req(0,1,b0), req(1,1,b1)])
-    SL->>TB: evaluate_task(task5)
-    TB-->>SL: score = 60 / (2 × avg_dist)
-    SL->>TB: place_bid(task5, squad_1, score)
-    TB->>TB: resolve_auction(task5)
-    TB-->>SL: squad_1 venceu
+    MASSIM->>EIS: REQUEST-ACTION (task percept)
+    EIS->>LEAD: +task(Name, Deadline, Reward, Reqs)
+    LEAD->>LEAD: +new_task_available(Name, Deadline, Reward, NBlocks)
+    LEAD->>MAP: get_task_first_block(Name) → BType
+    LEAD->>MAP: get_nearest_dispenser(MX, MY, BType) → (DX, DY)
+    LEAD->>MAP: manhattan_dist(MX, MY, DX, DY) → MDist
+    LEAD->>LEAD: Score = (Reward/NBlocks)*100 - MDist
+    LEAD->>TB: place_bid(Name, MySquad, Score)
+    LEAD->>TB: resolve_auction(Name) → Winner
 
-    Note over MASSIM,SC: FASE 2 — Delegação e Coleta
+    Note over MASSIM,SOL: FASE 2 — Delegação ao Soloist
 
-    SL->>SM: get_nearest_dispenser(myX, myY, b0)
-    SM-->>SL: dispenser_b0(15, 20)
-    SL->>SM: get_nearest_dispenser(myX, myY, b1)
-    SM-->>SL: dispenser_b1(22, 18)
-    SL->>SM: get_nearest_goal_zone(myX, myY)
-    SM-->>SL: goal_zone(30, 25)
+    LEAD->>SC: find_free_soloist(DX, DY) → SoloWinner
+    LEAD->>SC: mark_busy(SoloWinner)
+    LEAD->>SOL: .send(tell, soloist_task(TaskName, BlockType))
 
-    SL->>SC: set_meeting_point(squad_1, 28, 24)
-    SL->>C1: .send(achieve, collect_block(b0, 15, 20))
-    SL->>C2: .send(achieve, collect_block(b1, 22, 18))
+    Note over MASSIM,SOL: FASE 3 — Coleta
 
-    par Collector 1 vai ao dispenser b0
-        C1->>MASSIM: move(s), move(e), ..., request(s), attach(s)
-    and Collector 2 vai ao dispenser b1
-        C2->>MASSIM: move(e), move(s), ..., request(w), attach(w)
+    SOL->>MAP: get_nearest_dispenser(MX, MY, BlockType) → (DX, DY)
+    loop Navegar ao Dispenser
+        SOL->>MASSIM: move(Dir)
     end
+    SOL->>MASSIM: request(Dir)
+    SOL->>MASSIM: attach(Dir)
+    SOL->>SOL: +collected_block(Type)
 
-    Note over MASSIM,SC: FASE 3 — Montagem (Connect Sincronizado)
+    Note over MASSIM,SOL: FASE 4 — Submit
 
-    C1->>SC: signal_ready(squad_1, collector1)
-    C2->>SC: signal_ready(squad_1, collector2)
-    SC-->>AS: all_ready(squad_1) = true
-
-    Note over C1,AS: Agentes se posicionam adjacentes no meeting point
-
-    par Connect simultâneo
-        C1->>MASSIM: connect(assembler1, 0, 2)
-    and
-        AS->>MASSIM: connect(collector1, 0, -1)
+    SOL->>MAP: get_nearest_goal_zone(MX, MY) → (GX, GY)
+    loop Navegar à Goal Zone
+        SOL->>MASSIM: move(Dir)
     end
-
-    AS->>MASSIM: rotate(cw)
-
-    par Segundo connect
-        C2->>MASSIM: connect(assembler1, 1, 1)
-    and
-        AS->>MASSIM: connect(collector2, -1, 0)
-    end
-
-    Note over MASSIM,SC: FASE 4 — Submissão
-
-    AS->>SM: get_nearest_goal_zone(myX, myY)
-    SM-->>AS: goal_zone(30, 25)
-    AS->>MASSIM: move(...) até goal zone
-    AS->>MASSIM: submit(task5)
-    MASSIM-->>AS: lastActionResult(success)
-
-    Note over MASSIM,SC: FASE 5 — Re-submissão
-
-    AS->>MASSIM: submit(task5)
-    MASSIM-->>AS: lastActionResult(success)
-    AS->>TB: complete_task(task5)
+    SOL->>MASSIM: submit(TaskName)
+    MASSIM-->>SOL: lastActionResult(success)
+    SOL->>MASSIM: submit(TaskName)  [re-submit]
+    SOL->>SC: mark_free(Me)
+    SOL->>SOL: !finalize_task(TaskName)
 ```
 
-### 2.4 Diagrama de Sequência — Evasão de Clear Event
+### 2.4 Diagrama de Sequência — Connect Multi-Block
 
 ```mermaid
 sequenceDiagram
-    participant MASSIM as Servidor MASSIM
-    participant AG as Qualquer Agente
-    participant SM as SharedMap
+    participant LEAD as Squad Leader
+    participant COL as Collector
+    participant ASM as Assembler
+    participant SC as SquadCoordinator
+    participant MASSIM as MASSim
 
-    MASSIM->>AG: thing(5, 3, marker, clear)
-    MASSIM->>AG: thing(5, 4, marker, clear)
-    MASSIM->>AG: thing(6, 3, marker, clear)
+    Note over LEAD,MASSIM: Delegação
 
-    AG->>AG: Detecta markers "clear" → estima centro(5,3) e raio(2)
-    AG->>AG: Verifica: my_pos dentro da zona de perigo?
+    LEAD->>ASM: collect_and_connect_task(TaskName, Squad, BlockType)
+    LEAD->>COL: do_collect(BlockType)
 
-    alt Está na zona de perigo
-        AG->>AG: Prioridade máxima: !evacuate
-        AG->>AG: Calcula direção de fuga (oposta ao centro)
-        AG->>MASSIM: move(n) [foge da zona]
-        AG->>MASSIM: move(n) [continua fugindo]
-        AG-->>AG: .broadcast(tell, clear_event(5, 3, 2))
-    else Não está na zona
-        AG->>SM: update_cell(5, 3, "danger_zone")
-        AG->>AG: Evita planejar rotas pela zona
+    par Coleta Paralela
+        COL->>MASSIM: navigate → request → attach
+        COL->>COL: +collected_block(Type)
+    and
+        ASM->>MASSIM: navigate → request → attach
+        ASM->>ASM: +collected_block(Type)
     end
 
-    Note over MASSIM,SM: 5 steps depois → evento resolve
-    MASSIM->>AG: Obstáculos novos aparecem, blocos destruídos
-    AG->>SM: update_cell(X, Y, "obstacle") para novos obstáculos
+    Note over LEAD,MASSIM: Meeting Point
+
+    COL->>SC: signal_ready(Squad, Me)
+    SC-->>ASM: signal agent_ready
+
+    ASM->>ASM: all_ready? → true
+    ASM->>COL: connect_request(Me, X, Y, TargetStep)
+    COL->>ASM: connect_confirmed(Me, X, Y)
+
+    Note over LEAD,MASSIM: Connect Sincronizado
+
+    par Simultâneo
+        ASM->>MASSIM: connect(Collector, TX, TY)
+    and
+        COL->>MASSIM: connect(Assembler, RelX, RelY)
+    end
+
+    Note over LEAD,MASSIM: Submit
+
+    ASM->>MASSIM: navigate → goal zone → submit(TaskName)
+    MASSIM-->>ASM: success
+    ASM->>SC: clear_ready(Squad)
+    ASM->>TB: complete_task(TaskName)
 ```
 
-### 2.5 Diagrama de Sequência — Adaptação a Normas
-
-```mermaid
-sequenceDiagram
-    participant MASSIM as Servidor MASSIM
-    participant AG as Todos os Agentes
-    participant NM as NormMonitor
-    participant SL as Squad Leader
-    participant TB as TaskBoard
-
-    MASSIM->>AG: norm(n3, 50, 200, [req(block, any, 1)], 15)
-    Note over AG: Norma Carry: máximo 1 bloco, punição 15 energia/step
-
-    AG->>NM: update_norms([norm(n3, carry, 1)])
-    NM-->>AG: active_norm(n3, carry, 1)
-
-    SL->>SL: carry_limit agora é 1
-    SL->>TB: Repriorizar: favorecer tasks de 1 bloco
-
-    alt Collector carregando 2+ blocos
-        AG->>AG: Violando norma! Detach bloco excedente
-        AG->>MASSIM: detach(s)
-        Note over AG: Fica com apenas 1 bloco → compliance
-    end
-
-    alt Task exige 2+ blocos
-        SL->>SL: Estratégia: collectors carregam 1 bloco cada
-        SL->>SL: Connect imediato no meeting point → descarrega
-        Note over SL: Minimiza tempo em violação
-    end
-
-    MASSIM->>AG: Step 200: norma n3 expira
-    AG->>NM: update_norms([]) → remove n3
-    NM-->>AG: carry_limit volta ao normal
-    SL->>TB: Repriorizar: voltar a aceitar tasks complexas
-```
-
-### 2.6 Diagrama de Estados — Ciclo de Vida do Agente
+### 2.5 Diagrama de Estados — Ciclo de Vida do Agente
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Initializing: Simulação inicia
+    [*] --> Initializing: !start
 
-    Initializing --> Exploring: Conectado ao MASSIM
+    Initializing --> Exploring: Artefatos criados + EIS conectado
 
     state "Exploring" as Exploring {
-        [*] --> ScanArea: Percebe ao redor
-        ScanArea --> UpdateMap: Novos elementos encontrados
-        UpdateMap --> CheckFrontier: Mapa atualizado
-        CheckFrontier --> NavigateToFrontier: Fronteira encontrada
-        CheckFrontier --> SurveyTarget: Sem fronteira próxima
-        NavigateToFrontier --> ScanArea: Chegou à fronteira
-        SurveyTarget --> ScanArea: Survey completo
+        [*] --> GetFrontier: get_nearest_frontier
+        GetFrontier --> Navigate: fronteira encontrada
+        Navigate --> GetFrontier: chegou ao destino
+        GetFrontier --> RandomMove: sem fronteira
+        RandomMove --> GetFrontier: novo step
     }
 
-    Exploring --> TaskAssigned: Squad recebe task
+    Exploring --> SoloistTask: +soloist_task(Task, Block)
+    Exploring --> CollectOrder: +do_collect(BlockType)
+    Exploring --> MultiBlock: +collect_and_connect_task(...)
 
-    state "Executing Task" as ExecutingTask {
-        [*] --> Collecting
-        state "Collecting" as Collecting {
-            [*] --> GoToDispenser
-            GoToDispenser --> RequestBlock: Adjacente ao dispenser
-            RequestBlock --> AttachBlock: Bloco criado
-            AttachBlock --> GoToMeetingPoint: Bloco attached
-        }
-        Collecting --> Assembling: No meeting point
-
-        state "Assembling" as Assembling {
-            [*] --> WaitPartners
-            WaitPartners --> ExecuteConnect: Todos prontos
-            ExecuteConnect --> RotateBlocks: Connect OK
-            RotateBlocks --> VerifyPattern: Rotação completa
-            VerifyPattern --> ExecuteConnect: Faltam blocos
-            VerifyPattern --> GoToGoalZone: Padrão completo
-        }
-        Assembling --> Submitting: Na goal zone
-
-        state "Submitting" as Submitting {
-            [*] --> SubmitTask
-            SubmitTask --> ReSubmit: Sucesso + task ativa
-            SubmitTask --> Done: Task expirou
-            ReSubmit --> SubmitTask: Re-submissão
-            ReSubmit --> Done: Task expirou ou goal zone moveu
-        }
+    state "Soloist Task" as SoloistTask {
+        [*] --> CollectBlock: !collect_block(Type)
+        CollectBlock --> NavDispenser: get_nearest_dispenser
+        NavDispenser --> RequestAttach: adjacente ao dispenser
+        RequestAttach --> BlockCollected: attach success
+        BlockCollected --> NavGoalZone: +pending_submit
+        NavGoalZone --> Submit: goalZone(0,0)
+        Submit --> ReSubmit: success → re-submit
+        Submit --> RotateTry: failed → rotate cw
+        RotateTry --> Submit: retry (até 4×)
+        ReSubmit --> Finalize: task completa/expirada
     }
 
-    ExecutingTask --> Exploring: Task concluída ou expirada
+    SoloistTask --> Exploring: !finalize_task
 
     state "Emergency" as Emergency {
-        [*] --> DetectDanger
-        DetectDanger --> Evacuate: Clear markers detectados
-        Evacuate --> Safe: Fora da zona de perigo
+        [*] --> EnergyCheck: energy < 5
+        EnergyCheck --> Skip: action(skip)
+        [*] --> Deactivated: am_deactivated
+        Deactivated --> Skip2: action(skip)
+        [*] --> Stuck: 20+ steps mesma pos
+        Stuck --> Detach: detach ou finalize
     }
 
-    Exploring --> Emergency: Clear event detectado
-    ExecutingTask --> Emergency: Clear event detectado
-    Emergency --> Exploring: Retoma exploração
-    Emergency --> ExecutingTask: Retoma task (se viável)
-
-    state "Deactivated" as Deactivated
-    Exploring --> Deactivated: Energia = 0
-    ExecutingTask --> Deactivated: Energia = 0
-    Emergency --> Deactivated: Não evacuou a tempo
-    Deactivated --> Exploring: Reativado após N steps
+    Exploring --> Emergency: condição detectada
+    SoloistTask --> Emergency: condição detectada
+    Emergency --> Exploring: condição resolvida
 ```
 
-### 2.7 Diagrama de Estados — Ciclo de Vida do Esquadrão
+### 2.6 Diagrama de Estados — Squad
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle: Esquadrão formado
+    [*] --> Idle: Squad formado (hardcoded)
 
-    Idle --> Bidding: Nova task detectada
+    Idle --> Bidding: +new_task_available
     Bidding --> Idle: Leilão perdido
-    Bidding --> Assigned: Leilão vencido
+    Bidding --> Delegating: Leilão vencido
 
-    Assigned --> Collecting: Collectors delegados
-    Collecting --> Assembling: Todos no meeting point
-    Assembling --> Submitting: Padrão montado
-    Submitting --> Idle: Task completa
+    Delegating --> SoloistAssigned: find_free_soloist → OK
+    Delegating --> FallbackAssembler: find_free_soloist → none
 
-    Collecting --> Degraded: Membro desativado
-    Assembling --> Degraded: Membro desativado
-    Degraded --> Collecting: Membro substituído/recuperado
-    Degraded --> Idle: Task abandonada (deadline)
+    SoloistAssigned --> Idle: task finalizada
+    FallbackAssembler --> Idle: task finalizada
 
-    Idle --> Reorganizing: Norma Adopt restringe roles
-    Reorganizing --> Idle: Roles redistribuídos
+    Idle --> MultiBlock: task com 2+ blocos
+    MultiBlock --> Collecting: collectors + assembler delegados
+    Collecting --> WaitingReady: blocos coletados
+    WaitingReady --> Connecting: all_ready
+    Connecting --> Submitting: connect success
+    Submitting --> Idle: submit success
+
+    Collecting --> Timeout: 200 steps sem progresso
+    WaitingReady --> Timeout: deadline
+    Timeout --> Idle: cleanup
 ```
 
-### 2.8 Diagrama de Atividades — Pipeline de Decisão por Step
+### 2.7 Diagrama de Atividades — Pipeline de Decisão por Step
 
 ```mermaid
 flowchart TD
-    START([Novo Step — Percepts Recebidos]) --> PARSE[Processar percepts<br/>Atualizar beliefs]
-    PARSE --> NORM_CHECK{Norma violada?}
+    START(["+step(N) — Percepts recebidos"]) --> DEACT{am_deactivated?}
 
-    NORM_CHECK -->|Sim| FIX_NORM[Ajustar: detach bloco<br/>ou trocar role]
-    FIX_NORM --> EMERGENCY_CHECK
+    DEACT -->|Sim| SKIP_DEACT["action(skip)"]
+    DEACT -->|Não| ENERGY{energy < 5?}
 
-    NORM_CHECK -->|Não| EMERGENCY_CHECK{Clear event<br/>na zona de perigo?}
+    ENERGY -->|Sim| SKIP_ENERGY["action(skip)<br/>conservar energia"]
+    ENERGY -->|Não| SUBMIT_CHECK{pending_submit +<br/>goalZone(0,0)?}
 
-    EMERGENCY_CHECK -->|Sim| EVACUATE[Calcular rota de fuga<br/>Executar move]
-    EMERGENCY_CHECK -->|Não| ENERGY_CHECK{Energia < 20%?}
+    SUBMIT_CHECK -->|Sim| DO_SUBMIT["action(submit(TaskName))"]
+    SUBMIT_CHECK -->|Não| SUBMIT_RESULT{submitted_task +<br/>lastAction(submit)?}
 
-    ENERGY_CHECK -->|Sim| CONSERVE[Modo conservador<br/>Evitar ações de alto custo]
-    ENERGY_CHECK -->|Não| ROLE_CHECK{Qual meu papel<br/>MOISE+?}
+    SUBMIT_RESULT -->|success| RESUBMIT["Re-submit ou finalize"]
+    SUBMIT_RESULT -->|failed| ROTATE["action(rotate(cw))<br/>retry até 4×"]
+    SUBMIT_RESULT -->|Não| CONNECT_CHECK{ready_to_connect?}
 
-    CONSERVE --> EXECUTE_ACTION
+    CONNECT_CHECK -->|Sim + entidade adjacente| DO_CONNECT["action(connect(...))"]
+    CONNECT_CHECK -->|Sim + sem adjacente| WAIT_CONNECT["action(skip)"]
+    CONNECT_CHECK -->|Não| ATTACH_CHECK{waiting_attach_result?}
 
-    ROLE_CHECK -->|squad_leader| LEADER_DECIDE
-    ROLE_CHECK -->|collector| COLLECTOR_DECIDE
-    ROLE_CHECK -->|assembler| ASSEMBLER_DECIDE
-    ROLE_CHECK -->|sentinel| SENTINEL_DECIDE
+    ATTACH_CHECK -->|success| COLLECTED["collected_block!<br/>action(skip)"]
+    ATTACH_CHECK -->|fail| RETRY_ATTACH["action(attach(Dir))"]
+    ATTACH_CHECK -->|Não| REQUEST_CHECK{waiting_request?}
 
-    subgraph "Squad Leader"
-        LEADER_DECIDE{Tem task<br/>atribuída?}
-        LEADER_DECIDE -->|Não| EXPLORE[Explorar fronteira<br/>+ avaliar novas tasks]
-        LEADER_DECIDE -->|Sim| COORDINATE[Coordenar esquadrão<br/>Atualizar meeting point]
-    end
+    REQUEST_CHECK -->|success| DO_ATTACH["action(attach(Dir))"]
+    REQUEST_CHECK -->|fail| RETRY_REQ["retry request ou mover"]
+    REQUEST_CHECK -->|Não| COLLECTING{collecting(Type,DX,DY)?}
 
-    subgraph "Collector"
-        COLLECTOR_DECIDE{Tem bloco<br/>para coletar?}
-        COLLECTOR_DECIDE -->|Não| WAIT_ORDER[Aguardar ordem<br/>ou explorar]
-        COLLECTOR_DECIDE -->|Sim| GO_COLLECT[Navegar ao dispenser<br/>Request + Attach]
-        GO_COLLECT --> HAS_BLOCK{Bloco<br/>attached?}
-        HAS_BLOCK -->|Sim| GO_MEETING[Navegar ao<br/>meeting point]
-        HAS_BLOCK -->|Não| GO_COLLECT
-    end
+    COLLECTING -->|adjacente| DO_REQUEST["action(request(Dir))"]
+    COLLECTING -->|não adjacente| MOVE_DISP["action(move(Dir)) → dispenser"]
+    COLLECTING -->|Não| NAV_CHECK{has_destination?}
 
-    subgraph "Assembler"
-        ASSEMBLER_DECIDE{Parceiros<br/>prontos?}
-        ASSEMBLER_DECIDE -->|Não| WAIT_PARTNERS[Aguardar no<br/>meeting point]
-        ASSEMBLER_DECIDE -->|Sim| DO_CONNECT[Executar connect<br/>+ rotate]
-        DO_CONNECT --> PATTERN_OK{Padrão<br/>completo?}
-        PATTERN_OK -->|Não| WAIT_PARTNERS
-        PATTERN_OK -->|Sim| GO_SUBMIT[Navegar à goal zone<br/>Submit task]
-    end
-
-    subgraph "Sentinel"
-        SENTINEL_DECIDE{Inimigo em<br/>goal zone?}
-        SENTINEL_DECIDE -->|Sim| ATTACK[Clear no inimigo]
-        SENTINEL_DECIDE -->|Não| PATROL[Patrulhar goal zones<br/>conhecidas]
-    end
-
-    EXPLORE & COORDINATE --> EXECUTE_ACTION
-    WAIT_ORDER & GO_MEETING --> EXECUTE_ACTION
-    ATTACK & PATROL --> EXECUTE_ACTION
-    WAIT_PARTNERS & GO_SUBMIT --> EXECUTE_ACTION
-    EVACUATE --> EXECUTE_ACTION
-
-    EXECUTE_ACTION([Envia ação ao MASSIM])
+    NAV_CHECK -->|Sim + chegou| ARRIVED["destino alcançado"]
+    NAV_CHECK -->|Sim + blocked| RANDOM_DIR["direção aleatória"]
+    NAV_CHECK -->|Sim| GREEDY["greedy move → destino"]
+    NAV_CHECK -->|Não| EXPLORE["get_nearest_frontier<br/>→ action(move(Dir))"]
 ```
 
 ---
 
-## 3. Padrões de Arquitetura MAS
+## 3. Organização MOISE+
 
-### 3.1 Padrão: Arquitetura BDI em Camadas (Híbrida)
-
-Inspirado nas Touring Machines (Ferguson, 1992) e INTERRAP (Müller, 1996), cada agente opera com três camadas de processamento com prioridades distintas.
-
-```mermaid
-graph TB
-    subgraph "Arquitetura Híbrida BDI — Camadas por Prioridade"
-        direction TB
-
-        subgraph "Camada 3 — Social / Organizacional" 
-            S1["Coordenação de esquadrão"]
-            S2["Leilão de tarefas<br/>(Contract Net)"]
-            S3["Redistribuição de papéis<br/>(MOISE+)"]
-            S4["Compartilhamento de mapa<br/>(broadcast)"]
-        end
-
-        subgraph "Camada 2 — Deliberativa / BDI"
-            D1["Seleção de goals<br/>(explorar, coletar, montar)"]
-            D2["Planejamento de rota<br/>(A*)"]
-            D3["Avaliação de tarefas<br/>(reward / custo)"]
-            D4["Commitment strategy<br/>(manter intenção)"]
-        end
-
-        subgraph "Camada 1 — Reativa (PRIORIDADE MÁXIMA)"
-            R1["Evasão de clear events"]
-            R2["Detach em violação de norma"]
-            R3["Desvio de obstáculo"]
-            R4["Resposta a desativação"]
-        end
-    end
-
-    PERCEPTS([Percepts do MASSIM]) --> R1 & R2 & R3 & R4
-    R1 & R2 & R3 & R4 -->|Se não ativado| D1 & D2 & D3 & D4
-    D1 & D2 & D3 & D4 -->|Quando ocioso ou<br/>coordenação necessária| S1 & S2 & S3 & S4
-    S1 & S2 & S3 & S4 --> ACTION([Ação Final])
-    D1 & D2 & D3 & D4 --> ACTION
-    R1 & R2 & R3 & R4 --> ACTION
-
-    style R1 fill:#ff6b6b,color:#fff
-    style R2 fill:#ff6b6b,color:#fff
-    style R3 fill:#ff6b6b,color:#fff
-    style R4 fill:#ff6b6b,color:#fff
-```
-
-**Implementação em AgentSpeak**: A prioridade é controlada pela ordem dos planos no arquivo `.asl` e por anotações de prioridade. Planos reativos (clear event, norma) são declarados primeiro e com contextos mais específicos, garantindo que sejam selecionados antes dos planos deliberativos.
-
-### 3.2 Padrão: Contract Net Protocol (Leilão Distribuído)
-
-Protocolo de coordenação para alocação de tarefas entre esquadrões, baseado no Contract Net de Smith (1980).
-
-```mermaid
-sequenceDiagram
-    participant TB as TaskBoard<br/>(Artefato)
-    participant SL1 as Squad Leader 1
-    participant SL2 as Squad Leader 2
-    participant SL3 as Squad Leader 3
-
-    Note over TB,SL3: Nova task aparece nos percepts de todos
-
-    TB->>TB: register_task(task7, 500, 80, reqs)
-
-    par Avaliação paralela
-        SL1->>TB: evaluate_task(task7)
-        TB-->>SL1: base_score = 80/3 = 26.7
-        SL1->>SL1: bid = 26.7 / dist_to_dispensers = 4.5
-    and
-        SL2->>TB: evaluate_task(task7)
-        TB-->>SL2: base_score = 26.7
-        SL2->>SL2: bid = 26.7 / dist_to_dispensers = 2.1
-    and
-        SL3->>TB: evaluate_task(task7)
-        TB-->>SL3: base_score = 26.7
-        SL3->>SL3: bid = 26.7 / dist_to_dispensers = 6.8
-    end
-
-    SL1->>TB: place_bid(task7, squad_1, 4.5)
-    SL2->>TB: place_bid(task7, squad_2, 2.1)
-    SL3->>TB: place_bid(task7, squad_3, 6.8)
-
-    TB->>TB: resolve_auction(task7)<br/>Maior bid = squad_3 (6.8)
-
-    TB-->>SL3: won_auction(task7)
-    TB-->>SL1: lost_auction(task7)
-    TB-->>SL2: lost_auction(task7)
-
-    SL3->>TB: claim_task(task7, squad_3)
-```
-
-### 3.3 Padrão: Organização MOISE+ — Estrutural × Funcional × Normativo
+### 3.1 Especificação Estrutural
 
 ```mermaid
 graph LR
-    subgraph "Structural Specification"
-        direction TB
-        R_SL["Role: squad_leader"]
-        R_CO["Role: collector"]
-        R_AS["Role: assembler"]
-        R_SE["Role: sentinel"]
+    subgraph "hive_team (Root Group)"
+        subgraph "squad_group ×3 (min=2, max=4)"
+            SL["squad_leader<br/>min=1, max=1"]
+            COL2["collector<br/>min=1, max=2"]
+            ASM2["assembler<br/>min=1, max=1"]
+        end
 
-        G_SQ["Group: squad_group<br/>(2..4 membros)"]
-        G_SN["Group: sentinel_group<br/>(1..2 membros)"]
-
-        G_SQ --- R_SL & R_CO & R_AS
-        G_SN --- R_SE
-
-        R_SL -->|authority| R_CO
-        R_SL -->|authority| R_AS
-        R_CO -->|communication| R_AS
+        subgraph "sentinel_group (min=1, max=2)"
+            SEN2["sentinel<br/>min=1, max=3"]
+        end
     end
 
-    subgraph "Functional Specification"
-        direction TB
-        SCH_E["Scheme: exploration"]
-        SCH_T["Scheme: task_execution"]
-        SCH_D["Scheme: defense"]
-
-        SCH_E --> M_SC["Mission: m_scout"]
-        SCH_T --> M_CO2["Mission: m_collect"]
-        SCH_T --> M_AS2["Mission: m_assemble"]
-        SCH_T --> M_SU["Mission: m_submit"]
-        SCH_D --> M_GU["Mission: m_guard"]
-    end
-
-    subgraph "Normative Specification"
-        direction TB
-        N1["squad_leader MUST m_scout"]
-        N2["collector MUST m_collect"]
-        N3["assembler MUST m_assemble"]
-        N4["assembler MUST m_submit"]
-        N5["sentinel MUST m_guard"]
-    end
-
-    R_SL -.->|obrigação| N1
-    R_CO -.->|obrigação| N2
-    R_AS -.->|obrigação| N3 & N4
-    R_SE -.->|obrigação| N5
-
-    M_SC -.->|vinculada| N1
-    M_CO2 -.->|vinculada| N2
-    M_AS2 -.->|vinculada| N3
-    M_SU -.->|vinculada| N4
-    M_GU -.->|vinculada| N5
+    SL -->|"authority<br/>(intra-group)"| COL2
+    SL -->|"authority<br/>(intra-group)"| ASM2
+    COL2 -->|"communication<br/>(intra-group)"| ASM2
 ```
 
-### 3.4 Padrão: Shared Environment (A&A — Agents & Artifacts)
+### 3.2 Especificação Funcional
 
 ```mermaid
-graph TB
-    subgraph "Agents (Jason)"
-        A1["squad_leader_1"]
-        A2["collector_1"]
-        A3["collector_2"]
-        A4["assembler_1"]
-        A5["sentinel_1"]
+flowchart TB
+    subgraph "exploration_scheme"
+        ME["map_explored"] -->|parallel| DF["dispensers_found (ttf=200)"]
+        ME -->|parallel| GZ["goal_zones_found (ttf=200)"]
+        ME -->|parallel| RZ["role_zones_found (ttf=200)"]
     end
 
-    subgraph "Workspace (CArtAgO)"
-        SM["SharedMap<br/><br/>ObsProps:<br/>dispenser(X,Y,Type)<br/>goal_zone(X,Y)<br/>frontier(X,Y)"]
-        TB2["TaskBoard<br/><br/>ObsProps:<br/>available_task(N,D,R,Reqs)<br/>assigned_task(Squad,Task)<br/>task_score(Name,Score)"]
-        NM["NormMonitor<br/><br/>ObsProps:<br/>active_norm(Id,Type,Limit)<br/>carry_limit(N)"]
-        SC2["SquadCoordinator<br/><br/>ObsProps:<br/>meeting_point(Sq,X,Y)<br/>connect_ready(Sq,Ag)"]
+    subgraph "task_execution_scheme"
+        TS["task_submitted"] -->|sequence| BC["blocks_collected (ttf=100)"]
+        BC --> BA["blocks_assembled (ttf=50)"]
+        BA --> PS["pattern_submitted (ttf=30)"]
     end
 
-    A1 -->|focus + observe| SM & TB2 & NM & SC2
-    A2 -->|focus + observe| SM & TB2 & SC2
-    A3 -->|focus + observe| SM & TB2 & SC2
-    A4 -->|focus + observe| SM & TB2 & SC2
-    A5 -->|focus + observe| SM & NM
-
-    A1 -->|update_cell()| SM
-    A2 -->|update_cell()| SM
-    A3 -->|update_cell()| SM
-    A4 -->|update_cell()| SM
-    A5 -->|update_cell()| SM
-
-    A1 -->|place_bid()<br/>claim_task()| TB2
-    A4 -->|complete_task()| TB2
-    A1 -->|set_meeting_point()| SC2
-    A2 & A3 -->|signal_ready()| SC2
+    subgraph "defense_scheme"
+        TP["team_protected"] -->|parallel| GG["goal_zones_guarded"]
+        TP -->|parallel| TC["threats_cleared"]
+    end
 ```
 
-### 3.5 Padrão: Subsumption de Prioridades (Brooks simplificado)
+### 3.3 Especificação Normativa
 
-A seleção da ação final segue um modelo de subsumption onde comportamentos de maior prioridade suprimem os de menor prioridade.
+| Norma | Tipo | Role → Missão | Significado |
+|-------|------|---------------|-------------|
+| `n_scout` | obrigação | squad_leader → m_scout | Líder deve explorar o mapa |
+| `n_collect` | obrigação | collector → m_collect | Coletor deve coletar blocos |
+| `n_assemble` | obrigação | assembler → m_assemble | Montador deve montar blocos |
+| `n_submit` | obrigação | assembler → m_submit | Montador deve submeter padrões |
+| `n_guard` | obrigação | sentinel → m_guard | Sentinela deve guardar zonas |
+
+---
+
+## 4. Composição dos Esquadrões (Implementação)
+
+```mermaid
+flowchart TD
+    subgraph Squad1["Squad 1"]
+        A1["connectionA1<br/>🟡 leader"]
+        A4["connectionA4<br/>🔵 collector"]
+        A5["connectionA5<br/>🔵 collector"]
+        A10["connectionA10<br/>🟣 assembler"]
+    end
+
+    subgraph Squad2["Squad 2"]
+        A2["connectionA2<br/>🟡 leader"]
+        A6["connectionA6<br/>🔵 collector"]
+        A7["connectionA7<br/>🔵 collector"]
+        A11["connectionA11<br/>🟣 assembler"]
+    end
+
+    subgraph Squad3["Squad 3"]
+        A3["connectionA3<br/>🟡 leader"]
+        A8["connectionA8<br/>🔵 collector"]
+        A9["connectionA9<br/>🔵 collector"]
+        A12["connectionA12<br/>🟣 assembler"]
+    end
+
+    subgraph SoloistPool["Pool de Soloists (todos os 15 agentes)"]
+        A13["connectionA13<br/>🟢 sentinel"]
+        A14["connectionA14<br/>🟢 sentinel"]
+        A15["connectionA15<br/>🟢 sentinel"]
+        NOTE["+ assemblers/collectors<br/>quando livres"]
+    end
+
+    A1 -->|"authority"| A4 & A5 & A10
+    A2 -->|"authority"| A6 & A7 & A11
+    A3 -->|"authority"| A8 & A9 & A12
+```
+
+---
+
+## 5. Padrões de Arquitetura MAS
+
+### 5.1 Padrão: Arquitetura BDI em Camadas (Subsumption)
+
+A seleção de ação segue prioridade por módulo de inclusão no AgentSpeak:
 
 ```mermaid
 graph LR
     subgraph "Prioridade (maior → menor)"
         direction TB
-        P0["P0: SOBREVIVÊNCIA<br/>Evacuação de clear event<br/>Reativação pós-desativação"]
-        P1["P1: COMPLIANCE<br/>Detach para cumprir norma Carry<br/>Trocar role para norma Adopt"]
-        P2["P2: TASK EXECUTION<br/>Coletar, montar, submeter<br/>Connect sincronizado"]
-        P3["P3: EXPLORAÇÃO<br/>Navegar a fronteira<br/>Survey dispenser/goal"]
-        P4["P4: MANUTENÇÃO<br/>Patrulhar (sentinel)<br/>Reposicionar"]
+        P0["P0: SOBREVIVÊNCIA<br/>Desativado → skip<br/>Energia < 5 → skip"]
+        P1["P1: SUBMIT/CONNECT<br/>pending_submit → submit<br/>ready_to_connect → connect"]
+        P2["P2: COLETA<br/>waiting_request/attach → retry<br/>collecting → move/request"]
+        P3["P3: NAVEGAÇÃO<br/>has_destination → greedy move<br/>sem destino → explorar fronteira"]
     end
 
-    P0 -->|suprime| P1
-    P1 -->|suprime| P2
-    P2 -->|suprime| P3
-    P3 -->|suprime| P4
+    P0 -->|"connect_protocol.asl"| P1
+    P1 -->|"collection.asl"| P2
+    P2 -->|"navigation.asl"| P3
 
     style P0 fill:#e74c3c,color:#fff
     style P1 fill:#e67e22,color:#fff
     style P2 fill:#3498db,color:#fff
     style P3 fill:#2ecc71,color:#fff
-    style P4 fill:#95a5a6,color:#fff
 ```
 
----
+### 5.2 Padrão: Contract Net (Leilão Distribuído via TaskBoard)
 
-## 4. Deployment — Diagrama de Implantação
+```mermaid
+sequenceDiagram
+    participant TB as TaskBoard (Artefato)
+    participant SL1 as Leader squad1
+    participant SL2 as Leader squad2
+    participant SL3 as Leader squad3
+
+    Note over TB,SL3: Task aparece → signal new_task_available
+
+    par Avaliação paralela
+        SL1->>SL1: Score = (Reward/NBlocks)*100 - dist_dispenser
+    and
+        SL2->>SL2: Score = (Reward/NBlocks)*100 - dist_dispenser
+    and
+        SL3->>SL3: Score = (Reward/NBlocks)*100 - dist_dispenser
+    end
+
+    SL1->>TB: place_bid(task, squad1, Score1)
+    SL2->>TB: place_bid(task, squad2, Score2)
+    SL3->>TB: place_bid(task, squad3, Score3)
+
+    Note over TB: .wait(50) para bids chegarem
+
+    SL1->>TB: resolve_auction(task) → Winner
+    Note over TB: Maior score vence
+```
+
+**Fórmula de Score:**
+```
+Score = (Reward / NBlocks) × 100 - ManhattanDistance(leader, nearest_dispenser)
+```
+
+### 5.3 Padrão: Pool de Soloists
+
+Mecanismo adaptativo que permite qualquer agente livre executar tasks solo:
+
+```mermaid
+flowchart TD
+    LEADER["Leader ganha leilão"] --> FIND["find_free_soloist(dispX, dispY)"]
+    FIND --> SEARCH{"Agente livre<br/>mais próximo?"}
+    SEARCH -->|Sim| ASSIGN["mark_busy(Winner)<br/>.send(tell, soloist_task)"]
+    SEARCH -->|Não| FALLBACK["send(solo_task) ao assembler do squad"]
+
+    ASSIGN --> SOLOIST["Soloist executa:<br/>collect → nav goal → submit"]
+    FALLBACK --> ASSEMBLER["Assembler executa:<br/>collect → nav goal → submit"]
+
+    SOLOIST --> DONE["mark_free(Me)<br/>!finalize_task"]
+    ASSEMBLER --> DONE
+```
+
+### 5.4 Padrão: Shared Environment (Agents & Artifacts)
 
 ```mermaid
 graph TB
-    subgraph "Máquina A — Servidor de Simulação"
-        MASSIM_JAR["massim-server.jar<br/>JDK 17+<br/>TCP :12300<br/>HTTP :8000 (monitor)"]
-        CONF["conf/<br/>server.json<br/>accounts.json"]
-        REPLAYS["replays/<br/>*.json"]
-        MASSIM_JAR --- CONF & REPLAYS
+    subgraph "15 Agentes Jason"
+        ALL["Todos os agentes"]
     end
 
-    subgraph "Máquina B — Time HIVE"
-        GRADLE["Gradle Build<br/>JDK 21+"]
-        JACAMO_RT["JaCaMo Runtime"]
-        HIVE_JCM["hive.jcm"]
-        EIS_JAR["eismassim.jar"]
-        EIS_CONF["eismassimconfig.json"]
-        ASL_FILES[".asl files<br/>(4 agentes × N instâncias)"]
-        ORG_XML["hive_org.xml"]
-        ENV_JAVA["artefatos .java"]
-
-        GRADLE --> JACAMO_RT
-        JACAMO_RT --- HIVE_JCM & EIS_JAR & ASL_FILES & ORG_XML & ENV_JAVA
-        EIS_JAR --- EIS_CONF
+    subgraph "CArtAgO Workspace (artefatos singleton)"
+        SM["SharedMap<br/><br/><b>Signals:</b><br/>new_dispenser(X,Y,Type)<br/>new_goal_zone(X,Y)<br/><br/><b>Ops:</b> update_cell, get_nearest_*"]
+        TB2["TaskBoard<br/><br/><b>Signals:</b><br/>new_task_available(...)<br/>task_assigned(Task,Squad)<br/><br/><b>Ops:</b> place_bid, resolve_auction"]
+        SC2["SquadCoordinator<br/><br/><b>Signals:</b><br/>agent_ready(Squad,Agent)<br/>meeting_point_set(Squad,X,Y)<br/><br/><b>Ops:</b> find_free_soloist, mark_*"]
+        HD2["HiveDashboard<br/><br/><b>Broadcast WS:</b><br/>snapshot, events, step_update<br/><br/><b>Ops:</b> log_event, update_*"]
     end
 
-    subgraph "Máquina C — Time Adversário"
-        OPP["SMA Adversário<br/>(qualquer plataforma)"]
-    end
-
-    subgraph "Browser"
-        MON["Web Monitor<br/>Visualização"]
-    end
-
-    JACAMO_RT -->|"TCP :12300<br/>15 conexões<br/>(1 por agente)"| MASSIM_JAR
-    OPP -->|"TCP :12300<br/>15 conexões"| MASSIM_JAR
-    MASSIM_JAR -->|"HTTP :8000"| MON
+    ALL -->|"focus() + observe signals"| SM & TB2 & SC2 & HD2
+    ALL -->|"update_cell, mark_visited"| SM
+    ALL -->|"register_task, place_bid"| TB2
+    ALL -->|"signal_ready, mark_busy/free"| SC2
+    ALL -->|"log_event, set_step"| HD2
 ```
 
 ---
 
-## 5. Decisões Arquiteturais (ADRs)
+## 6. Mecanismos de Resiliência
 
-### ADR-001: Esquadrões autônomos vs. coordenador central
+| Mecanismo | Módulo | Trigger | Ação |
+|-----------|--------|---------|------|
+| Retry de request | `collection.asl` | request failed (até 5×) | Move aleatório + retry; após 5 falhas busca outro dispenser |
+| Rotação no submit | `connect_protocol.asl` | submit failed | Rotaciona CW (até 4×), depois desiste |
+| Detecção de stuck | `perception.asl` | 20 steps na mesma posição | Se solo_mode → finalize task; senão → detach |
+| Task timeout | Cada agente | 200 steps sem progresso | cleanup + finalize |
+| Task expirada | Cada agente | Deadline atingido | cleanup + finalize |
+| Energia crítica | `connect_protocol.asl` | energy < 5 | action(skip) para conservar |
+| Goal zone alternativa | `connect_protocol.asl` | 8 bloqueios | Troca para goal zone diferente |
+| Fallback `-!` | Todos os módulos | Falha em plano | Plan failure não causa crash |
+| Reconnect exponencial | Dashboard (`ws.ts`) | WebSocket desconecta | Retry 1s, 2s, 4s... (max 10s) |
 
-- **Contexto**: Times MAPC precisam coordenar 15 agentes para completar tarefas.
-- **Decisão**: Esquadrões de 3-4 agentes com autonomia local, coordenados por leilão distribuído via artefato TaskBoard.
-- **Justificativa**: Elimina ponto único de falha; permite paralelismo natural (3-4 esquadrões × tarefas simultâneas); alinhado com princípio de autonomia de Wooldridge.
-- **Trade-off**: Coordenação inter-esquadrão é mais fraca; possível duplicação de esforço se dois esquadrões buscam o mesmo dispenser.
+---
 
-### ADR-002: Artefatos CArtAgO para estado compartilhado vs. mensagens puras
+## 7. Deployment
 
-- **Contexto**: Agentes precisam compartilhar mapa, estado de tarefas e normas.
-- **Decisão**: Usar artefatos CArtAgO (SharedMap, TaskBoard, etc.) como fonte de verdade, complementados por mensagens Jason para alertas urgentes.
-- **Justificativa**: Artefatos são observáveis por todos os agentes (sem polling); propriedades observáveis geram percepts automáticos; reduz volume de mensagens.
-- **Trade-off**: Acoplamento com CArtAgO; artefatos são pontos de contenção em escrita concorrente (mitigado por ConcurrentHashMap).
+```mermaid
+graph TB
+    subgraph "Processo 1 — MASSim Server"
+        MASSIM_JAR["java -jar server.jar<br/>-conf TestConfig.json<br/>--monitor 8000<br/><br/>JDK 17+<br/>TCP :12300 (agentes)<br/>HTTP :8000 (monitor web)"]
+    end
 
-### ADR-003: Navegação A* em Java vs. planejamento em AgentSpeak
+    subgraph "Processo 2 — Hive MAS"
+        GRADLE["./gradlew run<br/><br/>JaCaMoLauncher hive.jcm<br/>JDK 21<br/><br/>15 agentes Jason<br/>5 artefatos CArtAgO<br/>WebSocket :8765 (dashboard)"]
+    end
 
-- **Contexto**: Agentes precisam navegar em grade com obstáculos.
-- **Decisão**: Implementar A* como internal action Java, chamável do AgentSpeak.
-- **Justificativa**: A* é computacionalmente intensivo; Java é mais eficiente que AgentSpeak para algoritmos iterativos; reutilizável por todos os agentes.
-- **Trade-off**: Lógica de navegação fica fora do AgentSpeak (menos "puro BDI"); necessário manter mapa de obstáculos sincronizado.
+    subgraph "Processo 3 — Dashboard (opcional)"
+        VITE["cd dashboard && npm run dev<br/><br/>React 19 + Vite 8<br/>HTTP :5173<br/>Conecta ws://localhost:8765"]
+    end
 
-### ADR-004: Sentinel ofensivo dedicado vs. todos os agentes com capacidade de clear
+    subgraph "Configuração"
+        CONF["conf/TestConfig.json<br/>eismassimconfig.json<br/>hive.jcm<br/>logging.properties"]
+    end
 
-- **Contexto**: Ação clear pode negar pontos ao adversário.
-- **Decisão**: 1-2 agentes dedicados como sentinels com role de alto clear.
-- **Justificativa**: Especialização permite role otimizado para clear; não desperdiça agentes produtivos; cria vantagem assimétrica.
-- **Trade-off**: 1-2 agentes a menos para tarefas produtivas; sentinel é inútil se adversário não usa goal zones previsíveis.
+    GRADLE -->|"15 TCP connections<br/>porta 12300"| MASSIM_JAR
+    GRADLE -->|"WebSocket :8765"| VITE
+    CONF --> MASSIM_JAR
+    CONF --> GRADLE
+```
 
-### ADR-005: Adaptação de roles do servidor via role zones
+---
 
-- **Contexto**: O servidor MASSIM define roles com capabilities diferentes; role zones são fixas.
-- **Decisão**: Agentes trocam de role do servidor conforme a fase (exploração → role de alta visão; coleta → role de boa speed com carga; ataque → role de alto clear).
-- **Justificativa**: Maximiza a eficiência de cada agente em cada momento; explora uma mecânica que times simplistas ignoram.
-- **Trade-off**: Precisa navegar até role zones para trocar; overhead de tempo de viagem; dependente de role zones mapeadas.
+## 8. Decisões Arquiteturais (ADRs)
+
+### ADR-001: Pool de Soloists vs. Squads rígidos
+
+- **Contexto**: Tasks de 1 bloco são frequentes e squads de 4 agentes são overkill.
+- **Decisão**: Todos os 15 agentes participam de um pool de soloists. Líder busca o agente livre mais próximo ao dispenser.
+- **Justificativa**: Maximiza throughput de tasks simples; reduz tempo ocioso; sentinels contribuem produtivamente.
+- **Trade-off**: Squads ficam com menos agentes disponíveis para tasks multi-block.
+
+### ADR-002: Artefatos CArtAgO com ConcurrentHashMap
+
+- **Contexto**: 15 agentes acessam estado compartilhado simultaneamente.
+- **Decisão**: Usar `ConcurrentHashMap` em todos os artefatos; operações atômicas; sem locks explícitos.
+- **Justificativa**: Acesso concorrente seguro sem contenção; simplicidade de implementação; boa performance para operações predominantemente de leitura.
+- **Trade-off**: Não garante consistência transacional entre múltiplas operações (aceitável neste contexto).
+
+### ADR-003: A* no SharedMap (Java) vs. A* como Internal Action
+
+- **Contexto**: Pathfinding precisa de acesso ao mapa de obstáculos.
+- **Decisão**: A* implementado diretamente no SharedMap (método `astar()`), com fallback greedy para distâncias > 60.
+- **Justificativa**: Acesso direto à estrutura de obstáculos sem cópia; limitação de 8000 nós evita travamento; fallback greedy garante resposta.
+- **Trade-off**: `PathFinder.java` (internal action) fica redundante — usado apenas como backup sem obstáculos.
+
+### ADR-004: Prioridade via ordem de inclusão dos .asl
+
+- **Contexto**: Jason seleciona o primeiro plano `+step(N)` cujo contexto é satisfeito.
+- **Decisão**: Incluir `connect_protocol.asl` antes de `collection.asl` antes de `navigation.asl`.
+- **Justificativa**: Garante que submit/connect têm prioridade máxima; coleta vem antes de exploração; padrão simples e auditável.
+- **Trade-off**: Adição de novos módulos requer cuidado com a posição de inclusão.
+
+### ADR-005: Dashboard separado (React) vs. MASSim Monitor
+
+- **Contexto**: O monitor MASSim mostra o grid mas não os internals dos agentes (squads, leilões, beliefs).
+- **Decisão**: Dashboard React dedicado conectado via WebSocket ao artefato HiveDashboard.
+- **Justificativa**: Visibilidade total do estado interno (squads, tasks, auctions, agent states); visualização 3D; independent do MASSim.
+- **Trade-off**: Overhead de manutenção de artefato + frontend separado; porta adicional (8765).
+
+### ADR-006: EnvironmentInterface singleton compartilhado
+
+- **Contexto**: eismassim pode criar 1 conexão TCP por agente ou compartilhar.
+- **Decisão**: Singleton `EnvironmentInterface` com 15 entidades registradas, compartilhado entre os 15 artefatos EISAccess.
+- **Justificativa**: Uma única instância gerencia o pool de conexões; evita duplicação de resources; simplifica inicialização.
+- **Trade-off**: Lock contention em `getPercepts()`/`performAction()` se muitos agentes acessam simultaneamente (mitigado pelo scheduling mode do EIS).
+
+---
+
+## 9. Métricas do Sistema
+
+| Aspecto | Valor |
+|---------|-------|
+| Agentes | 15 (4 roles) |
+| Artefatos CArtAgO | 5 tipos (19 instâncias total) |
+| Ações internas Java | 5 |
+| Linhas de código (src/) | ~3.230 |
+| Linhas AgentSpeak | ~1.470 |
+| Linhas Java | ~1.640 |
+| Linhas XML (MOISE+) | ~120 |
+| Dashboard (frontend) | ~2.000 linhas TypeScript |
+| Dependências | JaCaMo 1.3.0, eismassim 4.5, Java-WebSocket 1.5.7, json-20240303 |
+| Java version | 21 |
+| Gradle version | 9.2 |
