@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+}
+
+defaultTasks 'run'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    maven { url "https://raw.githubusercontent.com/jacamo-lang/mvn-repo/master" }
+    maven { url "https://repo.gradle.org/gradle/libs-releases" }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.jacamo:jacamo:1.3.0'
+    implementation files('lib/eismassim-4.5-jar-with-dependencies.jar')
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    implementation 'org.json:json:20240303'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/env', 'src/java']
+        }
+        resources {
+            srcDirs = ['src/agt', 'src/org']
+        }
+    }
+}
+
+task run(type: JavaExec, dependsOn: 'classes') {
+    group = 'application'
+    description 'runs the JaCaMo application'
+    mainClass = 'jacamo.infra.JaCaMoLauncher'
+    args 'hive.jcm'
+    classpath sourceSets.main.runtimeClasspath
+    standardInput = System.in
+    jvmArgs '-Djava.util.logging.config.file=logging.properties'
+}
+
+task printCp {
+    doLast {
+        println sourceSets.main.runtimeClasspath.asPath
+    }
+}

@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-neon-cyan: #22d3ee;
+  --color-neon-magenta: #e879f9;
+  --color-neon-purple: #a78bfa;
+  --color-neon-green: #34d399;
+  --color-neon-amber: #fbbf24;
+  --color-neon-red: #f87171;
+  --color-surface: #0a0a0f;
+  --color-surface-card: rgba(15, 15, 25, 0.8);
+  --color-surface-hover: rgba(25, 25, 40, 0.9);
+  --color-border-dim: rgba(34, 211, 238, 0.15);
+  --color-border-glow: rgba(34, 211, 238, 0.4);
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.5); }
+
+.glow-cyan { box-shadow: 0 0 20px rgba(34, 211, 238, 0.2), inset 0 0 20px rgba(34, 211, 238, 0.05); }
+.glow-magenta { box-shadow: 0 0 20px rgba(232, 121, 249, 0.2); }
+.glow-green { box-shadow: 0 0 20px rgba(52, 211, 153, 0.2); }
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}

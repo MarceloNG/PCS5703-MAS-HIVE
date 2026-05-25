@@ -1,0 +1,20 @@
+{
+  "scenario": "assemble2022",
+  "host": "localhost",
+  "port": 12300,
+  "scheduling": true,
+  "timeout": 4000,
+  "notifications": false,
+  "exceptions": false,
+  "multi-entities": [
+    {
+      "name-prefix": "connectionA",
+      "username-prefix": "agentA",
+      "password": "1",
+      "count": 15,
+      "start-index": 1,
+      "print-iilang": false,
+      "print-json": false
+    }
+  ]
+}
