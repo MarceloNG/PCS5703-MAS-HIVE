@@ -1,0 +1,20 @@
+# Build artifacts
+.gradle/
+build/
+bin/main/
+*.class
+*.jar
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Docs privados / paper
+doc/5703_ex02_26.pdf
+doc/Analise Trabalho Mapc Jacamo Pcs5703.pdf
+doc/paper/
+
+# Plans
+plan/
