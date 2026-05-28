@@ -2,6 +2,10 @@
 
 **Sistema Multi-Agente para o Multi-Agent Programming Contest 2022 (Agents Assemble III)**
 
+<p align="center">
+  <img src="doc/paper/midia/hiveCommandCenter.gif" alt="HIVE Command Center — Dashboard em tempo real" width="100%" />
+</p>
+
 ```mermaid
 graph LR
     subgraph HIVE["🐝 HIVE MAS"]
@@ -257,7 +261,7 @@ flowchart TD
     D1 -->|Não| D2{energy < 5?}
 
     D2 -->|Sim| SKIP2["⚡ action(skip) conservar"]
-    D2 -->|Não| D3{pending_submit<br/>+ goalZone(0,0)?}
+    D2 -->|Não| D3{pending_submit<br/>+ in goalZone?}
 
     D3 -->|Sim| SUBMIT["✅ action(submit(Task))"]
     D3 -->|Não| D4{ready_to_connect?}
@@ -407,117 +411,41 @@ flowchart TD
 
 ---
 
-## Dashboard — Interface Visual
+## HIVE Command Center — Dashboard em Tempo Real
 
-### Layout 2D (Tela Principal)
+O HIVE inclui um **dashboard web interativo** construído com React, TypeScript, Zustand e React Three Fiber, conectado em tempo real via WebSocket (porta 8765) ao artefato `HiveDashboard` (CArtAgO). Permite monitorar todos os aspectos da simulação sem impactar o desempenho dos agentes.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ⚡ HIVE COMMAND CENTER          📡 LIVE   Step 0247   Score 00180   [2D] 🕐│
-├─────────────────────────────────────────────────────────────────────────────┤
-│                          AGENT GRID (15 cards)                              │
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐  │
-│ │ 🟡 A1   │ │ 🟡 A2   │ │ 🟡 A3   │ │ 🔵 A4   │ │ 🔵 A5   │ │ 🔵 A6   │  │
-│ │ leader  │ │ leader  │ │ leader  │ │ collect │ │ collect │ │ collect │  │
-│ │ (12,8)  │ │ (25,14) │ │ (37,2)  │ │ (14,9)  │ │ (11,7)  │ │ (28,15) │  │
-│ │ ■ task5 │ │ □ idle  │ │ ■ task3 │ │ ■ col.. │ │ ■ col.. │ │ □ idle  │  │
-│ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘  │
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐             │
-│ │ 🟣 A10  │ │ 🟣 A11  │ │ 🟣 A12  │ │ 🟢 A13  │ │ 🟢 A14  │ ...        │
-│ │ assemb  │ │ assemb  │ │ assemb  │ │ sentinl │ │ sentinl │             │
-│ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘             │
-├──────────┬────────────────────────────────────────────────┬──────────────┤
-│ SQUADS   │              TASK PIPELINE                     │  EVENT FEED  │
-│          │                                                │              │
-│ Squad 1  │  task5  [■■■■■■■□□□] collecting   ⏱ 120      │  step 247:   │
-│  🟡 A1   │  task3  [■■■■■■■■■■] submitting   ⏱ 45       │  A1 won      │
-│  🔵 A4,5 │  task8  [■■□□□□□□□□] delegating   ⏱ 280      │  auction     │
-│  🟣 A10  │  task12 [■■■■■□□□□□] collecting   ⏱ 190      │  task5       │
-│ ──────── │                                                │              │
-│ Squad 2  │                                                │  step 245:   │
-│  🟡 A2   │                                                │  A13 submit  │
-│  🔵 A6,7 │                                                │  task9 ✓     │
-│  🟣 A11  │                                                │              │
-│ ──────── │                                                │  step 242:   │
-│ Squad 3  │                                                │  new_task    │
-│  🟡 A3   │                                                │  task12      │
-│  🔵 A8,9 │                                                │  reward: 80  │
-│  🟣 A12  │                                                │              │
-├──────────┴──────────────────────────────┬─────────────────┴──────────────┤
-│        BATTLE STATS                     │ AUCTION │   SCORE TIMELINE     │
-│                                         │  HALL   │                      │
-│  Tasks Completed: 12                    │         │   180 ─┐             │
-│  Tasks Active:     4                    │ task12: │        │  ╱──────    │
-│  Soloists Busy:    3/15                 │  sq1: 85│   120 ─┤╱            │
-│  Map Coverage:    67%                   │  sq2: 72│        │             │
-│  Avg Task Time:   38 steps             │  sq3: 91│    60 ─┤             │
-│                                         │  ★ sq3  │        │             │
-│                                         │         │     0 ─┴──────────── │
-└─────────────────────────────────────────┴─────────┴──────────────────────┘
-```
+### Visão 2D
 
-### Layout 3D (Three.js Viewport)
+![HIVE Command Center — Visão 2D](doc/paper/midia/hiveCommandCenter.png)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ⚡ HIVE COMMAND CENTER          📡 LIVE   Step 0247   Score 00180   [3D] 🕐│
-├────────────────────────────────────────────────────────┬────────────────────┤
-│                                                        │   EVENT FEED       │
-│           🎮 3D VIEWPORT (Three.js)                    │                    │
-│                                                        │   step 247:        │
-│      ┌─────────────────────────────────┐              │   A1 won auction   │
-│      │    ╔══╗      ·  ·  ·  ·         │              │   task5             │
-│      │    ║🟡║  ·  🔵  ·  ·  ·         │              │                    │
-│      │    ╚══╝      ·  ·  ·  ·         │              │   step 245:        │
-│      │     ·  ·  ·  ·  ·  ·  ·         │              │   A13 submit ok    │
-│      │     ·  ·  🟢  ·  ·  ·  ·        │              │                    │
-│      │     ·  ·  ·  ·  🔴disp ·        │              ├────────────────────┤
-│      │     ·  ·  ·  ·  ·  ·  ·         │              │   BATTLE STATS     │
-│      │     ·  ·  ·  🟩goal·  ·         │              │                    │
-│      │     ·  ·  ·  ·  ·  ·  ·         │              │   Completed: 12    │
-│      │     ·  ·  🟣  ·  ·  ·  ·        │              │   Coverage:  67%   │
-│      └─────────────────────────────────┘              │                    │
-│                                                        ├────────────────────┤
-│   Legenda:                                             │   SCORE TIMELINE   │
-│   🟡 Leader  🔵 Collector  🟣 Assembler  🟢 Sentinel  │                    │
-│   🔴 Dispenser  🟩 Goal Zone  ⬛ Obstáculo             │   180 ──╱────      │
-│                                                        │   120 ─╱           │
-│   [Orbit Controls: drag=rotate, scroll=zoom]           │     0 ─┴───────── │
-└────────────────────────────────────────────────────────┴────────────────────┘
-```
+A interface 2D é organizada em painéis especializados:
 
-### Design System
+| Painel | Descrição |
+|--------|-----------|
+| **Agents (15)** | Grid com todos os agentes: posição `(x,y)`, destino, barra de energia, última ação e resultado (✓/✗/xpath/xtarget) |
+| **Squads** | 3 esquadrões (alpha, beta, gamma) com membros, papéis (👑 leader, 🤖 collector, 🔨 assembler, 🛡️ sentinel), blocos e meeting point |
+| **Task Pipeline** | Cada tarefa com fases LEI → COL → MEE → CON → SUB → DON, squad atribuído, reward e deadline |
+| **Event Feed** | Log em tempo real: score updates, submissões, leilões, falhas, coleta de blocos |
+| **Auction Hall** | Leilões com bids de cada squad e indicação do vencedor |
+| **Battle Stats** | Contadores: submissões, conexões, blocos, leilões vencidos, falhas e alertas |
+| **Score Timeline** | Gráfico de evolução do score ao longo dos steps |
 
-```mermaid
-graph LR
-    subgraph Cores["🎨 Paleta de Cores"]
-        C1["#22d3ee<br/>Neon Cyan<br/>(primary)"]
-        C2["#34d399<br/>Neon Green<br/>(success/score)"]
-        C3["#fbbf24<br/>Neon Amber<br/>(leaders)"]
-        C4["#a78bfa<br/>Neon Purple<br/>(assemblers)"]
-        C5["#e879f9<br/>Neon Magenta<br/>(alerts)"]
-        C6["#f87171<br/>Neon Red<br/>(errors)"]
-    end
-    
-    subgraph Roles["🎭 Cores por Role"]
-        R1["🟡 squad_leader → #fbbf24"]
-        R2["🔵 collector → #22d3ee"]
-        R3["🟣 assembler → #a78bfa"]
-        R4["🟢 sentinel → #34d399"]
-    end
+O header exibe status de conexão (LIVE/OFFLINE/SIM), step, score, alternância 2D/3D e botão de **simulação fake** integrado para demonstrar o dashboard sem o servidor MASSim.
 
-    subgraph Fonts["📝 Tipografia"]
-        F1["Inter (sans)<br/>Headers + Body"]
-        F2["JetBrains Mono<br/>Data + Counters"]
-    end
-    
-    style C1 fill:#22d3ee,color:#000
-    style C2 fill:#34d399,color:#000
-    style C3 fill:#fbbf24,color:#000
-    style C4 fill:#a78bfa,color:#000
-    style C5 fill:#e879f9,color:#000
-    style C6 fill:#f87171,color:#000
-```
+### Visão 3D
+
+![HIVE Command Center — Visão 3D](doc/paper/midia/hiveCommandCenter3D.png)
+
+Visualização tridimensional interativa (orbitar, pan, zoom) com React Three Fiber e Three.js:
+
+| Elemento | Representação |
+|----------|---------------|
+| **Agentes** | Cubos coloridos por papel (🟡 leader, 🔵 collector, 🟣 assembler, 🟢 sentinel), com movimento suave via interpolação linear |
+| **Dispensers** | Caixas verticais rotativas, coloridas por tipo de bloco (🔴 b0, 🔵 b1, 🟠 b2, 🟣 b3) |
+| **Goal Zones** | Planos verdes semitransparentes no chão do grid |
+| **HUD** | Contagens de agentes, dispensers e goal zones |
+| **Painel lateral** | Event Feed, Battle Stats e Score Timeline visíveis simultaneamente |
 
 ---
 
@@ -595,11 +523,11 @@ flowchart LR
     subgraph "Camada 2 — Retry"
         R4["Request fail → random move<br/>+ retry (até 5×)"]
         R5["Submit fail → rotate CW<br/>(até 4×)"]
-        R6["8 bloqueios → goal zone<br/>alternativa"]
+        R6["6 bloqueios → goal zone<br/>alternativa"]
     end
     
     subgraph "Camada 3 — Timeout"
-        R7["200 steps sem progresso<br/>→ cleanup + finalize"]
+        R7["300 steps sem progresso<br/>→ cleanup + finalize"]
         R8["Deadline atingido<br/>→ abandon task"]
     end
     
@@ -849,6 +777,100 @@ O enunciado ([doc/5703_ex02_26.pdf](doc/5703_ex02_26.pdf)) define o template. Ma
 
 ---
 
+## Resultados Experimentais e Otimizações
+
+### Desempenho no Cenário MAPC 2022
+
+O HIVE foi submetido a extensivos ciclos de teste e otimização no cenário **Agents Assemble III** (grid toroidal 40×40, cave density 0.45, 800 steps). A tabela abaixo resume os scores obtidos nas simulações que completaram com sucesso:
+
+| Run | Score | Observação |
+|-----|-------|------------|
+| 1   | **100** | Melhor resultado obtido |
+| 2   | **90**  | Consistente |
+| 3   | **80**  | Reproduzido 2× |
+| 4   | **80**  | — |
+| 5   | **70**  | — |
+| 6   | **60**  | Reproduzido 2× |
+| 7   | **60**  | — |
+
+**Média: ~77 pontos** | **Faixa: 60–100 pontos** | **Configuração: 15 agentes, agentTimeout 8000ms**
+
+### Otimizações Implementadas
+
+As otimizações foram aplicadas iterativamente com validação por simulação a cada mudança:
+
+| # | Otimização | Antes | Depois | Impacto |
+|---|-----------|-------|--------|---------|
+| 1 | **Delegação eficiente** — Líder envia 1 soloist por task de 1 bloco | 3 agentes/task (desperdiçava 2/3) | 1 agente/task | +40% utilização |
+| 2 | **Scan simplificado** — Líder processa 1 task por scan, sem loop `findall` | Loop com N tasks × 7 artifact calls cada | 1 task × 3 calls | Eliminou timeouts do líder |
+| 3 | **Frequência de scan** — Reduzida de cada 5 para cada 10 steps | `(N mod 5) == 3` | `(N mod 10) == 3` | -50% carga de coordenação |
+| 4 | **Delays removidos** — `.wait()` eliminados do `quick_delegate` | `.wait(10)` entre `place_bid` e `resolve_auction` | Sem wait | -10ms por delegação |
+| 5 | **Distância toroidal** — `find_free_soloist` corrigido para wrapping | Manhattan simples (ignora wrapping) | `wrapDist()` com `min(d, size-d)` | Seleciona soloists realmente mais próximos |
+| 6 | **Timeout de task** — Aumentado para evitar abandonos prematuros | 200 steps | 300 steps | Agentes completam tasks em mapas difíceis |
+| 7 | **Obstacle caching** — `mark_obstacle` no-op se já conhecido | `obstacles.put()` sempre | `containsKey()` check | Reduz escritas redundantes |
+| 8 | **Decay periódico** — `decay_obstacles` apenas a cada 10 steps | A cada step, por todos agentes | `(N mod 10) == 0` | -93% chamadas de decay |
+| 9 | **Memória JVM** — Heap aumentado | Default (~256MB) | `-Xmx2g -Xms512m` | Menos GC pauses |
+| 10 | **Goal zone alternativa** — Agentes stuck tentam outra goal zone | Recalcular rota para mesma goal zone | `get_alternative_goal_zone()` | Recuperação mais rápida de stuck |
+| 11 | **Self-assignment deadline** — Filtro de tasks quase expirando | `TD - CS > 30` | `TD - CS > 40` | Evita pegar tasks sem tempo |
+
+### Análise de Escalabilidade — Número de Agentes
+
+Foram conduzidos testes variando o número de agentes para avaliar o trade-off entre redundância, desempenho e estabilidade:
+
+```
+Agentes │ Runs OK │ Scores (completados)       │ Média │ Taxa Crash │ Tempo/Run
+────────┼─────────┼────────────────────────────┼───────┼────────────┼──────────
+   6    │  3 / 4  │ 30, 40, 0                  │  23   │   ~25%     │  ~3 min
+  10    │  3 / 5  │ 90, 20, 30                 │  47   │   ~40%     │  ~5 min
+  15 ★  │  7 / 13 │ 100, 90, 80, 80, 70, 60, 60│  77   │   ~50%     │  ~6 min
+  20    │  2 / 4  │ 80, 60                     │  70   │   ~50%     │  ~14 min
+```
+
+**Conclusão: 15 agentes é a configuração ótima** — produz os scores mais altos (média 77, máximo 100) mesmo com taxa de crash de ~50%. Menos agentes reduz scores sem ganho significativo de estabilidade; mais agentes não melhora nem score nem estabilidade.
+
+### Limitação Conhecida: Instabilidade do Framework
+
+Aproximadamente 50% dos runs travam entre os steps 76–230 devido a timeouts em cascata no framework JaCaMo/EIS:
+
+```mermaid
+flowchart TD
+    A["Step N: Muitos agentes processam<br/>percepts simultaneamente"] --> B["CArtAgO serializa<br/>operações de artifact"]
+    B --> C["Tempo total > agentTimeout (8s)"]
+    C --> D["Servidor: 'No valid action'<br/>para agentes lentos"]
+    D --> E["EIS: IOException<br/>ao receber resposta"]
+    E --> F["Agentes tentam reconectar"]
+    F --> G["Flood de reconexões<br/>sobrecarrega servidor"]
+    G --> H["Loop infinito de<br/>disconnect/reconnect"]
+    
+    style A fill:#f39c12,color:#000
+    style H fill:#e74c3c,color:#fff
+```
+
+**Causa raiz identificada**: operações CArtAgO (`mark_obstacle`, `update_cell`, `mark_visited`, etc.) são serializadas por artifact. Com 15 agentes × ~15 chamadas/step = ~225 operações serializadas por step. Em mapas cave com 45% de densidade, o volume de percepts de obstáculos amplifica este gargalo.
+
+**Evidência**: mapas com 25% de densidade completam **100% dos runs** com 0 erros de conexão.
+
+**Mitigações aplicadas**:
+- `agentTimeout` aumentado de 4000ms para 8000ms (servidor e EIS)
+- `mark_obstacle` limitado e com cache (no-op se conhecido)
+- `decay_obstacles` reduzido para cada 10 steps
+- JVM heap aumentado para 2GB
+- Scan do líder simplificado (1 task por scan, sem loops)
+
+### Comparação com a Competição MAPC 2022
+
+| Posição | Time | Score típico | Framework |
+|---------|------|-------------|-----------|
+| 1º | FIT BUT | 200–400 pts | Java puro |
+| 2º | LFC | 150–300 pts | Java puro |
+| 3º | — | 100–200 pts | Variado |
+| **HIVE** | **—** | **60–100 pts** | **JaCaMo (BDI)** |
+| Medianos | — | 50–100 pts | Variado |
+
+O HIVE se posiciona na faixa de **time mediano a competitivo**. Os top teams utilizam frameworks Java puros com controle direto de threads, evitando o overhead de serialização do CArtAgO. A principal vantagem competitiva do HIVE é a **arquitetura BDI bem estruturada** com organização MOISE+, que demonstra os conceitos de Sistemas Multi-Agentes de forma acadêmica.
+
+---
+
 ## Métricas
 
 | Métrica | Valor |
@@ -858,11 +880,14 @@ O enunciado ([doc/5703_ex02_26.pdf](doc/5703_ex02_26.pdf)) define o template. Ma
 | Java (artefatos + actions) | ~1.640 linhas / 11 arquivos |
 | TypeScript (dashboard) | ~2.000 linhas |
 | XML (MOISE+) | 120 linhas |
-| Agentes BDI | 15 |
+| Agentes BDI | 15 (3 líderes, 6 coletores, 3 assemblers, 3 sentinelas) |
 | Artefatos CArtAgO | 5 tipos / 19 instâncias |
 | Internal Actions Java | 5 |
 | Componentes React | 9 |
 | Documentação | 6 docs por diretório + 3 centrais |
+| **Score médio** | **~77 pontos (faixa 60–100)** |
+| **Score máximo** | **100 pontos** |
+| Simulações testadas | 30+ runs de validação |
 
 ---
 

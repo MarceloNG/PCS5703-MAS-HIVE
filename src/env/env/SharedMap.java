@@ -14,6 +14,8 @@ public class SharedMap extends Artifact {
     private ConcurrentHashMap<String, Integer> obstacles;
     private int gridWidth = 0;
     private int gridHeight = 0;
+    private List<int[]> cachedFrontiers = new ArrayList<>();
+    private int lastFrontierVisitedSize = -1;
 
     void init() {
         cells = new ConcurrentHashMap<>();
@@ -182,36 +184,49 @@ public class SharedMap extends Artifact {
         resY.set(by);
     }
 
+    private void rebuildFrontierCache() {
+        List<int[]> result = new ArrayList<>();
+        int[][] dirs = {{0,1},{0,-1},{1,0},{-1,0}};
+        Set<String> seen = new HashSet<>();
+        for (String visited : visitedCells) {
+            String[] parts = visited.split(",");
+            int vx = Integer.parseInt(parts[0]);
+            int vy = Integer.parseInt(parts[1]);
+            for (int[] d : dirs) {
+                int nx = normX(vx + d[0]);
+                int ny = normY(vy + d[1]);
+                String nk = nx + "," + ny;
+                if (!visitedCells.contains(nk) && !seen.contains(nk)) {
+                    String cellContent = cells.get(nk);
+                    if (cellContent == null || !cellContent.startsWith("obstacle")) {
+                        result.add(new int[]{nx, ny});
+                        seen.add(nk);
+                    }
+                }
+            }
+        }
+        cachedFrontiers = result;
+    }
+
     @OPERATION
     void get_nearest_frontier(Object oagX, Object oagY,
                               OpFeedbackParam<Integer> resX,
                               OpFeedbackParam<Integer> resY) {
         int agX = normX(toInt(oagX)), agY = normY(toInt(oagY));
+        int vSize = visitedCells.size();
+        if (cachedFrontiers.isEmpty() || Math.abs(vSize - lastFrontierVisitedSize) >= 3) {
+            rebuildFrontierCache();
+            lastFrontierVisitedSize = vSize;
+        }
+
         int bestDist = Integer.MAX_VALUE;
         int bx = agX, by = agY;
-        int[][] dirs = {{0,1},{0,-1},{1,0},{-1,0}};
-
-        for (String visited : visitedCells) {
-            String[] parts = visited.split(",");
-            int vx = Integer.parseInt(parts[0]);
-            int vy = Integer.parseInt(parts[1]);
-
-            for (int[] d : dirs) {
-                int nx = normX(vx + d[0]);
-                int ny = normY(vy + d[1]);
-                String nk = nx + "," + ny;
-
-                if (!visitedCells.contains(nk)) {
-                    String cellContent = cells.get(nk);
-                    if (cellContent == null || !cellContent.startsWith("obstacle")) {
-                        int dist = wrappedManhattan(nx, ny, agX, agY);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            bx = nx;
-                            by = ny;
-                        }
-                    }
-                }
+        for (int[] f : cachedFrontiers) {
+            int dist = wrappedManhattan(f[0], f[1], agX, agY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bx = f[0];
+                by = f[1];
             }
         }
         resX.set(bx);
@@ -232,6 +247,7 @@ public class SharedMap extends Artifact {
     @OPERATION
     void mark_obstacle(Object ox, Object oy, Object ostep) {
         String k = key(toInt(ox), toInt(oy));
+        if (obstacles.containsKey(k)) return;
         obstacles.put(k, toInt(ostep));
     }
 

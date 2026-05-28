@@ -251,22 +251,19 @@ my_role_type(squad_leader).
 // --- Re-avaliacao agressiva de tasks a cada 5 steps ---
 
 +step(N)
-    : (N mod 5) == 3 & my_pos(MX, MY) & step(N)
+    : (N mod 10) == 3 & my_pos(MX, MY) & step(N)
     <- !scan_and_delegate_tasks.
 
 +!scan_and_delegate_tasks
     : my_pos(MX, MY) & step(CS)
+      & known_task(TN, TD, _, 1) & TD - CS > 40
+      & task_req(TN, _, _, BType)
     <- .my_name(Me);
        get_my_squad(Me, MySquad);
        if (MySquad \== "none") {
-           .findall(kt(TN, TD, TR, TNB), known_task(TN, TD, TR, TNB), KTasks);
-           for (.member(kt(TN, TD, TR, TNB), KTasks)) {
-               if (TNB == 1 & TD - CS > 30) {
-                   is_task_assigned(TN, Assigned);
-                   if (not Assigned) {
-                       !quick_delegate(TN, TD, TNB)
-                   }
-               }
+           is_task_assigned(TN, Assigned);
+           if (not Assigned) {
+               !quick_delegate(TN, TD, 1)
            }
        }.
 
@@ -284,7 +281,6 @@ my_role_type(squad_leader).
        else { MDist = 20 };
        Score = 1000 - MDist;
        place_bid(TaskName, MySquad, Score);
-       .wait(10);
        resolve_auction(TaskName, Winner);
        if (Winner == MySquad) {
            set_squad_task(MySquad, TaskName);

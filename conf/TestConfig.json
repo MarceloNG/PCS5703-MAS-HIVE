@@ -5,7 +5,7 @@
     "launch" : "25s",
     "port" : 12300,
     "backlog" : 10000,
-    "agentTimeout" : 4000,
+    "agentTimeout" : 8000,
     "resultPath" : "results",
     "logLevel" : "normal",
     "logPath" : "logs",

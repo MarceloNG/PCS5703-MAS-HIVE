@@ -18,60 +18,59 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col bg-surface grid-bg">
       <Header onToggle3D={() => setView3D(v => !v)} is3D={view3D} />
 
-      {view3D ? (
-        <div className="flex-1 min-h-0 grid grid-cols-[1fr_340px]">
-          {/* 3D viewport */}
-          <div className="min-h-0">
-            <GridScene3D />
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {/* 3D — always mounted, hidden when 2D to preserve WebGL context */}
+        <div style={{
+          display: view3D ? 'flex' : 'none',
+          height: '100%', overflow: 'hidden',
+        }}>
+          <div style={{ flex: 1 }}>
+            <GridScene3D visible={view3D} />
           </div>
-
-          {/* Side panel */}
-          <div className="border-l border-border-dim flex flex-col min-h-0">
-            <div className="flex-1 min-h-0 p-4 overflow-hidden border-b border-border-dim">
+          <div style={{ width: 340, borderLeft: '1px solid rgba(34,211,238,0.15)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flex: 1, minHeight: 0, padding: 16, overflow: 'hidden', borderBottom: '1px solid rgba(34,211,238,0.15)' }}>
               <EventFeed />
             </div>
-            <div className="h-[180px] p-4 overflow-hidden border-b border-border-dim">
+            <div style={{ height: 180, padding: 16, overflow: 'hidden', borderBottom: '1px solid rgba(34,211,238,0.15)' }}>
               <BattleStats />
             </div>
-            <div className="h-[150px] p-4 overflow-hidden">
+            <div style={{ height: 150, padding: 16, overflow: 'hidden' }}>
               <ScoreTimeline />
             </div>
           </div>
         </div>
-      ) : (
-        <div className="flex-1 min-h-0 grid grid-rows-[auto_1fr_auto] gap-0">
-          {/* Row 1: Agents overview */}
-          <div className="p-4 border-b border-border-dim max-h-[240px] overflow-hidden">
-            <AgentGrid />
-          </div>
 
-          {/* Row 2: Squads | Tasks | Event Feed */}
-          <div className="grid grid-cols-[220px_1fr_340px] gap-px border-b border-border-dim min-h-0">
-            <div className="p-4 border-r border-border-dim overflow-hidden">
-              <SquadsPanel />
+        {/* 2D */}
+        {!view3D && (
+          <div className="h-full grid grid-rows-[auto_1fr_auto] gap-0">
+            <div className="p-4 border-b border-border-dim max-h-[240px] overflow-hidden">
+              <AgentGrid />
             </div>
-            <div className="p-4 border-r border-border-dim overflow-hidden">
-              <TaskPipeline />
+            <div className="grid grid-cols-[220px_1fr_340px] gap-px border-b border-border-dim min-h-0">
+              <div className="p-4 border-r border-border-dim overflow-hidden">
+                <SquadsPanel />
+              </div>
+              <div className="p-4 border-r border-border-dim overflow-hidden">
+                <TaskPipeline />
+              </div>
+              <div className="p-4 overflow-hidden">
+                <EventFeed />
+              </div>
             </div>
-            <div className="p-4 overflow-hidden">
-              <EventFeed />
+            <div className="grid grid-cols-[320px_1fr_400px] gap-px border-b border-border-dim h-[210px]">
+              <div className="p-4 border-r border-border-dim overflow-hidden">
+                <BattleStats />
+              </div>
+              <div className="p-4 border-r border-border-dim overflow-hidden">
+                <AuctionHall />
+              </div>
+              <div className="p-4 overflow-hidden">
+                <ScoreTimeline />
+              </div>
             </div>
           </div>
-
-          {/* Row 3: Battle Stats | Auction Hall | Score Timeline */}
-          <div className="grid grid-cols-[320px_1fr_400px] gap-px border-b border-border-dim h-[210px]">
-            <div className="p-4 border-r border-border-dim overflow-hidden">
-              <BattleStats />
-            </div>
-            <div className="p-4 border-r border-border-dim overflow-hidden">
-              <AuctionHall />
-            </div>
-            <div className="p-4 overflow-hidden">
-              <ScoreTimeline />
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

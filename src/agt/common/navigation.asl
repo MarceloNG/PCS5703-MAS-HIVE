@@ -41,15 +41,23 @@
 +step(N)
     : need_detach(DDir) & solo_mode(TaskName) & pending_submit(TaskName) & my_pos(MX, MY)
     <- -need_detach(DDir);
-       .print("[NAV] Step ", N, ": STUCK com bloco para submit! Recalculando rota");
-       get_nearest_goal_zone(MX, MY, GX, GY);
-       if (GX \== -1) {
+       .print("[NAV] Step ", N, ": STUCK com bloco para submit! Tentando goal zone alternativa");
+       get_alternative_goal_zone(MX, MY, MX, MY, AGX, AGY);
+       if (AGX \== -1) {
            .abolish(has_destination(_, _));
-           +has_destination(GX, GY)
+           +has_destination(AGX, AGY);
+           .print("[NAV] Rota alternativa para (", AGX, ",", AGY, ")")
+       } else {
+           get_nearest_goal_zone(MX, MY, GX, GY);
+           if (GX \== -1) {
+               .abolish(has_destination(_, _));
+               +has_destination(GX, GY)
+           }
        };
-       if ((N mod 4) == 0) { Dir = n }
-       elif ((N mod 4) == 1) { Dir = e }
-       elif ((N mod 4) == 2) { Dir = s }
+       .random(R);
+       if (R < 0.25) { Dir = n }
+       elif (R < 0.5) { Dir = e }
+       elif (R < 0.75) { Dir = s }
        else { Dir = w };
        .concat("move(", Dir, ")", Act);
        action(Act).

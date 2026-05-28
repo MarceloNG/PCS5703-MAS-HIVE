@@ -166,9 +166,14 @@ export const useHiveStore = create<HiveState>((set, get) => ({
         const sid = e.data.squad as string
         const members = e.data.members as Squad['members'] | undefined
         if (members) {
-          squads = squads.some(s => s.id === sid)
-            ? squads.map(s => s.id === sid ? { ...s, members } : s)
-            : [...squads, { id: sid, members }]
+          const idx = squads.findIndex(s => s.id === sid)
+          if (idx >= 0) {
+            squads = squads.map(s => s.id === sid ? { ...s, members } : s)
+          } else {
+            squads = [...squads, { id: sid, members }]
+          }
+          const seen = new Set<string>()
+          squads = squads.filter(s => seen.has(s.id) ? false : (seen.add(s.id), true))
         }
         break
       }

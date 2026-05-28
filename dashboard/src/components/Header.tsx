@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useHiveStore } from '../lib/store'
-import { Activity, Wifi, WifiOff, Box, LayoutGrid } from 'lucide-react'
+import { useFakeSim } from '../lib/fakeSim'
+import { Activity, Wifi, WifiOff, Box, LayoutGrid, Play, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface HeaderProps {
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export function Header({ onToggle3D, is3D }: HeaderProps) {
   const { connected, step, score } = useHiveStore()
+  const { active: simActive, toggle: toggleSim, disabled: simDisabled } = useFakeSim()
   const [clock, setClock] = useState('')
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function Header({ onToggle3D, is3D }: HeaderProps) {
             <WifiOff className="w-4 h-4 text-neon-red" />
           )}
           <span className={connected ? 'text-neon-green' : 'text-neon-red'}>
-            {connected ? 'LIVE' : 'OFFLINE'}
+            {connected ? 'LIVE' : simActive ? 'SIM' : 'OFFLINE'}
           </span>
         </motion.div>
 
@@ -77,6 +79,22 @@ export function Header({ onToggle3D, is3D }: HeaderProps) {
             {is3D ? '3D' : '2D'}
           </button>
         )}
+
+        <button
+          onClick={toggleSim}
+          disabled={simDisabled}
+          title={simDisabled ? 'Desativado durante simulação real' : simActive ? 'Parar simulação' : 'Iniciar simulação fake'}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-md border transition-all text-xs uppercase tracking-wider font-semibold ${
+            simDisabled
+              ? 'border-slate-800 bg-slate-900/50 text-slate-600 cursor-not-allowed opacity-40'
+              : simActive
+                ? 'border-red-500/50 bg-red-500/15 text-red-400 hover:bg-red-500/25'
+                : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+          }`}
+        >
+          {simActive ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          {simActive ? 'STOP' : 'SIM'}
+        </button>
 
         <span className="text-slate-500 tabular-nums">{clock}</span>
       </div>
