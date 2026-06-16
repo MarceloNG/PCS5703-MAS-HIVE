@@ -1,0 +1,101 @@
+{
+  "server" : {
+    "tournamentMode" : "round-robin",
+    "teamsPerMatch" : 1,
+    "launch" : "25s",
+    "port" : 12300,
+    "backlog" : 10000,
+    "agentTimeout" : 8000,
+    "resultPath" : "results",
+    "logLevel" : "normal",
+    "logPath" : "logs",
+    "replayPath" : "replays",
+    "maxPacketLength" : 65536,
+    "waitBetweenSimulations" : 5000
+  },
+
+  "match" : [
+    {
+      "steps" : 100,
+      "randomSeed" : 17,
+      "randomFail" : 1,
+      "entities" : {"standard" : 15},
+      "clusterBounds" : [1,3],
+
+      "roles" : [
+        {
+          "name" : "default",
+          "vision" : 5,
+          "actions" : ["skip","move","rotate","adopt","request","attach","detach","connect","disconnect","submit","clear","survey"],
+          "speed" : [3, 2, 1],
+          "clear" : { "chance" : 0.3, "maxDistance" : 1 }
+        }
+      ],
+
+      "clearEnergyCost" : 2,
+      "deactivatedDuration" : 10,
+      "maxEnergy" : 100,
+      "refreshEnergy" : 50,
+      "stepRecharge" : 1,
+      "clearDamage" : [32, 16, 8, 4, 2, 1],
+
+      "attachLimit" : 10,
+
+      "grid" : {
+        "height" : 40,
+        "width" : 40,
+        "instructions": [
+          ["cave", 0.45, 2, 5, 4]
+        ],
+        "goals": {
+          "number" : 3,
+          "size" : [1,2],
+          "moveProbability": 0.1
+        },
+        "roleZones" : {
+          "number" : 3,
+          "size" : [2, 3]
+        }
+      },
+
+      "blockTypes" : [2, 3],
+      "dispensers" : [3, 5],
+
+      "tasks" : {
+        "size" : [1, 2],
+        "concurrent" : 4,
+        "iterations" : [5, 8],
+        "maxDuration" : [200, 400]
+      },
+
+      "events" : {
+        "chance" : 3,
+        "radius" : [2, 3],
+        "warning" : 5,
+        "create" : [-2, 1],
+        "perimeter" : 2
+      },
+
+      "regulation" : {
+        "simultaneous" : 1,
+        "chance": 5,
+        "subjects" : [
+          {
+            "name" : "Carry",
+            "announcement" : [5, 10],
+            "duration" : [20, 40],
+            "punishment": [5, 10],
+            "weight": 15,
+            "optional": { "quantity": [1,2] }
+          }
+        ]
+      },
+
+      "absolutePosition" : true
+    }
+  ],
+
+  "teams" : {
+    "A" : {"prefix" : "agent", "password" : "1"}
+  }
+}
