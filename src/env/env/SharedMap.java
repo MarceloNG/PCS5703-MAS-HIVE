@@ -61,62 +61,12 @@ public class SharedMap extends Artifact {
 
     @OPERATION
     void update_cell(Object ox, Object oy, Object otype, Object odetails) {
-        applyCell(toInt(ox), toInt(oy), otype.toString(), odetails.toString());
-    }
-
-    // Ingest the whole per-step view in a single operation, collapsing the
-    // per-cell update_cell/mark_visited flood into one CArtAgO op per agent
-    // per step. Coordinates in the lists are agent-relative (as perceived);
-    // absolute coordinates are computed here.
-    @OPERATION
-    void ingest_view(Object oMX, Object oMY, Object things, Object goals, Object roles) {
-        int mx = normX(toInt(oMX));
-        int my = normY(toInt(oMY));
-        String pk = mx + "," + my;
-        visitedCells.add(pk);
-        obstacles.remove(pk);
-        if (things != null && !(things instanceof List) && !(things instanceof Object[])) {
-            log("ingest_view: unexpected list type " + things.getClass().getName());
-        }
-        for (Object t : asList(things)) {
-            List<Object> e = asList(t);
-            if (e.size() >= 4) {
-                applyCell(mx + toInt(e.get(0)), my + toInt(e.get(1)),
-                          e.get(2).toString(), e.get(3).toString());
-            }
-        }
-        for (Object g : asList(goals)) {
-            List<Object> e = asList(g);
-            if (e.size() >= 2) {
-                applyCell(mx + toInt(e.get(0)), my + toInt(e.get(1)), "goal_zone", "");
-            }
-        }
-        for (Object r : asList(roles)) {
-            List<Object> e = asList(r);
-            if (e.size() >= 2) {
-                applyCell(mx + toInt(e.get(0)), my + toInt(e.get(1)), "role_zone", "");
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Object> asList(Object o) {
-        if (o instanceof List) return (List<Object>) o;
-        if (o instanceof Object[]) return Arrays.asList((Object[]) o);
-        return Collections.emptyList();
-    }
-
-    // Apply one cell update: idempotent, skips rewriting unchanged cells, and
-    // fires the known_*/new_* obs-property + signal exactly once per discovery.
-    // Shared body used by both update_cell and ingest_view.
-    private void applyCell(int x, int y, String type, String details) {
-        x = normX(x);
-        y = normY(y);
+        int x = normX(toInt(ox));
+        int y = normY(toInt(oy));
+        String type = otype.toString();
+        String details = odetails.toString();
         String k = x + "," + y;
-        String v = type + ":" + details;
-        if (!v.equals(cells.get(k))) {
-            cells.put(k, v);
-        }
+        cells.put(k, type + ":" + details);
         visitedCells.add(k);
 
         if (type.equals("dispenser")) {
