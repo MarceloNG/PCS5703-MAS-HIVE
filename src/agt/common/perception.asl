@@ -10,7 +10,7 @@
 my_pos(X, Y) :- position(X, Y).
 
 +position(X, Y)
-    <- mark_visited(X, Y);
+    <- !ingest_perception(X, Y);
        .my_name(Me);
        !try_update_pos(Me, X, Y);
        !dash_step_safe;
@@ -46,27 +46,20 @@ my_pos(X, Y) :- position(X, Y).
     <- update_agent_pos(Me, X, Y).
 -!try_update_pos(_, _, _) <- true.
 
-// --- Things ---
+// --- Ingestao da visao em lote (1 op/step no SharedMap) ---
+// Substitui o disparo de update_cell por celula percebida. Coleta a visao
+// inteira via findall e envia numa unica operacao ingest_view, derrubando a
+// contencao serializada. O reporte ao dashboard (poucos dispensers/goal zones
+// visiveis) e feito aqui para preservar o comportamento atual.
 
-+thing(X, Y, Type, Details)
-    : my_pos(MX, MY) & Type == dispenser
-    <- update_cell(MX + X, MY + Y, Type, Details);
-       !dash_map_dispenser(MX + X, MY + Y, Details).
-
-+thing(X, Y, Type, Details)
-    : my_pos(MX, MY)
-    <- update_cell(MX + X, MY + Y, Type, Details).
-
-// --- Zonas ---
-
-+goalZone(X, Y)
-    : my_pos(MX, MY)
-    <- update_cell(MX + X, MY + Y, "goal_zone", "");
-       !dash_map_goal_zone(MX + X, MY + Y).
-
-+roleZone(X, Y)
-    : my_pos(MX, MY)
-    <- update_cell(MX + X, MY + Y, "role_zone", "").
++!ingest_perception(MX, MY)
+    <- .findall([RX, RY, T, D], thing(RX, RY, T, D), Things);
+       .findall([RX, RY], goalZone(RX, RY), Goals);
+       .findall([RX, RY], roleZone(RX, RY), Roles);
+       ingest_view(MX, MY, Things, Goals, Roles);
+       for ( thing(DX, DY, dispenser, Det) ) { !dash_map_dispenser(MX + DX, MY + DY, Det) };
+       for ( goalZone(GX, GY) ) { !dash_map_goal_zone(MX + GX, MY + GY) }.
+-!ingest_perception(_, _) <- true.
 
 // --- Tasks ---
 
