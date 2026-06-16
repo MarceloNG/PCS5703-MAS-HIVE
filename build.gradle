@@ -41,7 +41,7 @@ task run(type: JavaExec, dependsOn: 'classes') {
     args 'hive.jcm'
     classpath sourceSets.main.runtimeClasspath
     standardInput = System.in
-    jvmArgs '-Djava.util.logging.config.file=logging.properties', '-Xmx2g', '-Xms512m'
+    jvmArgs '-Djava.util.logging.config.file=logging.properties', '-Xmx2g', '-Xms512m', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=200'
 }
 
 task printCp {
