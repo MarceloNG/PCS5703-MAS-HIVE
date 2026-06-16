@@ -57,15 +57,6 @@ my_pos(X, Y) :- position(X, Y).
     : my_pos(MX, MY)
     <- update_cell(MX + X, MY + Y, Type, Details).
 
-+thing(X, Y, obstacle, _)
-    : my_pos(MX, MY) & step(N)
-    <- mark_obstacle(MX + X, MY + Y, N).
-
-+thing(X, Y, marker, "ci")
-    <- .print("!!! CLEAR IMINENTE em (", X, ",", Y, ")! Evacuar!");
-       .concat("{\"x\":", X, ",\"y\":", Y, "}", CJ);
-       !dash_log("clear_warning", CJ).
-
 // --- Zonas ---
 
 +goalZone(X, Y)
@@ -191,7 +182,7 @@ has_block :- my_attached(_, _).
     <- !check_expired_task;
        decay_obstacles(N);
        remove_expired(N).
-+!periodic_cleanup : step(N)
++!periodic_cleanup : step(N) & (N mod 10) == 0
     <- !check_expired_task;
        decay_obstacles(N).
 +!periodic_cleanup
