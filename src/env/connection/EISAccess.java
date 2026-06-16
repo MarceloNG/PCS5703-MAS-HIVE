@@ -29,7 +29,7 @@ public class EISAccess extends Artifact implements AgentListener {
 
     private String agName = "";
     private boolean receiving = false;
-    private int awaitTime = 100;
+    private int awaitTime = 500;
     private String lastStep = "-1";
     private List<ObsProperty> lastRoundProperties = new ArrayList<>();
 
