@@ -108,6 +108,15 @@ internal actions) → testável em ms **sem sim**. Hierarquia proposta:
 Java (testáveis) e manter `.asl` como orquestração fina. Ex.: o scoring do líder (viés single-block) hoje
 está em `squad_leader.asl` (difícil de unit-testar); em Java seria testável.
 
+> **Follow-up do review do PR #5 (2026-06-17 — altitude).** O backfill do Track 1 testou o A* do
+> `SharedMap` e o `SquadCoordinator` **in-place**, afrouxando visibilidade (`private`→package-private),
+> de propósito para **não tocar na lógica do #2** (risco de regressão). O passo limpo é **extrair o A\*
+> (toroidal + overlay de ocupação #2) do `SharedMap` para uma classe pura testável** — como já foi feito
+> com `AdjacentDirection.direction` e `TaskBoard.bestBid` —, colapsando o acoplamento dos testes a campos
+> internos (`obstacles`/`occupancy`/`gridWidth/Height`/`astar`). **Fazer com cuidado + boot** (toca
+> navegação); os testes de caracterização atuais travam o comportamento e habilitam a extração segura.
+> (O `SquadCoordinator.wrapDist` já foi deduplicado p/ `AdjacentDirection.wrapDelta` no próprio PR #5.)
+
 ## Parking lot — considerado, mas **não priorizado** (gated por evidência)
 
 Ideias dos docs (ideação/brainstorms) **pensadas e conscientemente adiadas** — registradas para não
