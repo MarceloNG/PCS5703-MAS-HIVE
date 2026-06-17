@@ -21,6 +21,9 @@ dependencies {
     implementation files('lib/eismassim-4.5-jar-with-dependencies.jar')
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
     implementation 'org.json:json:20240303'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 sourceSets {
@@ -32,6 +35,16 @@ sourceSets {
             srcDirs = ['src/agt', 'src/org']
         }
     }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging { events 'passed', 'failed', 'skipped' }
 }
 
 task run(type: JavaExec, dependsOn: 'classes') {
