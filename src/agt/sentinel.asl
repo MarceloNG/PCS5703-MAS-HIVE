@@ -1,4 +1,7 @@
 { include("common/perception.asl") }
+{ include("$jacamo/templates/common-cartago.asl") }
+{ include("$jacamo/templates/common-moise.asl") }
+{ include("common/organization.asl") }
 { include("common/dashboard_hooks.asl") }
 { include("common/connect_protocol.asl") }
 { include("common/collection.asl") }
