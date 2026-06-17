@@ -279,6 +279,11 @@ pontuar lá.
 > navegação relativa**, e **evitar o merge cross-agente (U9)** — coordenar por mensagens/claims (como
 > o MAPC) em vez de um mapa de coordenadas compartilhado.
 >
+> **Mas o LI(A)RA (time Jason de 2022, que jogou o cenário OFICIAL) RESOLVE a pilha toda** (ver
+> U7/U8/U9 + Sources). O "problema de pesquisa" — identificar qual colega se vê e alinhar frames —
+> tem solução concreta e portável: **handshake de avistamento mútuo no mesmo step**. Logo a Fase D é
+> **tratável por port-e-validação** (adaptando à arquitetura do HIVE), não um projeto de pesquisa.
+>
 > **Gate (elevado):** confirmar `absolutePosition` com o professor **antes** desta fase. Evidência
 > nova de que `true` pode ser o esperado: o **próprio MAPC do dono e os configs de smoke assumem
 > `true`**. Se for `true`, a Fase D é quase desnecessária (basta grid param + adoção de role).
@@ -317,22 +322,27 @@ pontuar lá.
 - **Verification:** consultas de mapa coerentes num frame relativo de agente único, sem
   `absolutePosition`.
 
-#### U9. [ADIADO / EVITAR] Fusão de mapas cross-agente — só se um mapa global se provar necessário
+#### U9. Fusão de mapas cross-agente — handshake de avistamento mútuo (port do LI(A)RA, validar)
 
-- **Goal:** um mapa de time único **só se** a coordenação por mensagens/claims (default, à la MAPC)
-  não bastar. **Default da Fase D: não construir isto.**
-- **Requirements:** R4 (parcial).
-- **Dependencies:** U7, U8 + **decisão (por evidência) de que um mapa global é necessário**.
-- **Files:** (se promovido) novo `src/agt/common/map_merge.asl`, `src/java/hive/FrameAlign.java` + teste.
-- **Approach (não resolvido — design spike):** correlacionar **landmarks** (constelação de
-  dispensers/goal-zones) entre dois agentes que se enxergam p/ computar o transform entre frames. O
-  **problema central** é identificar *qual* colega se vê (o MAPC não nomeia entidades — e **não
-  resolveu** isto). Alternativa preferida: **dispensar o merge** e coordenar por claims/mensagens.
-- **Execution note:** **só promover após `/ce-brainstorm` dedicado** + evidência de que claims não
-  bastam. Não é trabalho da primeira passada da Fase D.
-- **Test scenarios:** (se promovido) transform correto dado landmark compartilhado; rejeição quando
-  ambíguo; merge idempotente.
-- **Verification:** (se promovido) dois agentes convergem para um mapa consistente num mini-cenário.
+- **Goal:** quando dois agentes do time se enxergam, identificar o par, alinhar os frames (transform
+  `mate_filter`) e traduzir posições compartilhadas entre frames.
+- **Requirements:** R4.
+- **Dependencies:** U7, U8.
+- **Files:** novo `src/agt/common/map_merge.asl` (+ teste em Java da álgebra do transform, se extraída).
+- **Approach (padrão *proven* do LI(A)RA):** ao perceber `thing(XMate,YMate,entity,Team)` na visão,
+  registrar `found_mate(XMate,YMate,XMy,YMy,Step)` e **broadcast**. Quem também viu o par no **mesmo
+  step** com offsets **consistentes** (`(XF+XO,YF+YO)==(0,0)` → eles se viram) computa
+  `mate_filter(Colega,dX,dY)`; daí toda posição informada é traduzida por `+dX,+dY`. **Validar e
+  melhorar** — a impl do LI(A)RA é imperfeita: drift corrigido por brute-force (`fix_*Zones`), gossip
+  multi-hop é TODO (sync 1-hop), sem wrap toroidal, e risco de ambiguidade quando vários pares se
+  veem no mesmo step.
+- **Decisão de arquitetura (Open Question):** o LI(A)RA usa **crenças `.asl` por-agente**; o HIVE usa
+  **`SharedMap` (Java, compartilhado)**. Portar a *técnica* exige escolher: adaptá-la ao `SharedMap`
+  ou migrar para o modelo por-agente.
+- **Test scenarios:** offset mútuo consistente → transform correto; offsets inconsistentes → não
+  funde; tradução idempotente; ambiguidade (2 pares com mesmo offset no mesmo step) → não funde errado.
+- **Verification:** dois agentes com trajetórias distintas convergem para posições consistentes num
+  mini-cenário, sem `absolutePosition`.
 
 #### U10. Escala para 20 agentes + composição de squad
 
@@ -375,8 +385,9 @@ pontuar lá.
   Fase D é necessária. **Evidência nova aponta `true` como plausível** (o MAPC do próprio dono + os
   configs de smoke assumem `true`). **Recomendação: confirmar com o professor antes da Fase D.** O
   dono optou por assumir o pior (false); revisitar à luz da evidência.
-- **Identificação de colega percebido (U9).** Como saber *qual* agente do time está na visão, já
-  que o MAPC não nomeia entidades? Núcleo do design spike.
+- **Identificação de colega percebido (U9) — RESPONDIDA pelo LI(A)RA:** handshake de avistamento
+  mútuo no mesmo step + checagem de offset consistente. Resta a **decisão de arquitetura**: adaptar
+  a técnica ao `SharedMap` (Java) vs. migrar para o modelo de crenças por-agente do LI(A)RA.
 - **Viabilidade da inferência de dimensões do grid (U8)** sem posição absoluta.
 - **Profundidade de MOISE+ exigida pela nota** — "mínimo-mas-real" (KTD1) basta, ou o professor
   quer a org governando o comportamento?
@@ -397,6 +408,11 @@ pontuar lá.
 ---
 
 ## Sources & Research
+
+> **Princípio de reúso (do dono):** prior art é **citada** (relatório §1/§4/§7 + comentários de
+> código) e portamos a *técnica* **adaptada e melhorada** — nunca cópia literal. As fraquezas
+> conhecidas do LI(A)RA (sem wrap toroidal, drift corrigido por brute-force, gossip 1-hop,
+> ambiguidade no handshake) são exatamente onde "fazer melhorado".
 
 - [STRATEGY.md](STRATEGY.md) — Track 3 (origin).
 - [src/org/hive_org.xml](src/org/hive_org.xml) — spec MOISE+ existente (não carregada).
@@ -424,3 +440,16 @@ fonte da verdade** (estudado 2026-06-17):
 - `docs/plans/2026-06-09-002-...-plan.md` (do MAPC) — inferência de posição por move-count = **fallback
   planejado, nunca implementado**. → **O MAPC não resolve `absolutePosition: false` (Fase D).**
 - `src/test/java/env/StaticMapStoreTest.java`, `ClaimsStoreTest.java` — exemplo de JUnit (referência p/ U3).
+
+**LI(A)RA** ([github.com/Liga-IA/liara-agents](https://github.com/Liga-IA/liara-agents)) — **time
+Jason** do MAPC 2022, jogou o **cenário oficial** (`absolutePosition: false`). **Resolve a Fase D**
+(estudado 2026-06-17):
+
+- `src/asl/memory_updates.asl` — auto-localização por `position(X,Y)` (dead-reckoning) + memória de
+  mapa por frame (`+thing(XMy+XThing,...)[source(memory)]`). **Serve à U7/U8.**
+- `src/asl/synchronism.asl` — **fusão de mapas via handshake de avistamento mútuo** (`found_mate` →
+  `mate_filter` → tradução de posições). **A solução da U9.** Imperfeito (drift por brute-force em
+  `fix_*Zones`; `transmit_to_others` é TODO; sem wrap).
+- `src/asl/adoptrole.asl` — `adopt(Role)` simples; nota de inferir role pelas ações (Fase C / U5).
+- Demais times de 2022 (referência da *técnica*, não JaCaMo): MMD (Python), deSouches/FIT BUT (Java,
+  `github.com/zborilf/deSouches`), GOALdigger & GOAL-DTU (GOAL). Fonte: `multiagentcontest.org/2022`.
