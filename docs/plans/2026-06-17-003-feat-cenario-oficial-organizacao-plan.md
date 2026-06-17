@@ -286,9 +286,9 @@ pontuar lá.
 > tem solução concreta e portável: **handshake de avistamento mútuo no mesmo step**. Logo a Fase D é
 > **tratável por port-e-validação** (adaptando à arquitetura do HIVE), não um projeto de pesquisa.
 >
-> **Gate (elevado):** confirmar `absolutePosition` com o professor **antes** desta fase. Evidência
-> nova de que `true` pode ser o esperado: o **próprio MAPC do dono e os configs de smoke assumem
-> `true`**. Se for `true`, a Fase D é quase desnecessária (basta grid param + adoção de role).
+> **Resolvido (dono, 2026-06-17):** a competição usa a **config padrão do MAPC 2022 →
+> `absolutePosition: false`**. Logo a **Fase D é OBRIGATÓRIA** (não condicional). O `true` do
+> `~/repos/MAPC`/smoke era só conveniência de dev — não vale para a competição.
 
 #### U7. Frame local por agente (deslocamento integrado)
 
@@ -364,11 +364,9 @@ pontuar lá.
 
 ## Risks & Dependencies
 
-- **Aposta do `absolutePosition` (risco nº 1 de escopo).** Se a competição rodar `true`, a Fase D
-  inteira é desperdício. **Evidência nova:** o `~/repos/MAPC` (projeto do próprio dono) e os configs
-  de smoke assumem `true` → `true` é plausível/esperado. **Ação recomendada: confirmar com o
-  professor antes de investir na Fase D** — pode eliminar a maior fatia de risco do Track. O flag de
-  KTD3 e o param de KTD2 deixam o caminho absoluto funcionando enquanto isso.
+- **`absolutePosition: false` confirmado** (dono: é a config padrão da competição 2022). A **Fase D
+  é necessária**, não uma aposta — o overhaul de posicionamento relativo está no **caminho crítico**
+  de pontuar no oficial. (O flag de KTD3 e o param de KTD2 mantêm a dev 40×40 rodável em paralelo.)
 - **Fusão de mapas (U9) — evitada por default.** Era o maior risco; reframed para **não construir**
   (coordenar por claims/mensagens, à la MAPC). Só vira risco se um mapa global se provar necessário.
   Fases A–C seguem entregáveis independentemente (valem na dev e pela nota).
@@ -383,10 +381,8 @@ pontuar lá.
 
 ## Open Questions
 
-- **A competição avaliada roda `absolutePosition` true ou false?** (Pergunta nº 1.) Determina se a
-  Fase D é necessária. **Evidência nova aponta `true` como plausível** (o MAPC do próprio dono + os
-  configs de smoke assumem `true`). **Recomendação: confirmar com o professor antes da Fase D.** O
-  dono optou por assumir o pior (false); revisitar à luz da evidência.
+- **~~`absolutePosition` true ou false?~~ RESOLVIDO (dono, 2026-06-17): `false`** — é a config
+  padrão da competição 2022. A **Fase D é obrigatória** (posicionamento relativo, padrão do LI(A)RA).
 - **Identificação de colega percebido (U9) — RESPONDIDA pelo LI(A)RA:** handshake de avistamento
   mútuo no mesmo step + checagem de offset consistente. Resta a **decisão de arquitetura**: adaptar
   a técnica ao `SharedMap` (Java) vs. migrar para o modelo de crenças por-agente do LI(A)RA.
