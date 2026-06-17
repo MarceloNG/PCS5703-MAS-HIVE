@@ -79,6 +79,14 @@ public class TaskBoard extends Artifact {
             .add(new Bid(squadId, bidValue));
     }
 
+    /** Maior lance vence; null se a lista for vazia/nula. Pura e testável (backfill Track 1). */
+    static Bid bestBid(List<Bid> taskBids) {
+        if (taskBids == null || taskBids.isEmpty()) return null;
+        return taskBids.stream()
+            .max(Comparator.comparingDouble(b -> b.value))
+            .orElse(null);
+    }
+
     @OPERATION
     void resolve_auction(Object otaskName,
                          OpFeedbackParam<String> winnerSquad) {
@@ -88,9 +96,7 @@ public class TaskBoard extends Artifact {
             winnerSquad.set("none");
             return;
         }
-        Bid best = taskBids.stream()
-            .max(Comparator.comparingDouble(b -> b.value))
-            .orElse(null);
+        Bid best = bestBid(taskBids);
         if (best != null) {
             assignedTasks.put(taskName, best.squadId);
             signal("task_assigned", taskName, best.squadId);
