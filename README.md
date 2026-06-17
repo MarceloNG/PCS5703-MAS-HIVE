@@ -718,7 +718,7 @@ Abra **http://localhost:5173** no navegador para ver o HIVE Command Center com o
 2. Os líderes dos esquadrões fazem **leilão** para decidir quem pega a tarefa
 3. O agente vencedor **navega** até um dispenser, **coleta** o bloco e **leva** até uma goal zone
 4. Ao fazer **submit** na goal zone, o time ganha **+10 pontos** por tarefa
-5. A simulação roda por **800 steps** (~6 minutos) e o score final é o total de pontos
+5. A simulação roda por **800 steps** (~9 minutos após o fix do EIS) e o score final é o total de pontos
 
 ### O que esperar?
 
@@ -730,7 +730,7 @@ Abra **http://localhost:5173** no navegador para ver o HIVE Command Center com o
 | Step 100–800 | Ciclo contínuo de coleta e submissão |
 | **Resultado** | **60–100 pontos** (média ~77) nas simulações que completam |
 
-> **Nota:** Cerca de 50% dos runs podem travar entre steps 76–230 por um gargalo de serialização do CArtAgO (ver seção "Limitação Conhecida"). Se travar, pare tudo e reinicie. Quando completa, o score é consistentemente 60–100 pontos.
+> **Nota (atualizada 2026-06-17):** a instabilidade de ~50% de travamento (cascata de reconexão) foi **corrigida** pelo fix do EIS (`awaitTime` da bomba de percepção 100→500) — o run completo agora termina **sem travar** em ~8m39s, com ~22× menos timeouts. O gargalo **não** era a serialização do `SharedMap` (refutado por `jstack`: 0 frames em A*/SharedMap), e sim o pipeline de percepção do EIS — ver [`docs/solutions/performance-issues/eis-perception-pump-starves-agent-action.md`](docs/solutions/performance-issues/eis-perception-pump-starves-agent-action.md). A seção "Limitação Conhecida" abaixo descreve o **diagnóstico anterior (superado)**.
 
 ### Portas
 
@@ -833,6 +833,35 @@ As otimizações foram aplicadas iterativamente com validação por simulação 
 | 10 | **Goal zone alternativa** — Agentes stuck tentam outra goal zone | Recalcular rota para mesma goal zone | `get_alternative_goal_zone()` | Recuperação mais rápida de stuck |
 | 11 | **Self-assignment deadline** — Filtro de tasks quase expirando | `TD - CS > 30` | `TD - CS > 40` | Evita pegar tasks sem tempo |
 
+### Correção do Livelock de Movimento (Navegação Ciente de Colega)
+
+Durante a validação observou-se um **livelock de movimento**: agentes agem a cada step mas não progridem ao se aglomerar ou perto de paredes. Um detector de oscilação (ping-pong A↔B com destino ativo) mediu **~157 oscilações / 200 steps** (seed 17) — o modo de falha **dominante** (≈20× as detecções de *stuck*), invisível à detecção de stuck de 50 steps que só vê a mesma célula.
+
+**Causa-raiz:** o A* (`compute_next_move`) montava o conjunto de bloqueios apenas de `obstacles` (paredes), **ignorando as posições vivas dos colegas** — roteava um agente através do outro. Como uma correção anterior deixou de marcar colega como obstáculo (para evitar obstáculos-fantasma que poluíam o mapa compartilhado), o A* nunca aprendia a desviar do colega e re-roteava sempre para o mesmo gargalo.
+
+**Tentativa reativa (insuficiente sozinha):** um *escape* em `.asl` — ao bloquear/oscilar, mover para um vizinho livre pela percepção local — **piorou** a oscilação (157 → 339). Diagnóstico (instrumentação + monitor): é um reflexo de 1 passo **sem autoridade sobre a rota** — empurra o agente para o lado, e no step seguinte o A* re-puxa para o gargalo (motor de 2 tempos → o agente **orbita** o gargalo indefinidamente).
+
+**Correção (A\* ciente de colega):** o `SharedMap` passa a manter um **índice de ocupação viva** (cada agente reporta a posição a cada step) e o A* **penaliza** com custo alto finito — **penaliza, não bloqueia**, para não travar corredores estreitos — as células ocupadas por colega, exceto a origem e o destino. O A* contorna a congestão no espaço aberto; o *escape* reativo permanece como **fallback** para o corredor frente-a-frente. Tudo no grid toroidal (distância de menor-volta).
+
+**Calibração (A/B determinístico, seed 17, validação por compilação + parse `as2j` + runs instrumentados):**
+
+Varredura da penalidade — 100 steps, mediana de 3 runs:
+
+| Métrica | base (sem fix) | PENALTY=8 | PENALTY=16 | PENALTY=24 |
+|---|---|---|---|---|
+| Oscilações (mediana) | 89 | 48 | 43 | 31 |
+
+Desempate a 200 steps (mediana de 3 runs), medindo também **submits**:
+
+| Config | Oscilações (mediana) | Submits (mediana) |
+|---|---|---|
+| **PENALTY=16** ★ | **78** (−50% vs base) | **3** |
+| PENALTY=24 | 83 | 1 |
+
+**Valor escolhido: `PENALTY=16`** — reduz a oscilação ~50% **sem regredir os submits** (na prática sobem). O valor mais agressivo (24) reduz a oscilação de forma equivalente, mas **regride os submits** (detours longos demais), e por isso foi descartado. Zero erros de runtime do A* em todos os runs.
+
+> **Nota de escopo:** este fix ataca a **navegação** (movimento). A medição expôs um próximo gargalo *separado* na **estratégia de coleta/montagem/submit** (super-coleta vs norma de *carry*, rotação de orientação no submit, baixa convergência às goal zones), registrado em [`docs/backlog.md`](docs/backlog.md).
+
 ### Análise de Escalabilidade — Número de Agentes
 
 Foram conduzidos testes variando o número de agentes para avaliar o trade-off entre redundância, desempenho e estabilidade:
@@ -849,6 +878,8 @@ Agentes │ Runs OK │ Scores (completados)       │ Média │ Taxa Crash │
 **Conclusão: 15 agentes é a configuração ótima** — produz os scores mais altos (média 77, máximo 100) mesmo com taxa de crash de ~50%. Menos agentes reduz scores sem ganho significativo de estabilidade; mais agentes não melhora nem score nem estabilidade.
 
 ### Limitação Conhecida: Instabilidade do Framework
+
+> ⚠️ **Superado (2026-06-17).** A instabilidade descrita abaixo foi **resolvida** e o **diagnóstico de causa-raiz desta seção está refutado**. O `jstack` (40 dumps durante o run lento) mostrou **0 frames** em `SharedMap`/A* — o gargalo **não** era a serialização do CArtAgO, e sim a bomba de percepção do EIS (`EISAccess.updatePercepts`) segurando a thread do artefato e estarvando a `action()`. Fix de **1 linha** (`awaitTime` 100→500) → run completo em ~8m39s **sem travar**, ~22× menos timeouts. Detalhe e medições: [`docs/solutions/performance-issues/eis-perception-pump-starves-agent-action.md`](docs/solutions/performance-issues/eis-perception-pump-starves-agent-action.md). A análise abaixo fica como **registro do diagnóstico anterior**.
 
 Aproximadamente 50% dos runs travam entre os steps 76–230 devido a timeouts em cascata no framework JaCaMo/EIS:
 

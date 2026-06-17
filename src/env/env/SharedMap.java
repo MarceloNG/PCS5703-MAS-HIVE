@@ -12,6 +12,9 @@ public class SharedMap extends Artifact {
     private Set<String> knownRoleZones;
     private Set<String> visitedCells;
     private ConcurrentHashMap<String, Integer> obstacles;
+    private ConcurrentHashMap<String, int[]> occupancy;   // nome -> {x, y, step}
+    private int occupancyStep = 0;                         // ultimo step reportado (p/ expirar entradas obsoletas)
+    private static final int TEAMMATE_PENALTY = 16;
     private int gridWidth = 0;
     private int gridHeight = 0;
     private List<int[]> cachedFrontiers = new ArrayList<>();
@@ -24,6 +27,7 @@ public class SharedMap extends Artifact {
         knownRoleZones = ConcurrentHashMap.newKeySet();
         visitedCells = ConcurrentHashMap.newKeySet();
         obstacles = new ConcurrentHashMap<>();
+        occupancy = new ConcurrentHashMap<>();
     }
 
     @OPERATION
@@ -274,6 +278,16 @@ public class SharedMap extends Artifact {
         dist.set(wrappedManhattan(toInt(ox1), toInt(oy1), toInt(ox2), toInt(oy2)));
     }
 
+    // #2: indice de ocupacao viva (overlay efemero do A*). Cada agente empurra
+    // sua posicao por step (ao lado de update_agent_pos no SquadCoordinator);
+    // o astar penaliza essas celulas. Sobrescreve (sem decay).
+    @OPERATION
+    void update_occupancy(Object oName, Object ox, Object oy, Object ostep) {
+        int s = toInt(ostep);
+        occupancy.put(oName.toString(), new int[]{normX(toInt(ox)), normY(toInt(oy)), s});
+        if (s > occupancyStep) occupancyStep = s;
+    }
+
     private int astarCost(int fx, int fy, int tx, int ty) {
         fx = normX(fx); fy = normY(fy);
         tx = normX(tx); ty = normY(ty);
@@ -326,6 +340,16 @@ public class SharedMap extends Artifact {
         Set<String> blocked = new HashSet<>(obstacles.keySet());
         blocked.remove(tx + "," + ty);
         blocked.remove(fx + "," + fy);
+        // #2: overlay de ocupacao viva — penaliza (nao bloqueia) celula de colega,
+        // exceto origem e alvo. So no astar (escolha do passo), nao no astarCost.
+        Set<String> occupied = new HashSet<>();
+        for (int[] p : occupancy.values()) {
+            if (p[2] >= occupancyStep - 1) {   // #1: so posicoes frescas; entrada de agente desconectado expira (step congelado)
+                occupied.add(p[0] + "," + p[1]);
+            }
+        }
+        occupied.remove(tx + "," + ty);
+        occupied.remove(fx + "," + fy);
         int[][] dirs = {{0,-1},{0,1},{-1,0},{1,0}};
 
         PriorityQueue<int[]> open = new PriorityQueue<>(Comparator.comparingInt(a -> a[2]));
@@ -373,7 +397,7 @@ public class SharedMap extends Artifact {
                 int ny = normY(cy + dirs[i][1]);
                 String nk = nx + "," + ny;
                 if (blocked.contains(nk) || closed.contains(nk)) continue;
-                int ng = cg + 1;
+                int ng = cg + 1 + (occupied.contains(nk) ? TEAMMATE_PENALTY : 0);
                 if (ng < gScore.getOrDefault(nk, Integer.MAX_VALUE)) {
                     gScore.put(nk, ng);
                     cameFrom.put(nk, ck);

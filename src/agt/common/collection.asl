@@ -69,20 +69,10 @@
 // --- Step: coletando, desvio de obstaculo ---
 
 +step(N)
-    : collecting(Type, DX, DY) & my_pos(MX, MY) & last_move_blocked & not waiting_request(_, _)
-    <- -last_move_blocked;
-       if (last_attempted_dir(PrevDir)) {
-           if (PrevDir == n) { Dir = e }
-           elif (PrevDir == e) { Dir = s }
-           elif (PrevDir == s) { Dir = w }
-           else { Dir = n }
-       } else {
-           compute_next_move(MX, MY, DX, DY, Dir)
-       };
-       .abolish(last_attempted_dir(_));
-       +last_attempted_dir(Dir);
-       .concat("move(", Dir, ")", Act);
-       action(Act).
+    : collecting(Type, DX, DY) & my_pos(MX, MY) & (last_move_blocked | escape_pending(_, _)) & not waiting_request(_, _)
+    <- .abolish(last_move_blocked);
+       .abolish(escape_pending(_, _));
+       !escape_move(MX, MY, DX, DY).
 
 // --- Step: coletando, verificar adjacencia ao dispenser ---
 

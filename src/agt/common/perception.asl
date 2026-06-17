@@ -10,11 +10,13 @@
 my_pos(X, Y) :- position(X, Y).
 
 +position(X, Y)
-    <- mark_visited(X, Y);
+    <- .abolish(escape_pending(_, _));
+       mark_visited(X, Y);
        .my_name(Me);
        !try_update_pos(Me, X, Y);
        !dash_step_safe;
        !check_stuck(X, Y);
+       !check_osc(X, Y);
        !periodic_cleanup.
 
 +!check_stuck(X, Y)
@@ -42,8 +44,32 @@ my_pos(X, Y) :- position(X, Y).
 +!check_stuck(_, _) <- true.
 -!check_stuck(_, _) <- true.
 
+// --- Deteccao de oscilacao A<->B (passo 2 / #4) — SO-LOG (nao muda comportamento) ---
+// "Ping-pong": voltar a celula de 2 steps atras tendo se movido, com destino ativo.
+// E o ponto cego do check_stuck (que so ve mesma-celula por >=50 steps). Cada disparo
+// conta uma oscilacao (mapeia a metrica "~180"). Quando isto for AGIR (replanejar/
+// abandonar via #3), exigir padrao SUSTENTADO p/ nao acusar contorno legitimo.
+
++!check_osc(X, Y)
+    : osc_p2(X2, Y2) & X == X2 & Y == Y2
+      & osc_p1(X1, Y1) & (X \== X1 | Y \== Y1)
+      & has_destination(DX, DY) & step(N)
+    <- .print("[OSC] ping-pong (", X, ",", Y, ")<->(", X1, ",", Y1, ") rumo a (", DX, ",", DY, ") step ", N);
+       .abolish(escape_pending(_, _));
+       +escape_pending(X, Y);
+       !osc_shift(X, Y).
++!check_osc(X, Y) <- !osc_shift(X, Y).
+-!check_osc(_, _) <- true.
+
++!osc_shift(X, Y)
+    <- if (osc_p1(PX, PY)) { .abolish(osc_p2(_, _)); +osc_p2(PX, PY) };
+       .abolish(osc_p1(_, _)); +osc_p1(X, Y).
+-!osc_shift(_, _) <- true.
+
 +!try_update_pos(Me, X, Y)
-    <- update_agent_pos(Me, X, Y).
+    <- update_agent_pos(Me, X, Y);
+       if (step(S)) { update_occupancy(Me, X, Y, S) }
+       else { update_occupancy(Me, X, Y, 0) }.
 -!try_update_pos(_, _, _) <- true.
 
 // --- Things ---
@@ -151,9 +177,17 @@ norm_allows_carry :- carry_limit(Limit) & .count(attached(_, _), N) & N < Limit.
        elif (Dir == s) { DX = 0; DY = 1 }
        elif (Dir == e) { DX = 1; DY = 0 }
        else { DX = -1; DY = 0 };
-       mark_obstacle(MX + DX, MY + DY, N);
+       // #1+B5 (passo 1): bloqueio por colega/oponente eh transitorio; marcar a celula
+       // dele criava obstaculo-fantasma de ~30 steps no mapa compartilhado. So marca
+       // obstaculo quando a celula-alvo NAO tem entity percebido (parede/bloco real).
+       if (not thing(DX, DY, entity, _)) {
+           mark_obstacle(MX + DX, MY + DY, N)
+       };
        if (attached(AX, AY)) {
-           mark_obstacle(MX + AX + DX, MY + AY + DY, N)
+           ABX = AX + DX; ABY = AY + DY;
+           if (not thing(ABX, ABY, entity, _)) {
+               mark_obstacle(MX + ABX, MY + ABY, N)
+           }
        }.
 
 +lastActionResult(failed_path)
