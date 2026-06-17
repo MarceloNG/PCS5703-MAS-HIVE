@@ -15,8 +15,9 @@ agentes, `absolutePosition: false`) e satisfazer o requisito de **MOISE+** do en
 frentes, em fases: (A) ligar a organização MOISE+ que já existe mas está morta; (B) parametrizar o
 grid e montar o harness de teste JUnit; (C) adoção de role do cenário MAPC (o desbloqueio do
 `score 0`); (D) **overhaul de posicionamento relativo** — porque o oficial desliga
-`absolutePosition` e toda a navegação do HIVE assume posição absoluta. A Fase D é a maior e
-contém um design spike (fusão de mapas) que deve passar por brainstorm dedicado antes da execução.
+`absolutePosition` e toda a navegação do HIVE assume posição absoluta. A Fase D é a maior, mas
+**tratável**: o time **LI(A)RA** (Jason, MAPC 2022, cenário oficial) resolve a fusão de mapas com um
+handshake de avistamento mútuo — **portar-e-validar**, não pesquisa do zero (ver Sources).
 
 ---
 
@@ -108,8 +109,9 @@ pontuar lá.
 - **KTD4 — Posicionamento relativo via frame local integrado + fusão de mapas.** Cada agente mantém
   um frame local (origem = início, deslocamento integrado dos `move` bem-sucedidos); os mapas se
   fundem quando agentes se identificam mutuamente. _Rationale:_ é a forma padrão de lidar com
-  `absolutePosition: false`. **O protocolo de fusão é o ponto não resolvido** (ver U9 / Open
-  Questions).
+  `absolutePosition: false`. **O protocolo de fusão tem padrão *proven* do LI(A)RA** (handshake de
+  avistamento mútuo); o ponto em aberto é a *arquitetura* — adaptar ao `SharedMap` vs. crenças
+  por-agente (ver U9 / Open Questions).
 - **KTD5 — Política de role como Java puro testável.** O mapeamento role-org → role-MAPC (e o
   respeito ao teto da norma `adopt`) é uma função pura testável, não lógica em `.asl`. _Rationale:_
   testabilidade do STRATEGY.md; gera evidência de §5.
@@ -126,9 +128,9 @@ pontuar lá.
 - Navegação (resíduos do livelock) e jogo adversário: gated no STRATEGY.md.
 
 **Deferred to Follow-Up Work:**
-- **Design do protocolo de fusão de mapas (U9).** Recomendo um `/ce-brainstorm` dedicado antes de
-  executar — a identificação de "qual colega estou vendo" (o MAPC não nomeia entidades percebidas)
-  é o problema central e tem várias soluções concorrentes.
+- **Arquitetura da fusão de mapas (U9).** A *técnica* está resolvida (handshake de avistamento mútuo
+  do LI(A)RA — identifica o par e alinha frames); o que falta decidir é adaptá-la ao `SharedMap`
+  (Java) vs. migrar para o modelo de crenças por-agente. Um `/ce-brainstorm` curto só sobre isso.
 - Afinação da composição de squad para 20 (quantos worker/constructor/explorer) depois de medir.
 
 ---
