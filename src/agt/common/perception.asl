@@ -4,7 +4,8 @@
 
 // --- Grid dimensions (toroidal wrapping) ---
 
-+!try_set_grid_dims <- set_grid_dimensions(40, 40).
+// U4: dimensões vêm da fonte única hive.GridConfig (não mais hardcoded).
++!try_set_grid_dims <- apply_grid_config.
 
 // --- Posicao: regra que consulta position diretamente da BB ---
 my_pos(X, Y) :- position(X, Y).

@@ -227,7 +227,8 @@ public class SquadCoordinator extends Artifact {
             if (e.getValue()) continue;
             int[] pos = agentPositions.get(e.getKey());
             if (pos == null) continue;
-            int dist = wrapDist(pos[0], dx, 40) + wrapDist(pos[1], dy, 40);
+            int dist = wrapDist(pos[0], dx, hive.GridConfig.width())
+                     + wrapDist(pos[1], dy, hive.GridConfig.height());
             if (dist < bestDist) {
                 bestDist = dist;
                 best = e.getKey();

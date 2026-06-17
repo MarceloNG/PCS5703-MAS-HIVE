@@ -34,6 +34,17 @@ public class SharedMap extends Artifact {
     void set_grid_dimensions(Object owidth, Object oheight) {
         gridWidth = toInt(owidth);
         gridHeight = toInt(oheight);
+        hive.GridConfig.set(gridWidth, gridHeight);
+    }
+
+    /**
+     * U4: define as dimensões a partir da fonte única hive.GridConfig
+     * (default 40x40; override por -Dhive.grid.width/-Dhive.grid.height).
+     */
+    @OPERATION
+    void apply_grid_config() {
+        gridWidth = hive.GridConfig.width();
+        gridHeight = hive.GridConfig.height();
     }
 
     private int norm(int v, int size) {
