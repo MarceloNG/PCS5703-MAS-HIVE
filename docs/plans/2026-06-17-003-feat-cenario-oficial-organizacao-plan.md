@@ -3,6 +3,7 @@ status: active
 type: feat
 created: 2026-06-17
 origin: STRATEGY.md (Track 3 — Cenário oficial & organização)
+revised: 2026-06-17 (Fases C/D reavaliadas vs ~/repos/MAPC — ver Sources & Research)
 ---
 
 # feat: Cenário oficial MAPC 2022 & organização MOISE+ (Track 3)
@@ -220,6 +221,13 @@ pontuar lá.
 
 ### Phase C — Adoção de role do cenário MAPC (desbloqueio do score 0)
 
+> ✅ **Desarmada pelo estudo do `~/repos/MAPC` (2026-06-17).** O `worker_role.asl` + `explore.asl`
+> dão um padrão validável: perceber `roleZone(RX,RY)` (relativo à visão) → `move_relative` até a
+> célula → `adopt(...)`, com hook de obrigação MOISE+ (`+!adopt_..._role[scheme] <- ...;
+> goalAchieved`). **Funciona em coords relativas — independe de `absolutePosition`**, logo a Fase C
+> está **desacoplada da Fase D** e pode ser portada-e-validada já. Não copiar às cegas: a política de
+> role e os gates são nossos.
+
 #### U5. Política role-org → role-MAPC (Java testável)
 
 - **Goal:** decidir qual role MAPC cada agente deve adotar, respeitando o teto da norma `adopt`.
@@ -245,11 +253,13 @@ pontuar lá.
   [src/agt/common/perception.asl](src/agt/common/perception.asl) (handler do percept `role(R)`
   atual; flag `needs_role_adoption`); [src/agt/common/collection.asl](src/agt/common/collection.asl)
   e [src/agt/assembler.asl](src/agt/assembler.asl) (guarda dos planos por `has_capable_role`).
-- **Approach:** role-zones já são percebidas e guardadas (`known_role_zone` no `SharedMap`). No
-  `!start` (e quando o role for insuficiente), achar a role-zone conhecida mais próxima → navegar →
-  `adopt(RoleDesejado)` (de U5) → tratar `failed_location` (entrar na célula de role). Com
-  `needs_role_adoption=false` (dev), `has_capable_role` é sempre verdadeiro (KTD3).
-- **Patterns to follow:** navegação por `SharedMap`/A* existente; `signal new_role_zone`.
+- **Approach:** padrão do MAPC (relativo, **sem depender de posição absoluta**): se `roleZone(RX,RY)`
+  é percebida → `move_relative(RX,RY)` até `roleZone(0,0)` → `adopt(RoleDesejado)` (de U5) → tratar
+  `failed_location`; se nenhuma role-zone na visão → `explore` (random-walk anti-backtrack). Fallback
+  para a role-zone *lembrada* (`known_role_zone` no `SharedMap`) só quando houver frame confiável
+  (Fase D). Com `needs_role_adoption=false` (dev), `has_capable_role` é sempre verdadeiro (KTD3).
+- **Patterns to follow:** `~/repos/MAPC/src/agt/worker_role.asl` + `explore.asl` (relativo); o
+  `signal new_role_zone` do `SharedMap` para a memória de role-zones.
 - **Test scenarios:** `Test expectation: integração` — agente `default` navega até a role-zone e
   adota; `failed_location` → reposiciona e tenta de novo; gate: nenhum `request/submit` antes de
   ter role capaz; com flag desligado, comportamento dev inalterado. (A parte Java pura é U5.)
@@ -260,8 +270,18 @@ pontuar lá.
 
 ### Phase D — Posicionamento relativo (overhaul; `absolutePosition: false`)
 
-> ⚠️ Fase de maior risco. U9 (fusão de mapas) é um **design spike** — recomendo `/ce-brainstorm`
-> dedicado antes de executar (ver Open Questions).
+> ⚠️ **Reavaliado vs `~/repos/MAPC` (2026-06-17): o MAPC NÃO resolve isto.** A config dele usa
+> `absolutePosition: true`, o mapa é por-agente write-once sem wrap nem merge, e a inferência por
+> move-count foi só *planejada* (nunca implementada). **Não há port** — a Fase D segue em aberto.
+> Dois reframes do estudo: (1) **muita navegação não precisa de mapa global** — ir a alvo *percebido*
+> (dispenser/role-zone/bloco/goal-zone) funciona em coords relativas (`move_relative`); o mapa global
+> só serve p/ *lembrar* onde vi algo. (2) Logo o escopo encolhe: **dead-reckoning por-agente (U7) +
+> navegação relativa**, e **evitar o merge cross-agente (U9)** — coordenar por mensagens/claims (como
+> o MAPC) em vez de um mapa de coordenadas compartilhado.
+>
+> **Gate (elevado):** confirmar `absolutePosition` com o professor **antes** desta fase. Evidência
+> nova de que `true` pode ser o esperado: o **próprio MAPC do dono e os configs de smoke assumem
+> `true`**. Se for `true`, a Fase D é quase desnecessária (basta grid param + adoção de role).
 
 #### U7. Frame local por agente (deslocamento integrado)
 
@@ -287,32 +307,32 @@ pontuar lá.
 - **Dependencies:** U7.
 - **Files:** [src/env/env/SharedMap.java](src/env/env/SharedMap.java), novo teste
   [src/test/java/env/SharedMapRelativeTest.java](src/test/java/env/SharedMapRelativeTest.java).
-- **Approach:** chavear o mapa no frame relativo; inferir largura/altura observando reaparecimento
-  de landmark / o wrap, preenchendo as dims de KTD2 quando descobertas.
+- **Approach:** mapa **por-agente** no frame dead-reckoned (U7), usado p/ *lembrar* alvos já vistos;
+  a navegação curta usa percepção relativa direta (não o mapa). Inferir largura/altura observando
+  reaparecimento de landmark / o wrap, preenchendo as dims de KTD2 quando descobertas. **Sem merge
+  cross-agente** aqui (ver U9).
 - **Test scenarios:** inserção/consulta de célula em frame relativo; inferência de dimensão a
   partir de um landmark reobservado; wrap aplicado só após dims conhecidas. (Marcar o que depender
   de U9 como bloqueado.)
 - **Verification:** consultas de mapa coerentes num frame relativo de agente único, sem
   `absolutePosition`.
 
-#### U9. [DESIGN SPIKE] Protocolo de fusão de mapas / alinhamento de frames
+#### U9. [ADIADO / EVITAR] Fusão de mapas cross-agente — só se um mapa global se provar necessário
 
-- **Goal:** quando dois agentes do time se enxergam e trocam percepções, alinhar seus frames e
-  fundir os mapas num frame de time único.
-- **Requirements:** R4.
-- **Dependencies:** U7, U8.
-- **Files:** novo [src/agt/common/map_merge.asl](src/agt/common/map_merge.asl), novo
-  [src/java/hive/FrameAlign.java](src/java/hive/FrameAlign.java) + teste.
-- **Approach (candidato, não resolvido):** ao perceber uma entidade do próprio time na visão,
-  trocar percepções locais e correlacionar **landmarks** (constelação única de dispensers/goal-zones)
-  para computar o transform entre frames; fundir. O **problema central** é identificar *qual* colega
-  está sendo visto (o MAPC não nomeia entidades percebidas).
-- **Execution note:** começar por um design spike / `/ce-brainstorm` dedicado — não implementar às
-  cegas. Há soluções concorrentes (handshake por movimento, landmark-matching, etc.).
-- **Test scenarios:** dado dois frames com um landmark compartilhado conhecido → transform correto;
-  rejeição quando a correlação é ambígua; merge idempotente. (Após o design fechar.)
-- **Verification:** dois agentes com trajetórias distintas convergem para um mapa de time
-  consistente num mini-cenário.
+- **Goal:** um mapa de time único **só se** a coordenação por mensagens/claims (default, à la MAPC)
+  não bastar. **Default da Fase D: não construir isto.**
+- **Requirements:** R4 (parcial).
+- **Dependencies:** U7, U8 + **decisão (por evidência) de que um mapa global é necessário**.
+- **Files:** (se promovido) novo `src/agt/common/map_merge.asl`, `src/java/hive/FrameAlign.java` + teste.
+- **Approach (não resolvido — design spike):** correlacionar **landmarks** (constelação de
+  dispensers/goal-zones) entre dois agentes que se enxergam p/ computar o transform entre frames. O
+  **problema central** é identificar *qual* colega se vê (o MAPC não nomeia entidades — e **não
+  resolveu** isto). Alternativa preferida: **dispensar o merge** e coordenar por claims/mensagens.
+- **Execution note:** **só promover após `/ce-brainstorm` dedicado** + evidência de que claims não
+  bastam. Não é trabalho da primeira passada da Fase D.
+- **Test scenarios:** (se promovido) transform correto dado landmark compartilhado; rejeição quando
+  ambíguo; merge idempotente.
+- **Verification:** (se promovido) dois agentes convergem para um mapa consistente num mini-cenário.
 
 #### U10. Escala para 20 agentes + composição de squad
 
@@ -332,12 +352,14 @@ pontuar lá.
 
 ## Risks & Dependencies
 
-- **Fusão de mapas (U9) é o maior risco de cronograma.** Problema de pesquisa em aberto
-  (identificação de colega percebido). Mitigação: design spike / brainstorm antes; manter Fases
-  A–C entregáveis independentemente (têm valor mesmo sem D na dev config e pela nota).
-- **Aposta do `absolutePosition`.** Se a competição rodar `true` (escolha do professor), a Fase D
-  inteira é desperdício. Mitigação barata: o flag de KTD3 e o param de KTD2 deixam o caminho
-  absoluto funcionando; confirmar com o professor reverteria o escopo sem retrabalho das Fases A–C.
+- **Aposta do `absolutePosition` (risco nº 1 de escopo).** Se a competição rodar `true`, a Fase D
+  inteira é desperdício. **Evidência nova:** o `~/repos/MAPC` (projeto do próprio dono) e os configs
+  de smoke assumem `true` → `true` é plausível/esperado. **Ação recomendada: confirmar com o
+  professor antes de investir na Fase D** — pode eliminar a maior fatia de risco do Track. O flag de
+  KTD3 e o param de KTD2 deixam o caminho absoluto funcionando enquanto isso.
+- **Fusão de mapas (U9) — evitada por default.** Era o maior risco; reframed para **não construir**
+  (coordenar por claims/mensagens, à la MAPC). Só vira risco se um mapa global se provar necessário.
+  Fases A–C seguem entregáveis independentemente (valem na dev e pela nota).
 - **Runs caras e ruidosas.** Validar por unit test (Fases B–D têm lógica Java testável) e só
   checkpoints na sim; reportar score com dispersão (STRATEGY.md).
 - **Norma `adopt` (quantity).** Adotar role demais do mesmo tipo gera punição; `RolePolicy` (U5)
@@ -349,8 +371,10 @@ pontuar lá.
 
 ## Open Questions
 
-- **A competição avaliada roda `absolutePosition: false`?** Determinante de a Fase D ser necessária.
-  Só o professor sabe; o usuário optou por assumir o pior. Confirmar reduziria muito o escopo.
+- **A competição avaliada roda `absolutePosition` true ou false?** (Pergunta nº 1.) Determina se a
+  Fase D é necessária. **Evidência nova aponta `true` como plausível** (o MAPC do próprio dono + os
+  configs de smoke assumem `true`). **Recomendação: confirmar com o professor antes da Fase D.** O
+  dono optou por assumir o pior (false); revisitar à luz da evidência.
 - **Identificação de colega percebido (U9).** Como saber *qual* agente do time está na visão, já
   que o MAPC não nomeia entidades? Núcleo do design spike.
 - **Viabilidade da inferência de dimensões do grid (U8)** sem posição absoluta.
@@ -388,3 +412,15 @@ pontuar lá.
   [src/agt/common/navigation.asl:114](src/agt/common/navigation.asl#L114),
   [src/env/env/SquadCoordinator.java:230](src/env/env/SquadCoordinator.java#L230),
   [src/java/hive/AdjacentDirection.java:8](src/java/hive/AdjacentDirection.java#L8).
+
+**`~/repos/MAPC`** — projeto JaCaMo anterior do **próprio dono**, mesmo contest. Referência, **não
+fonte da verdade** (estudado 2026-06-17):
+
+- `src/agt/worker_role.asl` + `explore.asl` — padrão de adoção de role **relativo** (percebe
+  `roleZone(RX,RY)` → `move_relative` → `adopt`) + hook de obrigação MOISE+. **Serve à Fase C.**
+- `src/env/StaticMapStore.java` + `MassimAgentArch.java` — mapa por-agente, coord absoluta,
+  write-once, **sem wrap nem merge**; a arch entrega percepções cruas e **não computa posição**.
+- `docker/conf/smoke-test-match.json` — `absolutePosition: true` (a config do MAPC).
+- `docs/plans/2026-06-09-002-...-plan.md` (do MAPC) — inferência de posição por move-count = **fallback
+  planejado, nunca implementado**. → **O MAPC não resolve `absolutePosition: false` (Fase D).**
+- `src/test/java/env/StaticMapStoreTest.java`, `ClaimsStoreTest.java` — exemplo de JUnit (referência p/ U3).
