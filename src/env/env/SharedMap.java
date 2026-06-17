@@ -11,12 +11,12 @@ public class SharedMap extends Artifact {
     private Set<String> knownGoalZones;
     private Set<String> knownRoleZones;
     private Set<String> visitedCells;
-    private ConcurrentHashMap<String, Integer> obstacles;
-    private ConcurrentHashMap<String, int[]> occupancy;   // nome -> {x, y, step}
-    private int occupancyStep = 0;                         // ultimo step reportado (p/ expirar entradas obsoletas)
+    ConcurrentHashMap<String, Integer> obstacles;         // package-private p/ teste (backfill Track 1)
+    ConcurrentHashMap<String, int[]> occupancy;           // nome -> {x, y, step}
+    int occupancyStep = 0;                                // ultimo step reportado (p/ expirar entradas obsoletas)
     private static final int TEAMMATE_PENALTY = 16;
-    private int gridWidth = 0;
-    private int gridHeight = 0;
+    int gridWidth = 0;
+    int gridHeight = 0;
     private List<int[]> cachedFrontiers = new ArrayList<>();
     private int lastFrontierVisitedSize = -1;
 
@@ -342,7 +342,7 @@ public class SharedMap extends Artifact {
         return mDist * 3;
     }
 
-    private String astar(int fx, int fy, int tx, int ty) {
+    String astar(int fx, int fy, int tx, int ty) {   // package-private p/ teste (backfill Track 1)
         fx = normX(fx); fy = normY(fy);
         tx = normX(tx); ty = normY(ty);
         int mDist = wrappedManhattan(fx, fy, tx, ty);

@@ -6,15 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SquadCoordinator extends Artifact {
 
-    private ConcurrentHashMap<String, String> agentSquad;
-    private ConcurrentHashMap<String, List<String>> squadMembers;
-    private ConcurrentHashMap<String, String> squadRole;
+    ConcurrentHashMap<String, String> agentSquad;          // package-private p/ teste (backfill Track 1)
+    ConcurrentHashMap<String, List<String>> squadMembers;
+    ConcurrentHashMap<String, String> squadRole;
     private ConcurrentHashMap<String, int[]> meetingPoints;
     private ConcurrentHashMap<String, Set<String>> readyAgents;
     private ConcurrentHashMap<String, String> collectorAssignments;
     private ConcurrentHashMap<String, String> squadActiveTask;
-    private ConcurrentHashMap<String, Boolean> soloistBusy;
-    private ConcurrentHashMap<String, int[]> agentPositions;
+    ConcurrentHashMap<String, Boolean> soloistBusy;
+    ConcurrentHashMap<String, int[]> agentPositions;
     private ConcurrentHashMap<String, java.util.Set<String>> taskSoloist;
 
     void init() {
@@ -271,9 +271,9 @@ public class SquadCoordinator extends Artifact {
         }
     }
 
-    private int wrapDist(int a, int b, int size) {
-        int d = Math.abs(a - b);
-        return Math.min(d, size - d);
+    // package-private p/ teste; delega ao único helper de wrap toroidal (dedup — review PR #5)
+    int wrapDist(int a, int b, int size) {
+        return Math.abs(hive.AdjacentDirection.wrapDelta(b - a, size));
     }
 
     private int toInt(Object o) {
