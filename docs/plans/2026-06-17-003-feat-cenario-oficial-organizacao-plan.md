@@ -409,10 +409,11 @@ pontuar lá.
 
 ## Sources & Research
 
-> **Princípio de reúso (do dono):** prior art é **citada** (relatório §1/§4/§7 + comentários de
-> código) e portamos a *técnica* **adaptada e melhorada** — nunca cópia literal. As fraquezas
-> conhecidas do LI(A)RA (sem wrap toroidal, drift corrigido por brute-force, gossip 1-hop,
-> ambiguidade no handshake) são exatamente onde "fazer melhorado".
+> **Princípio de reúso (do dono):** prior art **externa** é **citada** (relatório §1/§4/§7 +
+> comentários de código) e portamos a *técnica* **adaptada e melhorada** — nunca cópia literal. O
+> `~/repos/MAPC` é **trabalho do próprio dono → NÃO é citado** (reúso livre). As fraquezas conhecidas
+> do LI(A)RA (sem wrap toroidal, drift por brute-force, gossip 1-hop, ambiguidade) são exatamente
+> onde "fazer melhorado".
 
 - [STRATEGY.md](STRATEGY.md) — Track 3 (origin).
 - [src/org/hive_org.xml](src/org/hive_org.xml) — spec MOISE+ existente (não carregada).
@@ -429,17 +430,11 @@ pontuar lá.
   [src/env/env/SquadCoordinator.java:230](src/env/env/SquadCoordinator.java#L230),
   [src/java/hive/AdjacentDirection.java:8](src/java/hive/AdjacentDirection.java#L8).
 
-**`~/repos/MAPC`** — projeto JaCaMo anterior do **próprio dono**, mesmo contest. Referência, **não
-fonte da verdade** (estudado 2026-06-17):
-
-- `src/agt/worker_role.asl` + `explore.asl` — padrão de adoção de role **relativo** (percebe
-  `roleZone(RX,RY)` → `move_relative` → `adopt`) + hook de obrigação MOISE+. **Serve à Fase C.**
-- `src/env/StaticMapStore.java` + `MassimAgentArch.java` — mapa por-agente, coord absoluta,
-  write-once, **sem wrap nem merge**; a arch entrega percepções cruas e **não computa posição**.
-- `docker/conf/smoke-test-match.json` — `absolutePosition: true` (a config do MAPC).
-- `docs/plans/2026-06-09-002-...-plan.md` (do MAPC) — inferência de posição por move-count = **fallback
-  planejado, nunca implementado**. → **O MAPC não resolve `absolutePosition: false` (Fase D).**
-- `src/test/java/env/StaticMapStoreTest.java`, `ClaimsStoreTest.java` — exemplo de JUnit (referência p/ U3).
+_(**Nota interna — NÃO é citação.** O `~/repos/MAPC` é prior work do **próprio dono**; reúso livre,
+não vai às referências do relatório.)_ Dele aprendemos: o padrão de adoção de role relativo
+(`worker_role.asl`/`explore.asl`, Fase C) e a sintaxe de org (Fase A). **Confirmado:** o MAPC punta o
+`absolutePosition` (config `true`, mapa write-once sem merge, inferência só planejada) → **não
+resolve a Fase D**. Os `*Test.java` dele serviram de molde mental para o JUnit (U3).
 
 **LI(A)RA** ([github.com/Liga-IA/liara-agents](https://github.com/Liga-IA/liara-agents)) — **time
 Jason** do MAPC 2022, jogou o **cenário oficial** (`absolutePosition: false`). **Resolve a Fase D**
