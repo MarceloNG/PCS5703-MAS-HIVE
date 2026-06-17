@@ -271,9 +271,9 @@ public class SquadCoordinator extends Artifact {
         }
     }
 
-    int wrapDist(int a, int b, int size) {   // package-private p/ teste (backfill Track 1)
-        int d = Math.abs(a - b);
-        return Math.min(d, size - d);
+    // package-private p/ teste; delega ao único helper de wrap toroidal (dedup — review PR #5)
+    int wrapDist(int a, int b, int size) {
+        return Math.abs(hive.AdjacentDirection.wrapDelta(b - a, size));
     }
 
     private int toInt(Object o) {
