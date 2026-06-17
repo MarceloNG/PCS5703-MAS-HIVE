@@ -21,6 +21,10 @@
       </role>
     </role-definitions>
 
+    <!-- Estrutura achatada (U1): os subgrupos squad_group/sentinel_group foram
+         removidos para instanciação simples e robusta no hive.jcm. O conceito de
+         "squad" é realizado no Java (SquadCoordinator), não pela hierarquia MOISE+.
+         Os links de autoridade/comunicação foram elevados para hive_team. -->
     <group-specification id="hive_team">
       <roles>
         <role id="squad_leader" min="3" max="4"/>
@@ -28,30 +32,14 @@
         <role id="assembler"    min="3" max="4"/>
         <role id="sentinel"     min="1" max="3"/>
       </roles>
-
-      <subgroups>
-        <group-specification id="squad_group" min="2" max="4">
-          <roles>
-            <role id="squad_leader" min="1" max="1"/>
-            <role id="collector"    min="1" max="2"/>
-            <role id="assembler"    min="1" max="1"/>
-          </roles>
-          <links>
-            <link from="squad_leader" to="collector"
-                  type="authority" scope="intra-group"/>
-            <link from="squad_leader" to="assembler"
-                  type="authority" scope="intra-group"/>
-            <link from="collector" to="assembler"
-                  type="communication" scope="intra-group"/>
-          </links>
-        </group-specification>
-
-        <group-specification id="sentinel_group" min="1" max="2">
-          <roles>
-            <role id="sentinel" min="1" max="3"/>
-          </roles>
-        </group-specification>
-      </subgroups>
+      <links>
+        <link from="squad_leader" to="collector"
+              type="authority" scope="intra-group"/>
+        <link from="squad_leader" to="assembler"
+              type="authority" scope="intra-group"/>
+        <link from="collector" to="assembler"
+              type="communication" scope="intra-group"/>
+      </links>
     </group-specification>
 
   </structural-specification>
@@ -82,13 +70,15 @@
           <goal id="pattern_submitted" ttf="30"/>
         </plan>
       </goal>
-      <mission id="m_collect" min="1" max="2">
+      <!-- Max cardinalities alinhadas ao time achatado (U1): 6 collectors podem
+           comprometer m_collect; 3 assemblers comprometem m_assemble e m_submit. -->
+      <mission id="m_collect" min="1" max="8">
         <goal id="blocks_collected"/>
       </mission>
-      <mission id="m_assemble" min="1" max="1">
+      <mission id="m_assemble" min="1" max="4">
         <goal id="blocks_assembled"/>
       </mission>
-      <mission id="m_submit" min="1" max="1">
+      <mission id="m_submit" min="1" max="4">
         <goal id="pattern_submitted"/>
       </mission>
     </scheme>

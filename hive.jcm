@@ -23,6 +23,32 @@ mas hive {
     agent connectionA14 : sentinel.asl
     agent connectionA15 : sentinel.asl
 
+    // Organização MOISE+ (U1): carrega hive_org.xml e instancia o time.
+    // Os agentes adotam seus roles organizacionais via a lista 'players'.
+    // Scheme ativo = task_execution_scheme (ciclo coletar->montar->submeter);
+    // exploration/defense ficam especificados no XML, ainda não instanciados.
+    organisation hive_org : src/org/hive_org.xml {
+        group ht : hive_team {
+            responsible-for: sch_task
+            players: connectionA1  squad_leader
+                     connectionA2  squad_leader
+                     connectionA3  squad_leader
+                     connectionA4  collector
+                     connectionA5  collector
+                     connectionA6  collector
+                     connectionA7  collector
+                     connectionA8  collector
+                     connectionA9  collector
+                     connectionA10 assembler
+                     connectionA11 assembler
+                     connectionA12 assembler
+                     connectionA13 sentinel
+                     connectionA14 sentinel
+                     connectionA15 sentinel
+        }
+        scheme sch_task : task_execution_scheme
+    }
+
     asl-path: src/agt, src/agt/common
 
 }
