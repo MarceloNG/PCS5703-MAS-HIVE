@@ -18,3 +18,11 @@ A consciência efêmera de colega no A*: as células ocupadas por colegas vivos 
 
 ### Escape reativo
 Camada `.asl` de último recurso: quando um move falha ou a oscilação dispara, o agente vai para um vizinho livre (pela percepção local) que mais aproxima do destino, ou cede o passo se encurralado. É **fallback** para corredor frente-a-frente — o roteamento no espaço aberto é responsabilidade do A* (via overlay de ocupação), não do reflexo.
+
+## Organização & Roles
+
+### Role organizacional (MOISE+)
+O papel de um agente na **estrutura de time** definida pela organização MOISE+ (`hive_org`): squad_leader, collector, assembler, sentinel. Muda via `adoptRole` na org (Ora4MAS). É exigido pelo enunciado, mas **não** afeta as ações disponíveis no simulador. Não confundir com o [[role do cenário]].
+
+### Role do cenário (MAPC)
+O papel que o **simulador** atribui ao agente e que **gateia quais ações** ele pode executar: default, worker, constructor, explorer. Só worker/constructor têm `request/attach/connect/submit` (as ações que pontuam). Muda via a ação `adopt`, e só quando o agente está sobre uma **role-zone**. No cenário oficial o agente começa como `default` (sem ações de pontuação) → sem adoção, score 0. Distinto do [[role organizacional]].
