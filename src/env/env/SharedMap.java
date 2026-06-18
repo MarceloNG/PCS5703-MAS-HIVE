@@ -457,7 +457,7 @@ public class SharedMap extends Artifact {
     // entrar como camada de traducao SEM reescrever o mapa, e e exercitada em teste
     // (prova que o mapa por-agente e parametrizado por frame). Nao re-emite obs
     // properties (known_*) — isso fica para a U9.
-    String shiftKey(String key, int dX, int dY) {
+    private String shiftKey(String key, int dX, int dY) {
         int ci = key.indexOf(',');
         int x = Integer.parseInt(key.substring(0, ci));
         int y = Integer.parseInt(key.substring(ci + 1));

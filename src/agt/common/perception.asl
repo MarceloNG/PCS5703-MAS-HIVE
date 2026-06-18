@@ -34,6 +34,7 @@ dr_pos(0, 0).
 +!offline_cascade <- true.
 
 // integra o move bem-sucedido no frame local (so quando dead-reckoning, i.e. sem percept).
+// Espelha hive.LocalFrame.integrate (fonte canonica testada) — manter os deltas n/s/e/w em sincronia.
 // guard lastAction(move): so integra se a acao deste step foi MESMO um move — senao um
 // last_attempted_dir remanescente de um move falho seria integrado por um sucesso de
 // acao nao-move (skip/attach/rotate/connect), driftando dr_pos permanentemente (review Fase D).

@@ -113,4 +113,41 @@ class SharedMapRelativeTest {
         assertFalse(sm.occupancy.containsKey("seen_9_9"));
         assertTrue(sm.occupancy.containsKey("agentA1"));
     }
+
+    // Fase D (#7): em step nao-multiplo-de-5 o decay e no-op — nao poda nada (review Fase D).
+    @Test
+    void decayNaoPodaForaDoMultiploDe5() {
+        SharedMap sm = freshMap(0, 0);
+        sm.occupancyStep = 20;
+        sm.occupancy.put("seen_9_9", new int[]{9, 9, 10}); // seria obsoleta se o decay rodasse
+        sm.decay_obstacles(21);                            // step % 5 != 0 -> early return
+        assertTrue(sm.occupancy.containsKey("seen_9_9"));
+    }
+
+    // R3 / U3: instancias por-agente sao frames PRIVADOS — escrever numa nao vaza p/ outra.
+    // (Invariante central do split instancia-por-agente; prometida no plano, antes sem teste.)
+    @Test
+    void instanciasPorAgenteNaoCompartilhamCelulas() {
+        SharedMap a = freshMap(0, 0);
+        SharedMap b = freshMap(0, 0);
+        a.cells.put("5,3", "obstacle:");
+        a.obstacles.put("5,3", 10);
+        a.visitedCells.add("5,3");
+        a.knownGoalZones.add("5,3");
+        assertFalse(b.cells.containsKey("5,3"));
+        assertFalse(b.obstacles.containsKey("5,3"));
+        assertFalse(b.visitedCells.contains("5,3"));
+        assertFalse(b.knownGoalZones.contains("5,3"));
+    }
+
+    // translateCells com offset NEGATIVO sob wrap toroidal exercita o ramo modular de norm()
+    // (a < 0): 2 + (-5) = -3 -> 67 (mod 70). O round-trip existente usa freshMap(0,0), sem wrap.
+    @Test
+    void translacaoToroidalOffsetNegativo() {
+        SharedMap sm = freshMap(70, 70);
+        sm.visitedCells.add("2,0");
+        sm.translateCells(-5, 0); // 2-5 = -3 -> 67 (mod 70)
+        assertTrue(sm.visitedCells.contains("67,0"));
+        assertFalse(sm.visitedCells.contains("-3,0"));
+    }
 }
