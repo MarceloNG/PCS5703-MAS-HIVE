@@ -54,6 +54,11 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
       & has_destination(DX, DY) & (last_move_blocked | escape_pending(_, _))
     <- .abolish(last_move_blocked);
        .abolish(escape_pending(_, _));
+       // travou indo p/ a role-zone: DISPERSAR por ~15 steps em vez de re-mirar a mesma
+       // — quebra a oscilação escape→re-beeline→bloqueio que prende o agente na área
+       // (e descongestiona a vizinhança das role-zones).
+       .abolish(rz_disperse_until(_));
+       +rz_disperse_until(N + 15);
        !escape_move(MX, MY, DX, DY).
 
 // (b) Trigger geral: enquanto o role atual não pontua, perseguir o worker.
@@ -97,8 +102,15 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
 // ou explora se nenhuma é conhecida ainda. Espelha o idioma de !collect_block.
 // ------------------------------------------------------------
 
+// dispersando após travar numa role-zone inalcançável → EXPLORA (espalha) em vez de
+// re-mirar a mesma; re-tenta a role-zone quando a janela expira (já possivelmente noutro lugar).
 +!seek_role_zone(MX, MY)
-    <- get_nearest_role_zone(MX, MY, RX, RY);
+    : rz_disperse_until(Until) & step(N) & N < Until
+    <- !do_explore(MX, MY).
+
++!seek_role_zone(MX, MY)
+    <- .abolish(rz_disperse_until(_));      // janela expirou (ou nunca houve) → volta a mirar role-zone
+       get_nearest_role_zone(MX, MY, RX, RY);
        if (RX == -1) {
            .print("[ROLE] Nenhuma role-zone conhecida — explorando.");
            !do_explore(MX, MY)
