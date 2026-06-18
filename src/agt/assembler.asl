@@ -1,4 +1,5 @@
 { include("common/perception.asl") }
+{ include("common/shared_map_init.asl") }
 { include("$jacamo/templates/common-cartago.asl") }
 { include("$jacamo/templates/common-moise.asl") }
 { include("common/organization.asl") }
@@ -23,15 +24,6 @@ my_role_type(assembler).
        makeArtifact(Me, "connection.EISAccess", ["eismassimconfig.json", Me], EisId);
        focus(EisId);
        .print("[ASSEMBLER] Conectado. Modo: exploracao + montagem.").
-
-+!setup_shared_map
-    <- lookupArtifact("shared_map", MapId); focus(MapId).
--!setup_shared_map
-    <- .wait(50); !try_create_map.
-+!try_create_map
-    <- makeArtifact("shared_map", "env.SharedMap", [], MapId); focus(MapId).
--!try_create_map
-    <- .wait(100); !setup_shared_map.
 
 +!setup_task_board
     <- lookupArtifact("task_board", TbId); focus(TbId).
@@ -68,7 +60,7 @@ my_role_type(assembler).
 -!check_expired_task <- true.
 
 +name(N)  <- .print("[ASSEMBLER] SIM-START: nome = ", N).
-+team(T)  <- .print("[ASSEMBLER] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[ASSEMBLER] SIM-START: time = ", T).
 +steps(S) <- .print("[ASSEMBLER] SIM-START: steps = ", S).
 
 

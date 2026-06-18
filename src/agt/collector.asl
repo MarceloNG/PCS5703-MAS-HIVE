@@ -1,4 +1,5 @@
 { include("common/perception.asl") }
+{ include("common/shared_map_init.asl") }
 { include("$jacamo/templates/common-cartago.asl") }
 { include("$jacamo/templates/common-moise.asl") }
 { include("common/organization.asl") }
@@ -24,15 +25,6 @@ my_role_type(collector).
        focus(EisId);
        .print("[COLLECTOR] Conectado. Modo: exploracao + coleta.").
 
-+!setup_shared_map
-    <- lookupArtifact("shared_map", MapId); focus(MapId).
--!setup_shared_map
-    <- .wait(50); !try_create_map.
-+!try_create_map
-    <- makeArtifact("shared_map", "env.SharedMap", [], MapId); focus(MapId).
--!try_create_map
-    <- .wait(100); !setup_shared_map.
-
 +!setup_task_board
     <- lookupArtifact("task_board", TbId); focus(TbId).
 -!setup_task_board
@@ -52,7 +44,7 @@ my_role_type(collector).
     <- .wait(100); !setup_squad_coordinator.
 
 +name(N)  <- .print("[COLLECTOR] SIM-START: nome = ", N).
-+team(T)  <- .print("[COLLECTOR] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[COLLECTOR] SIM-START: time = ", T).
 +steps(S) <- .print("[COLLECTOR] SIM-START: steps = ", S).
 
 // --- Reagir a ordem de coleta do leader (via mensagem direta) ---

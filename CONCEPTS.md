@@ -5,7 +5,10 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 ## Navegação
 
 ### SharedMap
-O modelo de mundo compartilhado que todos os agentes leem e escrevem: o mapa conhecido (paredes, goal zones, dispensers, fronteiras), o pathfinding (A*) e a ocupação viva dos colegas. É a fonte única de verdade para decisões de navegação — um artefato compartilhado, não a visão local de um agente.
+O modelo de mundo de um agente: o mapa conhecido (paredes, goal zones, dispensers, fronteiras), o pathfinding (A*) e a ocupação viva percebida. A partir da Fase D (U3) é **uma instância por-agente** (`map_<nome>`), cada uma um **frame local privado** — não há mais um artefato único compartilhado pelos 15 (sem posição absoluta não existe frame global pré-fusão). A partilha de descobertas entre agentes é a **fusão (U9)**, deferida, que entra como tradução por offset (`translateCells`). A coordenação entre agentes pré-fusão segue por `task_board` e `squad_coordinator` (esses **continuam compartilhados**) — mas mensagens que carregam **coordenadas** são cross-frame (ver "frame local").
+
+### Frame local
+O referencial de coordenadas privado de um agente no oficial (`absolutePosition:false`): origem (0,0) no início, posição mantida por dead-reckoning (`dr_pos`). Coordenadas só são comparáveis **dentro do mesmo frame** — trocar coordenadas entre agentes sem a fusão (U9) é inválido (origens distintas).
 
 ### Livelock de movimento
 Modo de falha em que os agentes **agem** todo step mas **não progridem** espacialmente ao se aglomerar perto de paredes ou uns dos outros. Distinto de "stuck" (congelado na mesma célula): no livelock o agente se move, só não chega a lugar nenhum útil.

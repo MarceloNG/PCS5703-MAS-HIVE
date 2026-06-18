@@ -1,12 +1,31 @@
 ---
 title: "refactor: ingestão do mapa compartilhado em lote"
-status: active
+status: superseded
 date: 2026-06-16
 type: refactor
 origin: docs/brainstorms/2026-06-16-mapa-compartilhado-lote-requirements.md
 ---
 
 # refactor: ingestão do mapa compartilhado em lote
+
+> **ENCERRADO — superseded (2026-06-18).** Este plano não vai adiante. Três motivos:
+> 1. **A premissa foi refutada por profiling.** O gargalo NÃO era a serialização do
+>    `SharedMap`. 40 thread-dumps `jstack` durante o run lento mostraram `env.SharedMap`
+>    e A* com **0** frames; o tempo era gasto dormindo na bomba de percepção do EIS
+>    (`EISAccess.updatePercepts`). Ver [[hive-shared-map-bottleneck]].
+> 2. **O `ingest_view` (U1/U2) foi implementado e revertido** (neutro — re-ingeria a visão
+>    toda, fazendo igual/mais trabalho). O fix real de desempenho foi `awaitTime` 100→500
+>    no `EISAccess.java` (commit `928410c`, já neste branch): ~8× menos timeouts, ~5× mais
+>    rápido por step.
+> 3. **Fase D / U3 tornou o `SharedMap` uma instância por-agente** (frame local privado) —
+>    não existe mais "instância única compartilhada pelos 15" para fazer ingestão em lote,
+>    então o mecanismo proposto aqui é arquiteturalmente obsoleto. (A instância-por-agente
+>    foi feita para isolamento de frame, **não** por desempenho — o `awaitTime` já resolvera
+>    o perf; não atribuir ganho de velocidade a ela.)
+>
+> Mantido como registro da investigação. Não reabrir sem novo profiling.
+
+---
 
 ## Summary
 

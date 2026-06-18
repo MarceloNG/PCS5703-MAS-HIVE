@@ -1,4 +1,5 @@
 { include("common/perception.asl") }
+{ include("common/shared_map_init.asl") }
 { include("$jacamo/templates/common-cartago.asl") }
 { include("$jacamo/templates/common-moise.asl") }
 { include("common/organization.asl") }
@@ -24,15 +25,6 @@ my_role_type(squad_leader).
        .print("[LEADER] Conectado. Modo: exploracao + coordenacao.");
        !register_squad_on_dashboard.
 
-+!setup_shared_map
-    <- lookupArtifact("shared_map", MapId); focus(MapId).
--!setup_shared_map
-    <- .wait(50); !try_create_map.
-+!try_create_map
-    <- makeArtifact("shared_map", "env.SharedMap", [], MapId); focus(MapId).
--!try_create_map
-    <- .wait(100); !setup_shared_map.
-
 +!setup_task_board
     <- lookupArtifact("task_board", TbId); focus(TbId).
 -!setup_task_board
@@ -52,7 +44,7 @@ my_role_type(squad_leader).
     <- .wait(100); !setup_squad_coordinator.
 
 +name(N)  <- .print("[LEADER] SIM-START: nome = ", N).
-+team(T)  <- .print("[LEADER] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[LEADER] SIM-START: time = ", T).
 +steps(S) <- .print("[LEADER] SIM-START: steps = ", S).
 
 // --- Reagir a nova task disponivel (wait 150ms to ensure +task percept is processed) ---
@@ -130,6 +122,10 @@ my_role_type(squad_leader).
                if (Busy1 | BusyAsm) {
                    .print("[LEADER] 2-block: busy, skip ", TaskName)
                } else {
+                   // FIXME Fase D (#2, cross-frame): GX,GY estao no frame DESTE leader.
+                   // Pre-fusao (sem U9) cada agente tem origem propria, entao o meeting-point
+                   // nao traduz para o frame do collector/assembler — rendezvous multi-bloco
+                   // so converge por adjacencia percebida. A U9 (frame compartilhado) resolve.
                    set_meeting_point(MySquad, GX, GY);
                    mark_busy(Col1);
                    mark_busy(Asm);
