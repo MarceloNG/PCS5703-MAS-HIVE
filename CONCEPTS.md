@@ -22,6 +22,12 @@ A consciência efêmera de colega no A*: as células ocupadas por colegas vivos 
 ### Escape reativo
 Camada `.asl` de último recurso: quando um move falha ou a oscilação dispara, o agente vai para um vizinho livre (pela percepção local) que mais aproxima do destino, ou cede o passo se encurralado. É **fallback** para corredor frente-a-frente — o roteamento no espaço aberto é responsabilidade do A* (via overlay de ocupação), não do reflexo.
 
+### Heading-balanceado
+Direção preferencial de exploração derivada do nome do agente (índice mod 4 → N/S/L/O), estática para toda a simulação. Durante `!do_explore`, o agente prioriza frontiers que estejam nessa direção relativa à posição atual; quando o setor preferencial está esgotado, cai para a frontier global mais próxima (viés suave, não partição rígida). Ataca a **exploração redundante** (15 agentes percorrendo as mesmas áreas).
+
+### Handedness
+Tiebreak consistente no escape reativo: quando múltiplos candidatos estão empatados na menor distância ao destino, o agente escolhe o primeiro na ordem horária (N → L → S → O), em vez de escolha aleatória. Quebra a simetria do deadlock de corredor frente-a-frente (ambos giram para o mesmo lado → passam), substituindo o jitter aleatório do `pick_escape`.
+
 ## Organização & Roles
 
 ### Role organizacional (MOISE+)
