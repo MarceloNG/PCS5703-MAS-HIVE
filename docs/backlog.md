@@ -66,6 +66,41 @@ A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json
 > as ações), com 2 instâncias HIVE (worktree time B: `agentB*`) — mostra competição/contenção real,
 > mas não é o mapa oficial.
 
+## Fusão de mapas cross-agente — agentes juntam mapas quando se encontram (U9, deferido da Fase D)
+
+**Levantado pelo dono (2026-06-17): feature importante p/ entregar mais pontos.** Hoje (incremento 1
+da Fase D) cada agente tem um mapa **privado** no seu próprio frame dead-reckoned (`map_<nome>`); sem
+posição absoluta, não há frame global, então as descobertas **não são compartilhadas**.
+
+**A ideia (dono):** quando dois agentes do time **se enxergam no mesmo step**, cada um passa a ter a
+**referência que transforma** os dados do mapa do colega — basta saber a **posição relativa** deles
+(o offset entre os dois frames). Daí toda posição informada pelo colega é traduzida pro frame próprio.
+
+**Mecanismo (padrão *proven* do LI(A)RA, `src/asl/synchronism.asl`):** ao perceber um colega na visão,
+registrar `found_mate(...)` e **broadcast**; quem viu o par no **mesmo step** com offsets consistentes
+computa `mate_filter(Colega, dX, dY)` (o offset entre frames); a partir daí, posições recebidas do
+colega entram traduzidas por `(+dX, +dY)`.
+
+**Já está meio caminho andado:** a costura `SharedMap.translateCells(dX, dY)` (R7, commit `12500f0`)
+**já implementa e testa** a álgebra de tradução toroidal do mapa por um offset. Falta: (a) o handshake
+de avistamento mútuo que **descobre** o `dX,dY`; (b) propagar/importar os dados do colega traduzidos
+(dispensers/goal-zones/role-zones/obstáculos) — sem reescrever o mapa.
+
+**Por que move o score:** agentes compartilham descobertas → acham dispenser/goal-zone/role-zone muito
+mais rápido (menos re-exploração); e um **frame compartilhado habilita montagem multi-bloco coordenada
+por coordenadas** (rendezvous/connect), que é onde está o reward alto. Bônus: restaura a partilha de
+mapa que o dev perdeu ao virar instância-por-agente.
+
+**Melhorar vs LI(A)RA (não copiar):** o LI(A)RA é imperfeito — sem **wrap toroidal** na tradução (a
+nossa `translateCells` já tem), gossip **multi-hop** é TODO (sync 1-hop), drift corrigido por
+brute-force, e risco de **ambiguidade** quando vários pares se veem no mesmo step. Tratar esses pontos.
+
+**Gate:** era "medir antes da fusão" (decisão guiada por evidência). Promover quando a **Fase C** (adoção
+de role → score real no oficial) estiver de pé e a medição mostrar que partilha/montagem move o score.
+Origem: [`docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md`](brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md)
+(Scope Boundaries / U9), que cita o **LI(A)RA** (time Jason, MAPC 2022 — `github.com/Liga-IA/liara-agents`,
+`src/asl/synchronism.asl`) como referência *proven* da técnica.
+
 ## Estratégia de testes — validar comportamento isolado, sem rodar o cenário completo
 
 **Dor recorrente:** validar qualquer mudança custou um run de sim (~3-4 min, headless, com gotchas de
