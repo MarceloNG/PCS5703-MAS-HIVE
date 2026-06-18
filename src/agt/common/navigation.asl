@@ -215,16 +215,16 @@ is_bounce(w) :- last_attempted_dir(e).
        !pick_escape(MX, MY).
 -!escape_move(_, _, _, _) <- .abolish(esc_cand(_, _)); action("skip").
 
-// ha candidato legal: move ao mais proximo do destino (empate -> jitter)
+// ha candidato legal: move ao mais proximo do destino (empate -> ordem horaria)
 +!pick_escape(MX, MY)
     : esc_cand(_, _)
     <- .findall(c(D, Dir), esc_cand(Dir, D), L);
        .min(L, c(MinD, _));
        .findall(TDir, esc_cand(TDir, MinD), Ties);
-       .length(Ties, NT);
-       .random(R);
-       RIdx = math.floor(R * NT);
-       .nth(RIdx, Ties, ChosenDir);
+       if (.member(n, Ties)) { ChosenDir = n }
+       elif (.member(e, Ties)) { ChosenDir = e }
+       elif (.member(s, Ties)) { ChosenDir = s }
+       else { ChosenDir = w };
        .abolish(esc_cand(_, _));
        .abolish(boxed_count(_));
        .abolish(last_attempted_dir(_));
