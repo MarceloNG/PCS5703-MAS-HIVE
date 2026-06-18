@@ -44,7 +44,7 @@ my_role_type(collector).
     <- .wait(100); !setup_squad_coordinator.
 
 +name(N)  <- .print("[COLLECTOR] SIM-START: nome = ", N).
-+team(T)  <- .print("[COLLECTOR] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[COLLECTOR] SIM-START: time = ", T).
 +steps(S) <- .print("[COLLECTOR] SIM-START: steps = ", S).
 
 // --- Reagir a ordem de coleta do leader (via mensagem direta) ---

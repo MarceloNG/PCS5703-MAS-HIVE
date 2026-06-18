@@ -44,7 +44,7 @@ my_role_type(squad_leader).
     <- .wait(100); !setup_squad_coordinator.
 
 +name(N)  <- .print("[LEADER] SIM-START: nome = ", N).
-+team(T)  <- .print("[LEADER] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[LEADER] SIM-START: time = ", T).
 +steps(S) <- .print("[LEADER] SIM-START: steps = ", S).
 
 // --- Reagir a nova task disponivel (wait 150ms to ensure +task percept is processed) ---

@@ -60,7 +60,7 @@ my_role_type(assembler).
 -!check_expired_task <- true.
 
 +name(N)  <- .print("[ASSEMBLER] SIM-START: nome = ", N).
-+team(T)  <- .print("[ASSEMBLER] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[ASSEMBLER] SIM-START: time = ", T).
 +steps(S) <- .print("[ASSEMBLER] SIM-START: steps = ", S).
 
 

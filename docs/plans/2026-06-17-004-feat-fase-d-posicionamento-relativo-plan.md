@@ -67,7 +67,9 @@ caro (a fusão de mapas), cujo retorno real é a coordenação de montagem multi
   tradução por offset. **Trade-off:** o conhecimento de mapa fica privado pré-fusão — alvos
   descobertos por um agente não chegam aos outros pelo mapa (esperam U9); a coordenação
   pré-fusão segue por mensagens (`task_board`, `squad_coordinator`, que continuam
-  compartilhados).
+  compartilhados). **Ressalva (ver Risks #2):** mensagens que carregam **coordenadas**
+  (connect/meeting-point) são cross-frame e não convergem no oficial pré-fusão — só a
+  coordenação que não troca coordenadas (tipo de tarefa, papéis) sobrevive intacta.
 
 - **KTD3 — Dimensão toroidal por-instância e best-effort.** A inferência alimenta os campos
   `gridWidth`/`gridHeight` **da instância** (já per-instance no `SharedMap`), não o

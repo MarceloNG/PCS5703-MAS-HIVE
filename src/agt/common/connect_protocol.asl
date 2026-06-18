@@ -460,6 +460,11 @@
        +waiting_connect_collector(AsmName);
        .print("[CONNECT] Step ", N, ": Collector connect(", AsmName, ",", AX, ",", AY, ")").
 
+// FIXME Fase D (#2, cross-frame): AsmX,AsmY vem do connect_request no frame do
+// ASSEMBLER; MX,MY e o frame do collector (origens distintas pre-fusao). CDX/CDY
+// abaixo mistura frames -> navegacao ao ponto de connect fica incorreta no oficial.
+// Mesmo problema dos sites ja marcados (communication.asl, squad_leader.asl). A U9
+// (frame compartilhado) resolve; ate la, vale connect so por adjacencia percebida.
 +step(N)
     : pending_connect(AsmName, AsmX, AsmY, TS) & my_pos(MX, MY)
     <- CDX = AsmX - MX; CDY = AsmY - MY;

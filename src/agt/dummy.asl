@@ -15,7 +15,7 @@
 
 // SIM-START percepts
 +name(N)     <- .print("SIM-START: nome = ", N).
-+team(T)     <- .print("SIM-START: time = ", T).
++team(T)     <- -my_team(_); +my_team(T); .print("SIM-START: time = ", T).
 +steps(S)    <- .print("SIM-START: total steps = ", S).
 
 // Quando descobre um dispenser, tenta coletar

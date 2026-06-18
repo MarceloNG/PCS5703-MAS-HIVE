@@ -43,7 +43,7 @@ my_role_type(sentinel).
     <- .wait(100); !setup_squad_coordinator.
 
 +name(N)  <- .print("[SENTINEL] SIM-START: nome = ", N).
-+team(T)  <- .print("[SENTINEL] SIM-START: time = ", T).
++team(T)  <- -my_team(_); +my_team(T); .print("[SENTINEL] SIM-START: time = ", T).
 +steps(S) <- .print("[SENTINEL] SIM-START: steps = ", S).
 
 // --- SOLOIST TASK: recebida do leader via pool ---

@@ -4,8 +4,14 @@
 
 // --- Grid dimensions (toroidal wrapping) ---
 
-// U4: dimensões vêm da fonte única hive.GridConfig (não mais hardcoded).
-+!try_set_grid_dims <- apply_grid_config.
+// #1+#2 (review Fase D): dims aplicadas SO no modo dev, no 1o +position (abaixo).
+// No oficial (absolutePosition:false, sem percept 'position') as dims ficam 0 ->
+// normX/normY viram identidade -> o mapa e o dr_pos vivem no MESMO frame nao-
+// normalizado e o A* roda sem-wrap (KTD3, degradacao graciosa). Isso evita o
+// modulo errado (apply_grid_config poria 40 num servidor 70x70 sem -PgridW) e o
+// mismatch dr_pos(ilimitado)-vs-coord-normalizada que quebrava a chegada pos-wrap.
+// A U4 (deferida) infere as dims reais do oficial depois.
++!try_set_grid_dims <- true.
 
 // --- Posicao: dev usa o percept 'position'; no oficial (absolutePosition:false,
 // sem percept) cai para dead-reckoning em dr_pos (Fase D / keystone U2). ---
@@ -15,6 +21,11 @@ my_pos(X, Y) :- not position(_, _) & dr_pos(X, Y).
 // frame local dead-reckoned (origem no inicio); integrado a cada move bem-sucedido.
 dr_pos(0, 0).
 
+// dev (ha percept 'position'): aplica as dims do GridConfig 1x (origem: -PgridW/H
+// ou default 40). No oficial este plano nunca dispara, logo dims ficam 0 (ver
+// try_set_grid_dims acima).
++position(X, Y) : not grid_dims_applied
+    <- +grid_dims_applied; apply_grid_config; !on_pos_update(X, Y).
 +position(X, Y) <- !on_pos_update(X, Y).
 
 // cascata por-posicao (extraida p/ reuso pelo caminho dead-reckoned do oficial).
@@ -115,11 +126,12 @@ dr_pos(0, 0).
 // Fase D / U5: sem frame global, o overlay #2 evita entidades PERCEBIDAS
 // (alcance de visao) no frame local. Chave por celula; expira sozinha (snapshot).
 // #4: nao penaliza entidade de time INIMIGO confirmado (R8 = colega) — 'Details'
-// e o time da entidade, 'team(MyTeam)' o nosso. Guard conservador: so pula quando
-// SABE que e inimigo; se o time ainda nao esta bound, marca (degrada seguro, sem
-// re-desligar o overlay e reabrir o livelock).
+// e o time da entidade, 'my_team(MyTeam)' o nosso (persistido do percept SIM-START
+// 'team', que o EIS apaga apos o step 1 — por isso my_team, nao team). Guard
+// conservador: so pula quando SABE que e inimigo; se my_team ainda nao esta bound,
+// marca (degrada seguro, sem re-desligar o overlay e reabrir o livelock).
 +!mark_entity_occupancy(entity, Team, RX, RY, MX, MY)
-    : not (RX == 0 & RY == 0) & step(N) & not (team(MyTeam) & Team \== MyTeam)
+    : not (RX == 0 & RY == 0) & step(N) & not (my_team(MyTeam) & Team \== MyTeam)
     <- EX = MX + RX; EY = MY + RY;
        .concat("seen_", EX, "_", EY, K);
        update_occupancy(K, EX, EY, N).
