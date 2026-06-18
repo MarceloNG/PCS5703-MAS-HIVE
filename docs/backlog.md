@@ -2,6 +2,26 @@
 
 Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prioridade).
 
+## Status — o que já landou vs WIP (2026-06-18)
+
+**✅ Concluído:**
+- **Track 3 Fase D — posicionamento relativo (incremento 1).** Dead-reckoning por-agente, `SharedMap`
+  por instância (`map_<nome>`), `translateCells` (costura R7 da fusão), overlay #2 por entidade
+  percebida + filtro de time inimigo. **Verificado por boot:** o cenário oficial (`absolutePosition:false`,
+  70×70) agora **roda** e os agentes navegam/convergem a alvos no frame relativo (antes nem rodava → score
+  0 por inércia). Plano:
+  [`2026-06-17-004-...`](plans/2026-06-17-004-feat-fase-d-posicionamento-relativo-plan.md). *Deferido:*
+  U4 (inferência de dimensão toroidal) e U9 (fusão de mapas — seção própria abaixo).
+- **Grid parametrizável** (Adaptação oficial, item 1 — `hive.GridConfig` + `-PgridW/-PgridH`).
+- **Harness JUnit** (Testes, item 1 — 44 testes verdes: A* toroidal/overlay, dead-reckoning, tradução de frame, grid, leilão).
+
+**🚧 Em andamento (WIP):**
+- **Track 3 Fase C — adoção de role.** O **gate de score** no oficial: sem ela o time anda mas **não
+  pontua** (o role inicial `default` não tem `request`/`attach`/`submit`/`connect`). É também o gatilho
+  que torna a fusão de mapas (U9) mensurável. Detalhe em "Adaptação ao cenário oficial MAPC 2022" (item 2).
+
+**Próximo, após a Fase C:** medir score no oficial → promover a **fusão de mapas (U9)** (ver seção própria).
+
 ## Estratégia de coleta / montagem / submit (observado em 2026-06-17)
 
 **Contexto:** com o livelock de navegação resolvido (#2 A*-ciente-de-colega + escape reativo
@@ -50,9 +70,10 @@ Métrica desse track = **submits/score**, não `[OSC]`. **Não é navegação.**
 A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json`) é **70×70**, até
 **20 agentes/time**, **750 steps**, e usa **roles dinâmicos**. Auditoria (2026-06-17):
 
-1. **Grid parametrizável.** `set_grid_dimensions(40,40)` está hardcoded em `perception.asl:7`; o wrap
-   toroidal usa módulo 40 → coordenadas erradas em 70×70. Parametrizar (config/percepção), não fixar.
-2. **Adoção de role — BLOQUEADOR / gate.** O role inicial `default` só tem
+1. ✅ **FEITO — Grid parametrizável.** Resolvido: `hive.GridConfig` + flags `-PgridW/-PgridH` (Track 3
+   Fase B); e na Fase D, no oficial as dims ficam 0 (frame não-normalizado, A* sem-wrap) — eliminando o
+   módulo errado de 40 num 70×70. Não há mais `set_grid_dimensions(40,40)` hardcoded.
+2. 🚧 **WIP — Fase C: Adoção de role (BLOQUEADOR / gate de score).** O role inicial `default` só tem
    `[skip,move,rotate,adopt,detach,clear]` — **sem `request`/`attach`/`submit`/`connect`**. Para
    coletar/montar/submeter é preciso ir a uma **role-zone** e `adopt(worker|constructor)`. O HIVE
    **não tem lógica de adoção de role** → na config oficial o time **não pontua** (só anda). Requer:
@@ -60,11 +81,11 @@ A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json
 3. **Escala p/ 20 agentes/time.** O `entities` é o **máximo** de contas (dá pra rodar com menos — 15
    conectam, restantes ociosos). Para competir de igual, subir o squad para 20 e revisar a composição.
 
-> **Ponto em aberto:** enquanto a adoção de role (item 2) não existir, rodar a SampleConfig oficial é
-> inútil (agentes sem as ações de coleta). O self-play "de verdade" no cenário oficial depende disso.
-> Alternativa runnable hoje: self-play 2-times na **nossa** config 40×40 (role `default` já tem todas
-> as ações), com 2 instâncias HIVE (worktree time B: `agentB*`) — mostra competição/contenção real,
-> mas não é o mapa oficial.
+> **Atualização (2026-06-18, pós-Fase D):** o oficial **já roda** (a Fase D destravou navegação sem
+> `absolutePosition` — boot confirmou agentes convergindo a alvos). O que falta para **pontuar** é só a
+> adoção de role (item 2, **Fase C — WIP**): sem ela os agentes andam/exploram mas não têm as ações de
+> coleta/submit. Alternativa runnable hoje p/ contenção real: self-play 2-times na **nossa** config 40×40
+> (role `default` já tem todas as ações), com 2 instâncias HIVE (worktree time B: `agentB*`).
 
 ## Fusão de mapas cross-agente — agentes juntam mapas ao achar um referencial comum (U9, deferido da Fase D)
 
@@ -174,8 +195,10 @@ Origem: [`docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirement
 porta/órfãos). Mas a maior parte do que validamos por sim é **Java puro** (≈1380 linhas: artefatos +
 internal actions) → testável em ms **sem sim**. Hierarquia proposta:
 
-1. **Unit tests (JUnit, sem sim) — maior alavancagem.** Adicionar test source-set + JUnit ao
-   `build.gradle`. Testar a lógica pura:
+1. ✅ **FEITO (base) — Unit tests (JUnit, sem sim) — maior alavancagem.** Test source-set + JUnit já no
+   `build.gradle`; 44 testes verdes (A* toroidal/overlay `SharedMapAStarTest`, `AdjacentDirection`,
+   `GridConfig`, `TaskBoard`, `SquadCoordinator`, `LocalFrame`, tradução de frame `SharedMapRelativeTest`).
+   *Resta:* regressão explícita do viés single-block do leiloeiro. Lógica pura testada:
    - `SharedMap.astar` / `wrappedManhattan` / overlay #2: dado grid + obstáculos + ocupação, asserir a
      direção — ex.: "contorna colega", "wrap toroidal 39→0", "origem/alvo não penalizados",
      "PENALTY alto → desvia". Seria a **regressão do #2 sem nenhum run**.
