@@ -1,7 +1,7 @@
 ---
 title: "feat: Fase D — posicionamento relativo (incremento 1)"
 type: feat
-status: active
+status: completed
 date: 2026-06-17
 origin: docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md
 ---

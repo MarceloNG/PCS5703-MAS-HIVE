@@ -55,6 +55,10 @@ task run(type: JavaExec, dependsOn: 'classes') {
     classpath sourceSets.main.runtimeClasspath
     standardInput = System.in
     jvmArgs '-Djava.util.logging.config.file=logging.properties', '-Xmx2g', '-Xms512m', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=200'
+    // Tamanho do grid toroidal dos agentes (Fase D): casa com o grid do servidor.
+    // Default 40 (dev). Oficial: -PgridW=70 -PgridH=70. Mapas menores p/ teste: -PgridW=20 -PgridH=20.
+    systemProperty 'hive.grid.width', (project.findProperty('gridW') ?: '40')
+    systemProperty 'hive.grid.height', (project.findProperty('gridH') ?: '40')
 }
 
 task printCp {
