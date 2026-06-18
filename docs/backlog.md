@@ -17,13 +17,16 @@ do MAPC 2022 e os arquivos de config.
 - **Grid parametrizável** (Adaptação oficial, item 1 — `hive.GridConfig` + `-PgridW/-PgridH`).
 - **Harness JUnit** (Testes, item 1 — 44 testes verdes: A* toroidal/overlay, dead-reckoning, tradução de frame, grid, leilão).
 
+**✅ Concluído (cont.):**
+- **Track 3 Fase C — adoção de role (plano 001 ENCERRADO 2026-06-18).** U1–U4 ✅: o agente adota `worker`
+  (gate por percept `role/1`, anti-oscilação), coleta, submete, e a **org MOISE+ dirige/registra** a adoção
+  (loop normativo fecha). **Provado em isolamento** (40×40, `absolutePosition:true`): **score 0→10**.
+  Commits `4b6a2d8`/`b9aa684`/`5b3336f`. **U5 (score>0 NO OFICIAL) deferido** — bloqueio é navegação +
+  cross-frame (U9), fora do escopo da Fase C. Ver "Fase C — achados do boot" abaixo.
+
 **🚧 Em andamento (WIP):**
-- **Track 3 Fase C — adoção de role.** O **gate de score** no oficial: o role inicial `default` não tem
-  `request`/`attach`/`submit`/`connect`. **Boot de validação (2026-06-18) mostrou que a adoção funciona em
-  parte, mas "score>0 no oficial" era o critério ERRADO** (conflava Fase C com o pipeline inteiro, que está
-  degradado por navegação 70×70 + cross-frame). Achados, reframe e sub-itens em
-  **"Fase C — achados do boot (2026-06-18)"** abaixo. `role_adoption.asl` (`+step(N)` antes de `collection`)
-  já existe; falta robustez (adopt-spam, alcance de role-zone, transição p/ coleta).
+- **Nova direção (dono, 2026-06-18): construir CAPACIDADE antes de pontuar.** Atacar **uma dificuldade por
+  vez** em cenários controlados, medindo a capacidade (não score). Ver "Fases de capacidade" abaixo.
 
 **Próximo, após a Fase C:** validar a adoção **em isolamento** (`conf/IsolationRolesConfig.json`) → medir →
 promover a **fusão de mapas (U9)**, agora **confirmada** como bloqueio de multi-bloco no oficial.
@@ -81,6 +84,32 @@ está degradado por motivos **independentes da adoção**.
    navegação no grid grande; `survey`/landmark são opções, mas o livro diz que `survey` quase não foi usado).
 3. **Transição pós-adoção → coleta** — garantir que a atribuição do líder vira `request` no worker (a fase longa
    de adoção pode estar *starving* a task).
+
+## Fases de capacidade — construir antes de pontuar (dono, 2026-06-18)
+
+Princípio (estende a STRATEGY): há **fases em que pontuar NÃO é a métrica** — a métrica é a **capacidade**
+(cobertura de mapa, steps-ao-alvo, qualidade do merge). Atacar **uma dificuldade por vez**, em **cenários
+controlados** (grid pequeno, `randomSeed` fixo, feature isolada), **sem rodar a sim cheia**.
+**Determinismo:** com `randomSeed` fixo o **cenário** é reproduzível (mesmo grid/tasks/normas) — a
+**variância** vem dos **AGENTES** (escalonamento Jason, `.random`, timing), então testes de capacidade
+isolam a lógica do ruído de score.
+
+**Ideias factíveis a sequenciar (uma por vez):**
+1. **Explorer-first (mapear rápido).** Início: `default` explora até achar role-zone → adota **`explorer`**
+   (vision 7, speed 3) → cobre o mapa rápido → troca p/ `worker` para coletar. **Permitido** (adopt livre; a
+   norma de role-count só entra ~step 40-50). **Proven:** a Paula (warm-up, quase vice) fez isso (~100 steps
+   explorer). Métrica: **cobertura / time-to-find dispenser+goal+role-zone**, não score.
+2. **Merge de mapas rápido no início (U9).** Conhecer o mapa coletivo cedo (menos re-exploração; habilita
+   rendezvous multi-bloco — o diferencial do livro). Nuance: **só necessário no OFICIAL**
+   (`absolutePosition:false`); no dev/isolamento (`absolutePosition:true`) já há frame comum.
+3. **Navegação sem livelock (GPS/footprint/handedness).** O bloqueio de score **medido** (ver parking lot).
+
+**Por que serve à abordagem:** "mudar em isolamento, promover por evidência" — mas com a **métrica certa
+para a fase** (capacidade, não score). Uma por vez evita empilhar heurística no escuro.
+
+**Sequência sugerida:** `/ce-brainstorm` da navegação (fixa tradeoffs do GPS) → harness de **cenários
+controlados de capacidade** (estende "Estratégia de testes" §3) → explorer-first + U9 quando a navegação
+não for mais o gargalo.
 
 ## Estratégia de coleta / montagem / submit (observado em 2026-06-17)
 

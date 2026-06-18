@@ -1,12 +1,21 @@
 ---
 title: "feat: Track 3 Fase C — adoção de role (capacidade de pontuar no oficial)"
 type: feat
-status: active
+status: completed
 date: 2026-06-18
 origin: docs/brainstorms/2026-06-18-fase-c-adocao-role-requirements.md
 ---
 
 # feat: Track 3 Fase C — adoção de role (capacidade de pontuar no oficial)
+
+> **Encerrado em 2026-06-18 (status: completed).** U1–U4 ✅: a capacidade de adoção de role
+> está entregue — o agente adota `worker`, coleta, submete, e a org MOISE+ **dirige e registra**
+> a adoção (loop normativo fecha, commits `4b6a2d8`/`b9aa684`/`5b3336f`). **Provado em ISOLAMENTO**
+> (`conf/IsolationRolesConfig.json`, 40×40 + `absolutePosition:true`): adopt-spam corrigido (gate por
+> percept `role/1`) + anti-oscilação → **score 0→10, submits 0→3**. **U5 (R7 — score>0 NO OFICIAL 70×70)
+> NÃO foi atingido e foi DEFERIDO:** o bloqueio é **livelock de navegação + cross-frame (U9)**, fora do
+> escopo da Fase C — vai para os tracks de **navegação (GPS/footprint/handedness)** e **fusão de mapas
+> (U9)** no `docs/backlog.md`. Decisão do dono: interromper o plano 001 neste estágio.
 
 ## Summary
 
