@@ -173,6 +173,36 @@ public class SharedMap extends Artifact {
         resY.set(by);
     }
 
+    // Fase C / U1: role-zone LEMBRADA mais proxima (custo A*), p/ navegar a ela
+    // fora da visao e adotar role. Espelha get_nearest_goal_zone; -1,-1 se nenhuma.
+    @OPERATION
+    void get_nearest_role_zone(Object oagX, Object oagY,
+                               OpFeedbackParam<Integer> resX,
+                               OpFeedbackParam<Integer> resY) {
+        int[] rz = nearestRoleZone(normX(toInt(oagX)), normY(toInt(oagY)));
+        resX.set(rz[0]);
+        resY.set(rz[1]);
+    }
+
+    // Logica pura (package-private p/ teste, Fase C / U1): {x,y} da role-zone mais
+    // proxima por custo A*, ou {-1,-1} se nenhuma conhecida.
+    int[] nearestRoleZone(int agX, int agY) {
+        int bestDist = Integer.MAX_VALUE;
+        int bx = -1, by = -1;
+        for (String k : knownRoleZones) {
+            String[] parts = k.split(",");
+            int rx = Integer.parseInt(parts[0]);
+            int ry = Integer.parseInt(parts[1]);
+            int pathCost = astarCost(agX, agY, rx, ry);
+            if (pathCost < bestDist) {
+                bestDist = pathCost;
+                bx = rx;
+                by = ry;
+            }
+        }
+        return new int[]{bx, by};
+    }
+
     @OPERATION
     void get_alternative_goal_zone(Object oagX, Object oagY, Object ocurX, Object ocurY,
                                    OpFeedbackParam<Integer> resX,

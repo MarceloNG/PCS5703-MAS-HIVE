@@ -73,4 +73,52 @@ class SharedMapAStarTest {
         sm.occupancy.put("colega", new int[]{1, 0, 5});
         assertEquals("e", sm.astar(0, 0, 1, 0)); // alvo adjacente a leste, sem desvio
     }
+
+    // ===== Fase C / U1: get_nearest_role_zone (via nearestRoleZone) =====
+
+    private SharedMap mapWithRoleZones(int w, int h) {
+        SharedMap sm = new SharedMap();
+        sm.init();              // popula knownRoleZones + demais sets
+        sm.gridWidth = w;
+        sm.gridHeight = h;
+        return sm;
+    }
+
+    @Test
+    void roleZoneMaisProximaPorCusto() {
+        SharedMap sm = mapWithRoleZones(40, 40);
+        sm.knownRoleZones.add("3,0");   // custo 3
+        sm.knownRoleZones.add("10,0");  // custo 10
+        int[] rz = sm.nearestRoleZone(0, 0);
+        assertEquals(3, rz[0]);
+        assertEquals(0, rz[1]);
+    }
+
+    @Test
+    void nenhumaRoleZoneConhecida_retornaMenosUm() {
+        SharedMap sm = mapWithRoleZones(40, 40);
+        int[] rz = sm.nearestRoleZone(0, 0);
+        assertEquals(-1, rz[0]);
+        assertEquals(-1, rz[1]);
+    }
+
+    @Test
+    void roleZoneWrapToroidalEhMaisProxima() {
+        SharedMap sm = mapWithRoleZones(40, 40);
+        sm.knownRoleZones.add("38,0"); // custo 2 dando a volta (0->39->38)
+        sm.knownRoleZones.add("5,0");  // custo 5
+        int[] rz = sm.nearestRoleZone(0, 0);
+        assertEquals(38, rz[0]);
+        assertEquals(0, rz[1]);
+    }
+
+    @Test
+    void roleZoneAchadaApesarDeObstaculo() {
+        SharedMap sm = mapWithRoleZones(40, 40);
+        sm.obstacles.put("1,0", 1);    // bloqueia o passo direto
+        sm.knownRoleZones.add("3,0");
+        int[] rz = sm.nearestRoleZone(0, 0);
+        assertEquals(3, rz[0]);        // ainda acha a (unica) role-zone, via desvio
+        assertEquals(0, rz[1]);
+    }
 }
