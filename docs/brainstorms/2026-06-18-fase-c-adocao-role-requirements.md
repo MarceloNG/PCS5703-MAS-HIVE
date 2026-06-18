@@ -50,10 +50,11 @@ entregável (hoje a org existe mas não dirige capacidade).
   (Table 1; "the agent can move, rotate, and adopt new roles"). Logo adopt-once, sem
   máquina de troca. Remove o risco "worker parado".
 - **KD4 — Config de avaliação fiel obrigatória.** Usar os **roles reais aditivos**
-  (default restrito; worker/constructor/explorer/digger = default + extras). O
-  `standard.json` bundled é **sample degenerado** (worker sem move) e nossa
-  `OfficialTestConfig.json` é permissiva demais (default com tudo) — nenhum dos dois
-  reproduz a restrição real.
+  (default restrito; worker/constructor/explorer/digger = default + extras). A união é
+  feita **pelo engine no load** (`GameState.parseRoles` + `Role.fromJSON`), então o
+  `massim_2022/server/conf/sim/roles/standard.json` bundled **já é o role-set real e usável**
+  (worker lista só extras mas anda) — reusá-lo. O que **não** serve é a
+  `conf/OfficialTestConfig.json` do projeto (default permissivo com tudo).
 - **KD5 — Não reescrever o pipeline de coleta/montagem.** A Fase C só o **destrava**
   ao conferir as ações; coleta/conexão/submit já existem.
 
@@ -70,8 +71,9 @@ entregável (hoje a org existe mas não dirige capacidade).
 
 **Config & fidelidade**
 - R4. Existe um config de avaliação/boot com os **roles reais aditivos** (default sem
-  request/attach/submit; worker = default + ações de pontuação). Não usar o
-  `standard.json` degenerado nem o `default`-permissivo atual.
+  request/attach/submit; worker = default + ações de pontuação), reusando o
+  `sim/roles/standard.json` bundled (real). Não usar o `default`-permissivo do
+  `OfficialTestConfig.json`.
 
 **Robustez**
 - R5. Recuperação: um agente que perca o estado de pontuação (ex.: desativação) volta
@@ -130,9 +132,10 @@ entregável (hoje a org existe mas não dirige capacidade).
   sem `absolutePosition`.
 - **Org MOISE+ viva (Fase A)** — base para dirigir a adoção; já tem o goal
   `role_zones_found` e `commitMission`.
-- **Roles reais aditivos** (assumido e verificado no livro MAPC, Table 1): o role de
-  pontuação anda. Garantir apenas que o **config usado na avaliação** os reproduz
-  (o bundled `standard.json` não).
+- **Roles reais aditivos** (verificado no engine: `GameState.parseRoles` + `Role.fromJSON`
+  unem `default ∪ extras` no load): o role de pontuação anda. O bundled
+  `sim/roles/standard.json` **já reproduz** isso; garantir só que o config de avaliação o
+  usa (não o `OfficialTestConfig.json` permissivo).
 - Prior art reutilizável: `~/repos/MAPC/src/agt/worker_role.asl` faz `adopt(worker)`
   — citar e melhorar (não copiar).
 
@@ -162,6 +165,7 @@ entregável (hoje a org existe mas não dirige capacidade).
   `role_zones_found`).
 - `src/agt/common/perception.asl` — já mapeia `role_zone` (ponto de partida).
 - `~/repos/MAPC/src/agt/worker_role.asl` — `adopt(worker)` (prior art a citar/melhorar).
-- Configs atuais: `conf/OfficialTestConfig.json` (default permissivo) e
-  `massim_2022/server/conf/sim/roles/standard.json` (sample degenerado — worker sem
-  move) — nenhum reproduz a restrição real; R4 endereça.
+- Configs: `massim_2022/server/conf/sim/roles/standard.json` (roles reais — base de R4,
+  o engine une com o default); `massim_2022/.../game/GameState.java` (`parseRoles`) +
+  `protocol/.../data/Role.java` (`fromJSON`) provam a união aditiva; `conf/OfficialTestConfig.json`
+  é o degenerado (default permissivo) a **evitar**.
