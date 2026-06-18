@@ -17,7 +17,7 @@ public class SharedMap extends Artifact {
     private static final int TEAMMATE_PENALTY = 16;
     int gridWidth = 0;
     int gridHeight = 0;
-    private List<int[]> cachedFrontiers = new ArrayList<>();
+    List<int[]> cachedFrontiers = new ArrayList<>();       // package-private p/ teste
     private int lastFrontierVisitedSize = -1;
 
     void init() {
@@ -276,6 +276,69 @@ public class SharedMap extends Artifact {
         }
         resX.set(bx);
         resY.set(by);
+    }
+
+    @OPERATION
+    void get_nearest_frontier_biased(Object oagX, Object oagY, Object oAgentName,
+                                     OpFeedbackParam<Integer> resX,
+                                     OpFeedbackParam<Integer> resY) {
+        int agX = normX(toInt(oagX)), agY = normY(toInt(oagY));
+        int vSize = visitedCells.size();
+        if (cachedFrontiers.isEmpty() || Math.abs(vSize - lastFrontierVisitedSize) >= 3) {
+            rebuildFrontierCache();
+            lastFrontierVisitedSize = vSize;
+        }
+        int[] result = nearestFrontierBiased(agX, agY, oAgentName.toString());
+        resX.set(result[0]);
+        resY.set(result[1]);
+    }
+
+    // Núcleo testável: seleciona frontier mais próxima no setor preferencial do agente;
+    // fallback para frontier global quando o setor está vazio.
+    int[] nearestFrontierBiased(int agX, int agY, String agentName) {
+        int heading = -1;
+        int idx = extractAgentIndex(agentName);
+        if (idx >= 0) heading = idx % 4;  // 0=N, 1=E, 2=S, 3=W
+
+        int bestDist = Integer.MAX_VALUE;
+        int bx = agX, by = agY;
+
+        if (heading >= 0) {
+            for (int[] f : cachedFrontiers) {
+                if (!inPreferredDirection(f[0], f[1], agX, agY, heading)) continue;
+                int dist = wrappedManhattan(f[0], f[1], agX, agY);
+                if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
+            }
+        }
+
+        if (bestDist == Integer.MAX_VALUE) {
+            for (int[] f : cachedFrontiers) {
+                int dist = wrappedManhattan(f[0], f[1], agX, agY);
+                if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
+            }
+        }
+
+        return new int[]{bx, by};
+    }
+
+    // Extrai o sufixo numérico do nome do agente (ex: "connectionA7" → 7; sem dígitos → -1).
+    int extractAgentIndex(String name) {
+        int i = name.length() - 1;
+        while (i >= 0 && Character.isDigit(name.charAt(i))) i--;
+        String digits = name.substring(i + 1);
+        try { return Integer.parseInt(digits); }
+        catch (NumberFormatException e) { return -1; }
+    }
+
+    // Retorna true se o frontier (fx,fy) está na direção preferencial em relação ao agente.
+    boolean inPreferredDirection(int fx, int fy, int agX, int agY, int heading) {
+        switch (heading) {
+            case 0: return fy < agY;   // N
+            case 1: return fx > agX;   // E
+            case 2: return fy > agY;   // S
+            case 3: return fx < agX;   // W
+            default: return false;
+        }
     }
 
     @OPERATION

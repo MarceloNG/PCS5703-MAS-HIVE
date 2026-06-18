@@ -24,9 +24,25 @@ do MAPC 2022 e os arquivos de config.
   Commits `4b6a2d8`/`b9aa684`/`5b3336f`. **U5 (score>0 NO OFICIAL) deferido** — bloqueio é navegação +
   cross-frame (U9), fora do escopo da Fase C. Ver "Fase C — achados do boot" abaixo.
 
-**🚧 Em andamento (WIP):**
-- **Nova direção (dono, 2026-06-18): construir CAPACIDADE antes de pontuar.** Atacar **uma dificuldade por
-  vez** em cenários controlados, medindo a capacidade (não score). Ver "Fases de capacidade" abaixo.
+**✅ Concluído (cont.):**
+- **Navegação: heading-balanceado + handedness (plano 002, 2026-06-18).** U1 (Java `get_nearest_frontier_biased`
+  + 9 testes JUnit), U2 (ASL `!do_explore` usa heading), U3 (tiebreak horário em `pick_escape`).
+  Validado visualmente pelo monitor (agentes mantêm direção preferida). Delta de score: neutro (3/15 adoptions
+  = baseline) — gargalo confirmado como `failed_path` 40-60%, não dispersão.
+  Branch: `feat/navegacao-heading-handedness`.
+
+**🚧 Em andamento (WIP) — Nível 2:**
+- **Explorer-first — adotar `explorer` antes de `worker` (próximo, 2026-06-18).** Todo agente parte como
+  `default`, acha uma role-zone, adota `explorer` (vision=7, speed=3) e cobre o mapa rapidamente antes
+  de transitar para `worker`. **Proven:** equipe Paula (quase vice, MAPC 2022) fez isso por ~100 steps.
+  Ataca diretamente o gargalo medido (12/15 agentes nunca chegam a role-zone em 300 steps).
+  Métrica: cobertura de mapa / time-to-find-role-zone, não score. Ver "Fases de capacidade" §1.
+
+- **Rever hive\_team e papéis MOISE+ (2026-06-18).** Cardinalidades atuais (`squad_leader:4,
+  collector:8, assembler:4, sentinel:3` → max=19) já não admitem os 20 agentes do Sim1 oficial.
+  Rever a composição da equipe para alinhar ao que o contest propõe: quem explora, quem coleta,
+  quem monta. Possivelmente simplificar papéis e subir cardinalidades para 20 (Sim1) e depois 40
+  (Sim3). Blocker concreto: `hive_org.xml`. Ver "Adaptação ao cenário oficial" §3.
 
 **Próximo, após a Fase C:** validar a adoção **em isolamento** (`conf/IsolationRolesConfig.json`) → medir →
 promover a **fusão de mapas (U9)**, agora **confirmada** como bloqueio de multi-bloco no oficial.
@@ -361,6 +377,7 @@ re-derivar. **Não são trabalho pronto:** quase todas são alavanca *indireta* 
 movimento, não em submit) e os próprios docs as condicionam a evidência. Promover **só** se o
 "experimento de alavanca" (acima) mostrar que vale. (Confiança das ideias na ideação: 60–82%.)
 
+- **Navegação — wall-follower horário como fallback de `failed_path` (ideia do dono, 2026-06-18).** Quando o A* não consegue calcular rota (`failed_path`), o agente está "cego" — só aprende obstáculos por colisão. Ideia: ao invés de um passo de escape isolado, engajar um **wall-follower clockwise (regra da mão direita)** persistente até o A* voltar a enxergar o destino. É puramente local/reativo, sem infra nova — mas precisa do **GPS** para a condição de parada (saber quando contornou o suficiente e o destino está no campo de visão). **Gated pelo GPS.** Observado em run com HeadingValidationConfig (grade aberta) e OfficialRolesConfig: agentes entram em "buracos" de obstáculos sem conseguir sair; o escape reativo atual faz um passo lateral e o A* os manda de volta ao obstáculo → oscilação. O heading-bias (U2, 2026-06-18) não resolve isso — é o mesmo `failed_path` de 40-60% visto no monitor.
 - **Navegação — resíduos do livelock.** #7 custo de congestão/anti-aglomeração no A*; #8 ceder por
   prioridade determinística + jitter; #5 / B8 reserva de célula/footprint (pathfinding cooperativo);
   B1a-em-A* / B1b (o A* hoje penaliza só a célula central — footprint próprio só no escape; footprint

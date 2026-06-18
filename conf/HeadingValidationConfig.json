@@ -1,0 +1,103 @@
+{
+  "//": "VALIDAÇÃO HEADING: default com stats de explorer (vision=7 speed=3), grid aberto",
+  "//1": "sem tasks/eventos/regulação — agentes ficam em exploração pura o tempo todo.",
+  "//2": "Mede: deslocamento por quadrante vs heading esperado do nome (connectionA<N> mod 4).",
+
+  "server" : {
+    "tournamentMode" : "round-robin",
+    "teamsPerMatch" : 1,
+    "launch" : "25s",
+    "port" : 12300,
+    "backlog" : 10000,
+    "agentTimeout" : 8000,
+    "resultPath" : "results",
+    "logLevel" : "normal",
+    "logPath" : "logs",
+    "replayPath" : "replays",
+    "maxPacketLength" : 65536,
+    "waitBetweenSimulations" : 5000
+  },
+
+  "match" : [
+    {
+      "steps" : 80,
+      "randomSeed" : 17,
+      "randomFail" : 0,
+      "entities" : {"standard" : 15},
+      "clusterBounds" : [1, 1],
+
+      "roles" : [
+        {
+          "name" : "default",
+          "vision" : 7,
+          "actions" : ["skip", "move", "rotate", "adopt", "detach"],
+          "speed" : [3, 0],
+          "clear" : { "chance" : 0, "maxDistance" : 1 }
+        }
+      ],
+
+      "clearEnergyCost" : 2,
+      "deactivatedDuration" : 10,
+      "maxEnergy" : 100,
+      "refreshEnergy" : 50,
+      "stepRecharge" : 1,
+      "clearDamage" : [32, 16, 8, 4, 2, 1],
+
+      "attachLimit" : 0,
+
+      "grid" : {
+        "height" : 70,
+        "width" : 70,
+        "instructions": [],
+        "goals": {
+          "number" : 1,
+          "size" : [1, 1],
+          "moveProbability": 0
+        },
+        "roleZones" : {
+          "number" : 8,
+          "size" : [2, 3]
+        }
+      },
+
+      "blockTypes" : [1, 1],
+      "dispensers" : [1, 1],
+
+      "tasks" : {
+        "size" : [1, 1],
+        "concurrent" : 0,
+        "iterations" : [1, 1],
+        "maxDuration" : [200, 200]
+      },
+
+      "events" : {
+        "chance" : 0,
+        "radius" : [1, 1],
+        "warning" : 5,
+        "create" : [0, 0],
+        "perimeter" : 1
+      },
+
+      "regulation" : {
+        "simultaneous" : 0,
+        "chance": 0,
+        "subjects" : [
+          {
+            "name" : "Carry",
+            "announcement" : [5, 10],
+            "duration" : [20, 40],
+            "punishment": [5, 10],
+            "weight": 0,
+            "optional": { "quantity": [1, 1] }
+          }
+        ]
+      },
+
+      "absolutePosition" : false
+    }
+  ],
+
+  "teams" : {
+    "A" : {"prefix" : "agent", "password" : "1"}
+  }
+}

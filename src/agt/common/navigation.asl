@@ -111,9 +111,10 @@
 
 +step(N)
     : my_pos(MX, MY) & not my_active_task(_, _)
-    <- if ((N mod 40) == 0) {
+    <- if ((N mod 10) == 0) {
+           .my_name(Me);
            get_map_stats(V, D, G, R);
-           .print("[NAV] Step ", N, " Pos(", MX, ",", MY, ") Map: vis=", V, " disp=", D, " goal=", G, " role=", R)
+           .print("[NAV] Step ", N, " Agent=", Me, " Pos(", MX, ",", MY, ") Map: vis=", V, " disp=", D, " goal=", G, " role=", R)
        };
        !do_explore(MX, MY).
 
@@ -128,7 +129,8 @@
 // --- Exploracao: buscar fronteira e mover ---
 
 +!do_explore(MX, MY)
-    <- get_nearest_frontier(MX, MY, FX, FY);
+    <- .my_name(Me);
+       get_nearest_frontier_biased(MX, MY, Me, FX, FY);
        if (FX == MX & FY == MY) {
            if (last_attempted_dir(PrevDir)) {
                if (PrevDir == n) { Dir = e }
@@ -215,16 +217,16 @@ is_bounce(w) :- last_attempted_dir(e).
        !pick_escape(MX, MY).
 -!escape_move(_, _, _, _) <- .abolish(esc_cand(_, _)); action("skip").
 
-// ha candidato legal: move ao mais proximo do destino (empate -> jitter)
+// ha candidato legal: move ao mais proximo do destino (empate -> ordem horaria)
 +!pick_escape(MX, MY)
     : esc_cand(_, _)
     <- .findall(c(D, Dir), esc_cand(Dir, D), L);
        .min(L, c(MinD, _));
        .findall(TDir, esc_cand(TDir, MinD), Ties);
-       .length(Ties, NT);
-       .random(R);
-       RIdx = math.floor(R * NT);
-       .nth(RIdx, Ties, ChosenDir);
+       if (.member(n, Ties)) { ChosenDir = n }
+       elif (.member(e, Ties)) { ChosenDir = e }
+       elif (.member(s, Ties)) { ChosenDir = s }
+       else { ChosenDir = w };
        .abolish(esc_cand(_, _));
        .abolish(boxed_count(_));
        .abolish(last_attempted_dir(_));
