@@ -66,7 +66,7 @@ A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json
 > as ações), com 2 instâncias HIVE (worktree time B: `agentB*`) — mostra competição/contenção real,
 > mas não é o mapa oficial.
 
-## Fusão de mapas cross-agente — agentes juntam mapas quando se encontram (U9, deferido da Fase D)
+## Fusão de mapas cross-agente — agentes juntam mapas ao achar um referencial comum (U9, deferido da Fase D)
 
 **Levantado pelo dono (2026-06-17): feature importante p/ entregar mais pontos.** Hoje (incremento 1
 da Fase D) cada agente tem um mapa **privado** no seu próprio frame dead-reckoned (`map_<nome>`); sem
@@ -85,6 +85,36 @@ colega entram traduzidas por `(+dX, +dY)`.
 **já implementa e testa** a álgebra de tradução toroidal do mapa por um offset. Falta: (a) o handshake
 de avistamento mútuo que **descobre** o `dX,dY`; (b) propagar/importar os dados do colega traduzidos
 (dispensers/goal-zones/role-zones/obstáculos) — sem reescrever o mapa.
+
+**Mecanismos de ancoragem — como DESCOBRIR o offset entre frames (progressão de robustez; visão do
+dono, 2026-06-18).** O avistamento mútuo é só o **primeiro** de três caminhos para achar o
+ponto-em-comum que alinha dois mapas; juntos, eles fazem os mapas de todos convergirem para **um único
+mapa compartilhado**:
+
+1. **Cruzamento (avistamento mútuo).** Dois agentes se veem no mesmo step → o offset relativo é direto
+   (o que o LI(A)RA faz). Robusto, mas só dispara quando os caminhos se cruzam.
+2. **Landmark com identificador.** Ambos viram a **mesma feature fixa e identificável** (goal-zone,
+   dispenser de um tipo, role-zone) → alinhar os frames por ela **sem precisar se cruzar**. Cuidado:
+   as features do MAPC **não são únicas** (vários dispensers `b0`, várias goal-zones) → um landmark
+   sozinho é **ambíguo**.
+3. **Assinatura (conjunto de pontos).** Uma **constelação** de features próximas — as posições
+   relativas entre elas — forma uma assinatura local única o bastante para casar dois mapas mesmo sem
+   unicidade individual. É essencialmente **registro de nuvem de pontos / scan-matching**; resolve a
+   ambiguidade do (2) e é o caminho mais geral (e o mais complexo de implementar).
+
+**Convergência para um mapa global.** Achado um offset A↔B (por qualquer um dos 3), a tradução é
+**transitiva**: A↔B + B↔C ⇒ A↔C por composição — **gossip multi-hop** (justamente a fraqueza 1-hop do
+LI(A)RA a melhorar). No limite, todos os frames colapsam num **único mapa compartilhado**, restaurando
+a partilha que a instância-por-agente (U3) abriu mão e habilitando um **path finder rápido e eficaz
+sobre o conhecimento coletivo** (A* sobre o mapa de todos, muito menos re-exploração) — o instrumento
+estratégico de pontuação que o dono aponta.
+
+**Cuidados de engenharia (o que torna isto não-trivial):** (i) **wrap toroidal** no alinhamento — a
+`translateCells` já trata; (ii) o **drift** do dead-reckoning faz os offsets serem aproximados → vale
+re-ancorar periodicamente (qualquer dos 3) e **resolver conflitos** de célula na fusão (um diz parede,
+outro diz livre — manter o mais recente / maior evidência); (iii) **ambiguidade** quando vários pares
+casam no mesmo step → escolher o de maior corroboração; (iv) custo: a fusão deve continuar barata por
+step (a `translateCells` é O(células) — ver nota de performance do review).
 
 **Por que move o score:** agentes compartilham descobertas → acham dispenser/goal-zone/role-zone muito
 mais rápido (menos re-exploração); e um **frame compartilhado habilita montagem multi-bloco coordenada
