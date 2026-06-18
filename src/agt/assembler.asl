@@ -6,6 +6,7 @@
 { include("common/dashboard_hooks.asl") }
 { include("common/communication.asl") }
 { include("common/connect_protocol.asl") }
+{ include("common/role_adoption.asl") }
 { include("common/collection.asl") }
 { include("common/navigation.asl") }
 

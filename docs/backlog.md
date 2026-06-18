@@ -18,11 +18,15 @@ do MAPC 2022 e os arquivos de config.
 - **Harness JUnit** (Testes, item 1 — 44 testes verdes: A* toroidal/overlay, dead-reckoning, tradução de frame, grid, leilão).
 
 **🚧 Em andamento (WIP):**
-- **Track 3 Fase C — adoção de role.** O **gate de score** no oficial: sem ela o time anda mas **não
-  pontua** (o role inicial `default` não tem `request`/`attach`/`submit`/`connect`). É também o gatilho
-  que torna a fusão de mapas (U9) mensurável. Detalhe em "Adaptação ao cenário oficial MAPC 2022" (item 2).
+- **Track 3 Fase C — adoção de role.** O **gate de score** no oficial: o role inicial `default` não tem
+  `request`/`attach`/`submit`/`connect`. **Boot de validação (2026-06-18) mostrou que a adoção funciona em
+  parte, mas "score>0 no oficial" era o critério ERRADO** (conflava Fase C com o pipeline inteiro, que está
+  degradado por navegação 70×70 + cross-frame). Achados, reframe e sub-itens em
+  **"Fase C — achados do boot (2026-06-18)"** abaixo. `role_adoption.asl` (`+step(N)` antes de `collection`)
+  já existe; falta robustez (adopt-spam, alcance de role-zone, transição p/ coleta).
 
-**Próximo, após a Fase C:** medir score no oficial → promover a **fusão de mapas (U9)** (ver seção própria).
+**Próximo, após a Fase C:** validar a adoção **em isolamento** (`conf/IsolationRolesConfig.json`) → medir →
+promover a **fusão de mapas (U9)**, agora **confirmada** como bloqueio de multi-bloco no oficial.
 
 ## Prioridades (revisão vs spec, 2026-06-18)
 
@@ -32,17 +36,50 @@ cap. "The MAPC 2022") + os arquivos de config bundled (`sim/sim1.json`, `sim/rol
 
 | # | Item | Fundamento (fonte) |
 |---|------|--------------------|
-| **P0** | **Fase C — adotar `worker` (escopo MÍNIMO, worker-first)** | Gate de score literal: `default` não tem `submit` (`roles/standard.json`). Livro §4: *"the worker role is preferable… the other roles are not strictly necessary"* — não sobre-engenheirar composição; constructor opcional. |
+| **P0** | **Fase C — adotar `worker` (worker-first)**; critério = **adota + `request` passa** (NÃO score>0 oficial), validado em **isolamento** | Gate de score literal: `default` não tem `submit`. Boot 2026-06-18: adoção existe mas frágil (adopt-spam, 4/15 alcançam role-zone, workers não chegam a `request`). Ver achados abaixo. |
 | **P0** | **Corrigir cardinalidades MOISE+ p/ ≥20 (e plano p/ 40)** | `hive_org.xml` soma `max` = 19 (4+8+4+3) → já não admite os 20 do Sim1 oficial. Edição barata, desbloqueante. |
 | **P1** | **Viés single-block no scoring do líder (#1)** | Livro §2: single-block tem *"very small compensation"*; reward sobe com complexidade. Alta alavanca assim que a Fase C pontuar. |
 | **P1** | **Experimento de alavanca / harness de métricas** | O próprio backlog condiciona tudo a isso; antecede U9 e promoção do parking lot. |
-| **P2** | **U9 — fusão de mapas** | Alto valor (livro §4: cooperação é O diferencial), mas corretamente gated atrás de Fase C + medição. Manter deferido. |
+| **P2 ↑** | **U9 — fusão de mapas / cross-frame (#2)** | **Confirmado (boot 2026-06-18) como o bloqueio de multi-bloco no oficial:** dev que pontua é `absolutePosition:true`; oficial é `false` → `set_meeting_point`/`connect_request` sem origem comum falham. Continua gated atrás de provar a adoção, mas o gate agora tem **evidência dura**, não especulação. |
 | **P3 ↓** | **Normas — REBAIXADO** (ver sub-item 2, reescrito) | Livro §4: times de topo **ignoraram normas e comeram a multa**; MMD venceu assim. Trocar "tratar normas genéricas" por: (a) checar se o detach da norma Carry não custa score; (b) decisão deliberada de "comer a multa". |
 | **P3** | **Track adversário** | Downstream da Fase C + run 2-times oficial (correto). |
 
 > **Prazo (exercício):** entrega de relatório+código consta como **20/06/2026**; competição vs. turma +
 > arguição "a anunciar". Se o relatório já foi entregue, a alavanca de nota restante é a **competição +
 > arguição** → reforça P0 (Fase C) como prioridade absoluta. Confirmar o estágio do prazo.
+
+## Fase C — achados do boot (2026-06-18): o que falta
+
+Boots de validação rodados pela skill **`run-hive`** (driver + analyzer de replay; a verdade vem do
+**replay**, não do log). A adoção **funciona em parte**, mas revelou que **"score>0 no oficial" era o
+critério ERRADO** — conflava "a Fase C funciona" com "o pipeline inteiro pontua no oficial", e o oficial
+está degradado por motivos **independentes da adoção**.
+
+**O que o replay mostrou (oficial 70×70, 300 steps):**
+- ✅ Roles certos: `worker = default ∪ {request,attach,connect,disconnect,submit}` (merge do engine) — **tem `submit`**.
+- ✅ Líder + MOISE+ vivos: `[LEADER]`, `assign`, e o scheme commitando `m_collect/m_assemble/m_submit`.
+- ⚠️ **Adoção fraca:** só **4/15** alcançam uma role-zone em 300 steps (descoberta/alcance ruim).
+- 🐞 **Adopt-spam:** um agente virou worker mas re-adotou **209×** — o gate `can_score_role :- my_role(worker)`
+  não para a re-adoção de forma confiável quando o agente **fica** sobre a role-zone (os que saíram pararam por acaso).
+- ❌ **Workers não transicionam p/ `request`:** após adotar, ficam só andando (nenhum `request`/`attach`) →
+  **0 submits**. A atribuição do líder não está virando coleta no worker adotado.
+- 🔑 **Cross-frame confirmado:** os configs dev que **pontuam** são **40×40 + `absolutePosition:true`**; o
+  oficial é **`false`** → sem origem comum, `set_meeting_point`/`connect_request` falham (o **#2 da Fase D**)
+  → **multi-bloco não fecha no oficial sem a U9** (por isso a U9 subiu p/ P2↑).
+
+**Reframe do critério de sucesso da Fase C** (mudar em isolamento — STRATEGY):
+- **NÃO** "score>0 no oficial" (depende de navegação 70×70 + cross-frame/U9 + maturidade do leilão).
+- **SIM** "adota `worker` e o `request` passa (sem `failed_role`), e o pipeline volta a pontuar" — validado em
+  **`conf/IsolationRolesConfig.json`** (FastTest 40×40 + `absolutePosition:true` + roles restritos; **só a
+  variável adoção muda** vs o config que já pontua). Se pontua → adoção provada; se não → bug da camada de adoção.
+
+**Sub-itens concretos da Fase C (a fazer):**
+1. **Gate de re-adoção robusto** — parar o adopt-spam (verificar o update de `my_role(worker)`; talvez gatear por
+   resultado de ação/percept, não só por crença).
+2. **Alcance de role-zone** — 4/15 é pouco; melhorar exploração/navegação até a role-zone (liga ao livelock de
+   navegação no grid grande; `survey`/landmark são opções, mas o livro diz que `survey` quase não foi usado).
+3. **Transição pós-adoção → coleta** — garantir que a atribuição do líder vira `request` no worker (a fase longa
+   de adoção pode estar *starving* a task).
 
 ## Estratégia de coleta / montagem / submit (observado em 2026-06-17)
 
@@ -301,6 +338,16 @@ movimento, não em submit) e os próprios docs as condicionam a evidência. Prom
   parcial, re-attach); B4 detach por custo (ou barato: baixar o limiar fixo de 50→~20); B6/B7 yield
   por carga. **Gate:** só se os **detaches forçados de carregador** seguirem altos depois do #2
   (= movimento ainda custando submits).
+- **Navegação — dispersão + handedness consistente (ideia do dono, 2026-06-18; ELEVADO).** O boot da Fase C
+  em isolamento mostrou **pinning severo** (agentes presos em 1-3 células por 300 steps; `failed_path` ~50%)
+  — a exploração por *frontier* não dispersa sob congestão. Ideia do dono, duas técnicas comprovadas:
+  (a) **heading balanceado** — cada agente recebe um setor/direção (n/s/l/o) e segue nela desviando, em vez
+  de todos convergirem → ataca direto o "ficam na mesma área / não exploram";
+  (b) **desvio com handedness consistente (sentido horário / regra da mão-direita)** — quebra a simetria do
+  "dois agentes se encarando e dançando" (ambos giram pro mesmo lado → passam) e serve de
+  **footprint-avoidance leve** (sem a infra de reserva de célula do #5/B8). Hoje o escape usa *jitter
+  aleatório*, que não quebra simetria de forma estável. **Elevado** porque é o **bloqueio de score medido**
+  (não mais alavanca indireta especulativa) — promover junto com a depuração de navegação/submit pós-Fase-C.
 - **Dívida arquitetural — A\* aprende parede só por colisão.** Paredes percebidas vão p/ `cells`, que
   o A* não lê; ele só conhece obstáculo via `mark_obstacle` (colisão). Reframe de 2 camadas:
   `staticObstacles` (da percepção) + `liveOccupancy` (já existe, via #2). Latente; morde em

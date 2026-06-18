@@ -1,0 +1,121 @@
+// ============================================================
+// role_adoption.asl — Track 3 Fase C / U3
+// Adoção do role MAPC `worker` — o GATE DE SCORE no cenário oficial:
+// o role inicial `default` não tem request/attach/connect/submit, então sem
+// adotar `worker` (numa role-zone) o time anda mas faz score 0.
+//
+// Adaptado de ~/repos/MAPC/src/agt/worker_role.asl (citar + melhorar):
+//   - usa my_pos DEAD-RECKONED (Fase D) no lugar de position absoluto;
+//   - usa a navegação do HIVE (get_nearest_role_zone [U1] + compute_next_move +
+//     escape_move) no lugar de navigate_step/move_relative (que não existem aqui);
+//   - integra como +step(N) com prioridade por ORDEM DE INCLUDE (este módulo entra
+//     ANTES de collection.asl): enquanto my_role(default) a adoção tem prioridade e
+//     GATEIA a coleta; quando my_role(worker) todos os contextos abaixo falham e o
+//     step cai normalmente em connect_protocol/collection/navigation.
+//
+// GOTCHA Nº 1 (corrigido aqui): a adoção é um plano +step(N), produzindo UMA ÚNICA
+// ação MASSim por step (adopt OU move OU explore OU skip). NÃO usar handler reativo
+// +role(default) — o próprio ref avisa que ele compete com o step e pode submeter
+// DUAS ações no mesmo step.
+//
+// Incluído SÓ em collector/assembler (executores do pipeline). sentinel usa `clear`
+// (já no default) e squad_leader coordena → não precisam de worker.
+// ============================================================
+
+// ------------------------------------------------------------
+// Gate config-agnóstico: o role MAPC ATUAL já pode PONTUAR?
+// `can_score_role` é verdadeiro quando o role atual (my_role) tem `submit` no
+// catálogo de roles percebido (role/6 do InitialPercept: Nome,Vision,Actions,...).
+//   - cenário OFICIAL: default = [skip,move,rotate,adopt,detach,clear] (sem submit)
+//     → false → adoção dispara.
+//   - config DEV (default permissivo, com submit) → true → adoção NÃO dispara
+//     (sem regressão no pipeline de coleta do dev).
+//   - após adotar worker (que tem submit) → true → adoção para.
+// Robusto a não ter o catálogo ainda (início): false → explora até o catálogo chegar.
+// ------------------------------------------------------------
+
+// Gate pela CRENÇA DE PERCEPT CRUA `role/1` (o role atual que o servidor envia todo step),
+// NÃO pela `my_role` derivada. O adopt-spam (workers re-adotando 200+× sem nunca coletar)
+// mostrou que a derivação `+role(R)→my_role` não refletia o worker de forma confiável no gate.
+// worker/constructor SEMPRE pontuam; a 3ª cláusula cobre o DEV (default permissivo) cruzando
+// o role atual (role/1) com o catálogo (role/6) para ver se tem submit.
+can_score_role :- role(worker).
+can_score_role :- role(constructor).
+can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts).
+
+// ------------------------------------------------------------
+// Planos +step(N) (gate de prioridade: só agem enquanto o role atual NÃO pontua)
+// ------------------------------------------------------------
+
+// (a) Bloqueado a caminho da role-zone → escape reativo (mesma camada #3/#4 da
+//     navigation.asl). Vem ANTES do trigger geral p/ não re-emitir o move travado.
++step(N)
+    : not can_score_role & my_pos(MX, MY)
+      & has_destination(DX, DY) & (last_move_blocked | escape_pending(_, _))
+    <- .abolish(last_move_blocked);
+       .abolish(escape_pending(_, _));
+       !escape_move(MX, MY, DX, DY).
+
+// (b) Trigger geral: enquanto o role atual não pontua, perseguir o worker.
+//     TODO U4 (elo MOISE+): trocar este gatilho INCONDICIONAL pelo dirigido por
+//     obrigação — a org emite adopt_worker_role, o handler chama !ensure_worker_role
+//     e descarrega via goalAchieved. Por ora (boot intermediário de U3, sem org) é
+//     incondicional para validar a mecânica de adoção + score>0.
++step(N)
+    : not can_score_role
+    <- !ensure_worker_role.
+
+// ------------------------------------------------------------
+// Capacidade reutilizável (também acionada pelo elo MOISE+ em U4)
+// !ensure_worker_role: idempotente; emite exatamente UMA ação MASSim.
+// ------------------------------------------------------------
+
+// role atual já pontua: nada a fazer (caminho do discharge idempotente em U4)
++!ensure_worker_role : can_score_role
+    <- true.
+
+// sobre a role-zone (percept relativo roleZone(0,0)) → adotar (uma vez)
++!ensure_worker_role : roleZone(0, 0)
+    <- .print("[ROLE] Sobre role-zone — adopt(worker).");
+       .abolish(has_destination(_, _));   // limpa o destino de busca antes do pipeline assumir
+       action("adopt(worker)").
+
+// tem posição → buscar a role-zone (lembrada via A*, ou explorar p/ achá-la)
++!ensure_worker_role : my_pos(MX, MY)
+    <- !seek_role_zone(MX, MY).
+
+// sem posição ainda (início da sim) → aguarda o próximo step
++!ensure_worker_role
+    <- action("skip").
+
+// defensivo: qualquer falha não prevista ainda emite 1 ação (evita timeout do step)
+-!ensure_worker_role
+    <- action("skip").
+
+// ------------------------------------------------------------
+// !seek_role_zone: navega à role-zone conhecida mais próxima (U1 + compute_next_move),
+// ou explora se nenhuma é conhecida ainda. Espelha o idioma de !collect_block.
+// ------------------------------------------------------------
+
++!seek_role_zone(MX, MY)
+    <- get_nearest_role_zone(MX, MY, RX, RY);
+       if (RX == -1) {
+           .print("[ROLE] Nenhuma role-zone conhecida — explorando.");
+           !do_explore(MX, MY)
+       } elif (RX == MX & RY == MY) {
+           // mapa diz role-zone aqui, mas sem percept roleZone(0,0) (drift do
+           // dead-reckoning) → explorar p/ reaquisitar a posição da role-zone
+           .print("[ROLE] Role-zone lembrada coincide com my_pos sem percept — reexplorando.");
+           !do_explore(MX, MY)
+       } else {
+           .abolish(has_destination(_, _));
+           +has_destination(RX, RY);
+           compute_next_move(MX, MY, RX, RY, Dir);
+           .abolish(last_attempted_dir(_));
+           +last_attempted_dir(Dir);
+           .concat("move(", Dir, ")", Act);
+           action(Act)
+       }.
+
+-!seek_role_zone(_, _)
+    <- action("skip").
