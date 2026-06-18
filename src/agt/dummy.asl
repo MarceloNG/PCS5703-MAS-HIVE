@@ -12,19 +12,13 @@
        focus(EisId);
        .print("Conectado ao EIS. Aguardando percepts...").
 
+// Fase D / U3: mapa por-agente (frame local privado).
 +!setup_shared_map
-    <- lookupArtifact("shared_map", MapId);
+    <- .my_name(Me);
+       .concat("map_", Me, MapName);
+       makeArtifact(MapName, "env.SharedMap", [], MapId);
        focus(MapId).
--!setup_shared_map
-    <- .wait(50);
-       !try_create_map.
-
-+!try_create_map
-    <- makeArtifact("shared_map", "env.SharedMap", [], MapId);
-       focus(MapId).
--!try_create_map
-    <- .wait(100);
-       !setup_shared_map.
+-!setup_shared_map <- true.
 
 // SIM-START percepts
 +name(N)     <- .print("SIM-START: nome = ", N).

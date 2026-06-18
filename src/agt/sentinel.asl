@@ -23,14 +23,15 @@ my_role_type(sentinel).
        focus(EisId);
        .print("[SENTINEL] Conectado. Modo: hibrido (soloist + patrulha).").
 
+// Fase D / U3: mapa por-agente (frame local privado). Cada agente cria a sua
+// instancia ("map_"+nome); nao ha mais um shared_map compartilhado (sem frame
+// global pre-fusao). 'Me' ja nomeia o EISAccess, dai o prefixo "map_".
 +!setup_shared_map
-    <- lookupArtifact("shared_map", MapId); focus(MapId).
--!setup_shared_map
-    <- .wait(50); !try_create_map.
-+!try_create_map
-    <- makeArtifact("shared_map", "env.SharedMap", [], MapId); focus(MapId).
--!try_create_map
-    <- .wait(100); !setup_shared_map.
+    <- .my_name(Me);
+       .concat("map_", Me, MapName);
+       makeArtifact(MapName, "env.SharedMap", [], MapId);
+       focus(MapId).
+-!setup_shared_map <- true.
 
 +!setup_task_board
     <- lookupArtifact("task_board", TbId); focus(TbId).
