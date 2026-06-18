@@ -91,6 +91,13 @@ mais rápido (menos re-exploração); e um **frame compartilhado habilita montag
 por coordenadas** (rendezvous/connect), que é onde está o reward alto. Bônus: restaura a partilha de
 mapa que o dev perdeu ao virar instância-por-agente.
 
+**Também conserta a regressão cross-frame (#2 do review Fase D):** hoje `connect_request`
+(`communication.asl`) e `set_meeting_point` (`squad_leader.asl`) trocam coordenadas no frame
+dead-reckoned do remetente — sem origem comum, o destinatário as lê no frame errado e a navegação ao
+rendezvous falha no oficial (pré-fusão só converge por adjacência percebida). O frame compartilhado da
+U9 torna a troca de coordenadas válida de novo. Marcado com `FIXME Fase D (#2, cross-frame)` nos dois
+sites do código.
+
 **Melhorar vs LI(A)RA (não copiar):** o LI(A)RA é imperfeito — sem **wrap toroidal** na tradução (a
 nossa `translateCells` já tem), gossip **multi-hop** é TODO (sync 1-hop), drift corrigido por
 brute-force, e risco de **ambiguidade** quando vários pares se veem no mesmo step. Tratar esses pontos.

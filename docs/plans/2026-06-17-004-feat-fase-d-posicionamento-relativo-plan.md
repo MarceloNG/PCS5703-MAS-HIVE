@@ -1,12 +1,25 @@
 ---
 title: "feat: Fase D — posicionamento relativo (incremento 1)"
 type: feat
-status: completed
+status: in-progress
 date: 2026-06-17
 origin: docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md
 ---
 
 # feat: Fase D — posicionamento relativo (incremento 1)
+
+> **Status pós-review (2026-06-17, code review Fase D):** entrega **parcial** — o
+> núcleo está de pé, mas nem toda unidade foi entregue. Use isto ao citar o plano
+> no relatório.
+> - **Entregue:** U2 (keystone dead-reckoning), U3 (mapa por-agente), U5 (overlay de
+>   entidade percebida — agora com filtro de time inimigo, #4), R7 (`translateCells`).
+> - **U1 (`LocalFrame.java` + `LocalFrameTest`):** construído **no review** — a álgebra
+>   de dead-reckoning (R1/AE1) passou a ter cobertura JUnit; o `.asl` a espelha.
+> - **U4 (inferência de dimensão toroidal):** **deferida** — agentes usam
+>   `hive.GridConfig` (default/`-PgridW`), não inferem o 70×70 em runtime. R6/AE2/AE3
+>   ainda não implementados.
+> - **Limitação conhecida (#2):** coordenação por coordenadas (connect/meeting-point)
+>   é **cross-frame** e não converge no oficial pré-fusão; depende da U9.
 
 ## Summary
 
@@ -291,6 +304,15 @@ Carregados do documento de origem (mesmos R-IDs para rastreabilidade).
   sucessos confirmados; o LI(A)RA tolera drift; a medição decide os próximos passos.
 - **Mapas por-agente perdem descoberta compartilhada pré-fusão** → re-exploração, menos
   eficiente. Aceito (a fusão é U9, gated).
+- **Coordenação por coordenadas é cross-frame e quebra no oficial pré-fusão (#2, achado do
+  review).** `connect_request(Me, MX, MY, …)` (`communication.asl`) e `set_meeting_point(GX, GY)`
+  (`squad_leader.asl`) trocam coordenadas no frame dead-reckoned do **remetente**; com origens
+  por-agente distintas, o destinatário as interpreta no frame errado e a navegação ao rendezvous
+  fica incorreta. Funcionava com `absolutePosition:true` (frame global). Corrige o texto do KTD2,
+  que afirmava que a coordenação por mensagens seguiria intacta — as mensagens **carregam
+  coordenadas**. Mitigação atual: rendezvous só por adjacência percebida (fallback do
+  `connect_protocol`). Resolução real: U9 (frame compartilhado) — ou um rendezvous puramente por
+  percepção. Não bloqueia bloco-único; bloqueia montagem multi-bloco no oficial.
 - **Dependência: Fase C** para score observável no oficial — fora deste plano; a validação
   aqui é convergência, não score.
 - **Dependência: harness JUnit (25 testes)** como rede de segurança contra regressão.
