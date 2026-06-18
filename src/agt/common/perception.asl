@@ -109,16 +109,20 @@ dr_pos(0, 0).
 +thing(X, Y, Type, Details)
     : my_pos(MX, MY)
     <- update_cell(MX + X, MY + Y, Type, Details);
-       !mark_entity_occupancy(Type, X, Y, MX, MY).
+       !mark_entity_occupancy(Type, Details, X, Y, MX, MY).
 
 // Fase D / U5: sem frame global, o overlay #2 evita entidades PERCEBIDAS
 // (alcance de visao) no frame local. Chave por celula; expira sozinha (snapshot).
-+!mark_entity_occupancy(entity, RX, RY, MX, MY)
-    : not (RX == 0 & RY == 0) & step(N)
+// #4: nao penaliza entidade de time INIMIGO confirmado (R8 = colega) — 'Details'
+// e o time da entidade, 'team(MyTeam)' o nosso. Guard conservador: so pula quando
+// SABE que e inimigo; se o time ainda nao esta bound, marca (degrada seguro, sem
+// re-desligar o overlay e reabrir o livelock).
++!mark_entity_occupancy(entity, Team, RX, RY, MX, MY)
+    : not (RX == 0 & RY == 0) & step(N) & not (team(MyTeam) & Team \== MyTeam)
     <- EX = MX + RX; EY = MY + RY;
        .concat("seen_", EX, "_", EY, K);
        update_occupancy(K, EX, EY, N).
-+!mark_entity_occupancy(_, _, _, _, _) <- true.
++!mark_entity_occupancy(_, _, _, _, _, _) <- true.
 
 // --- Zonas ---
 

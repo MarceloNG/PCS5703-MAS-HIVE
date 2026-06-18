@@ -2,6 +2,11 @@
 // communication.asl — Mensagens de sincronizacao para connect
 // ============================================================
 
+// FIXME Fase D (#2, cross-frame): MX,MY estao no frame dead-reckoned DESTE agente.
+// Pre-fusao (sem U9) o collector le essas coords no SEU proprio frame (origem distinta),
+// entao a navegacao ate o ponto de connect fica incorreta no oficial — so o fallback por
+// adjacencia percebida (connect_protocol) funciona. A U9 (frame compartilhado) torna a
+// troca de coordenadas valida de novo.
 +!request_connect(CollectorName, TargetStep)
     : my_pos(MX, MY)
     <- .my_name(Me);

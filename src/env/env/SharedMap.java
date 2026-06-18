@@ -271,6 +271,12 @@ public class SharedMap extends Artifact {
         int step = toInt(ostep);
         if (step % 5 != 0) return;
         obstacles.entrySet().removeIf(e -> e.getValue() < step - 30);
+        // Fase D (#7): poda entradas de ocupacao 'seen_' obsoletas. O astar so usa
+        // as do ultimo step (gate occupancyStep-1, linha ~358); as velhas so ocupam
+        // memoria e crescem monotonicamente. Entradas de posicao de agente (chave =
+        // nome do agente) NAO sao podadas aqui — expiram pelo proprio gate.
+        occupancy.entrySet().removeIf(
+            e -> e.getKey().startsWith("seen_") && e.getValue()[2] < occupancyStep - 1);
     }
 
     @OPERATION
@@ -499,5 +505,12 @@ public class SharedMap extends Artifact {
             p[0] = normX(p[0] + dX);
             p[1] = normY(p[1] + dY);
         }
+
+        // Fase D (#9): as fronteiras em cache estao no frame antigo — invalida p/
+        // forcar recomputo no novo frame. (As obs properties known_* tambem ficam
+        // stale; re-emiti-las exige estar dentro de um @OPERATION e fica para a U9,
+        // quando translateCells ganhar um chamador real — ver comentario acima.)
+        cachedFrontiers = new ArrayList<>();
+        lastFrontierVisitedSize = -1;
     }
 }

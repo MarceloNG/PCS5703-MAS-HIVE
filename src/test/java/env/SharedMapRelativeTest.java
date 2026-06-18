@@ -80,4 +80,37 @@ class SharedMapRelativeTest {
         assertEquals(4, p[1]);
         assertEquals(9, p[2]); // step preservado
     }
+
+    @Test
+    void roleZoneTraduzida() {
+        SharedMap sm = freshMap(0, 0);
+        sm.knownRoleZones.add("2,8");
+        sm.translateCells(1, 1);
+        assertTrue(sm.knownRoleZones.contains("3,9"));
+        assertFalse(sm.knownRoleZones.contains("2,8"));
+    }
+
+    @Test
+    void valorDaCelulaPreservado() {
+        SharedMap sm = freshMap(0, 0);
+        sm.cells.put("5,3", "obstacle:");
+        sm.obstacles.put("5,3", 10);
+        sm.translateCells(2, 1);
+        assertEquals("obstacle:", sm.cells.get("7,4"));   // tipo/detalhe intacto
+        assertEquals(10, sm.obstacles.get("7,4").intValue());
+    }
+
+    // Fase D (#7): decay poda 'seen_' obsoletas sem tocar chaves de posicao de agente.
+    @Test
+    void decayPodaOccupancySeenObsoleta() {
+        SharedMap sm = freshMap(0, 0);
+        sm.occupancyStep = 20;
+        sm.occupancy.put("seen_5_3", new int[]{5, 3, 20}); // fresca (== watermark)
+        sm.occupancy.put("seen_9_9", new int[]{9, 9, 10}); // obsoleta (< 19)
+        sm.occupancy.put("agentA1",  new int[]{1, 1, 10}); // chave de agente: nunca poda aqui
+        sm.decay_obstacles(20);                            // step % 5 == 0
+        assertTrue(sm.occupancy.containsKey("seen_5_3"));
+        assertFalse(sm.occupancy.containsKey("seen_9_9"));
+        assertTrue(sm.occupancy.containsKey("agentA1"));
+    }
 }

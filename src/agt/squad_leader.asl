@@ -122,6 +122,10 @@ my_role_type(squad_leader).
                if (Busy1 | BusyAsm) {
                    .print("[LEADER] 2-block: busy, skip ", TaskName)
                } else {
+                   // FIXME Fase D (#2, cross-frame): GX,GY estao no frame DESTE leader.
+                   // Pre-fusao (sem U9) cada agente tem origem propria, entao o meeting-point
+                   // nao traduz para o frame do collector/assembler — rendezvous multi-bloco
+                   // so converge por adjacencia percebida. A U9 (frame compartilhado) resolve.
                    set_meeting_point(MySquad, GX, GY);
                    mark_busy(Col1);
                    mark_busy(Asm);
