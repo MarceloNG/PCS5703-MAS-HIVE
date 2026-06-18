@@ -109,6 +109,33 @@ a partilha que a instância-por-agente (U3) abriu mão e habilitando um **path f
 sobre o conhecimento coletivo** (A* sobre o mapa de todos, muito menos re-exploração) — o instrumento
 estratégico de pontuação que o dono aponta.
 
+**Arquitetura do merge — SOLÚVEL; decisão em aberto (pergunta do dono, 2026-06-18).** As duas formas
+abaixo são as duas opções reais, e a álgebra (tradução por offset toroidal) **já está resolvida e
+testada** na `translateCells` — então isto NÃO é uma incógnita técnica, é uma escolha de *onde* aplicar
+a tradução:
+
+- **(A) Descentralizado — cada agente agrega no PRÓPRIO frame.** Cada agente mantém seu `map_<nome>`
+  (origem própria) e, ao receber dados de um colega + o offset, traduz e **ingere no seu frame**. Cada
+  um fica com o mapa-união, na sua coordenada. **Recomendado** p/ este código: estende o que já existe
+  (instância-por-agente U3 + `translateCells`) sem reintroduzir artefato compartilhado; a navegação é
+  trivial (o `my_pos`/`dr_pos` do agente já está nesse frame — nada a converter na hora do A*); degrada
+  bem (cada um funde o que conseguiu). Custo: N cópias do mapa (memória **negligível** a 70×70 — o
+  review de performance confirmou).
+- **(B) Centralizado — um mapa merged único, cada agente converte p/ a sua origem.** Um mapa global
+  num frame canônico (ex.: o frame do 1º agente ancorado); cada agente traduz **a sua posição/consultas**
+  ↔ global na hora de navegar (não o mapa inteiro — isso seria O(células) por agente por update).
+  Reintroduz um artefato compartilhado (a contenção CArtAgO que o projeto já mediu — embora o profiling
+  tenha mostrado que não era o gargalo) e a escolha de "qual frame é o global".
+
+**As duas são equivalentes na matemática** (mesma tradução por offset); diferem só em onde a tradução
+mora — (A) traduz dado-que-entra e guarda no meu frame; (B) guarda em global e traduz minha-consulta. A
+recomendação é **(A)**. **A parte genuinamente difícil NÃO é o merge — é a DESCOBERTA confiável do
+offset (ancoragem acima) + o DRIFT do dead-reckoning** (offsets aproximados que acumulam erro; quando
+A↔B↔C fecha um ciclo que discorda de um A↔C medido, é preciso reconciliar). Isso é literalmente o
+problema de **SLAM** (mapeamento e localização simultâneos) da robótica: ancoragem ≈ data association /
+scan-matching; composição transitiva ≈ pose graph; reconciliar ciclos ≈ loop closure. Há solução
+conhecida e madura na literatura — é trabalho de engenharia, não pesquisa em aberto.
+
 **Cuidados de engenharia (o que torna isto não-trivial):** (i) **wrap toroidal** no alinhamento — a
 `translateCells` já trata; (ii) o **drift** do dead-reckoning faz os offsets serem aproximados → vale
 re-ancorar periodicamente (qualquer dos 3) e **resolver conflitos** de célula na fusão (um diz parede,
@@ -132,8 +159,11 @@ sites do código.
 nossa `translateCells` já tem), gossip **multi-hop** é TODO (sync 1-hop), drift corrigido por
 brute-force, e risco de **ambiguidade** quando vários pares se veem no mesmo step. Tratar esses pontos.
 
-**Gate:** era "medir antes da fusão" (decisão guiada por evidência). Promover quando a **Fase C** (adoção
-de role → score real no oficial) estiver de pé e a medição mostrar que partilha/montagem move o score.
+**Gate (sequenciamento, NÃO incógnita de viabilidade):** isto **não está deferido por ser arriscado ou
+incerto** — a solução é conhecida (ver Arquitetura acima; é SLAM, problema resolvido na literatura). O
+gate é de **prioridade/medição**: a fusão só vira score se houver score para multiplicar, e isso depende
+da **Fase C** (adoção de role → pontuar no oficial). Promover quando a Fase C estiver de pé e a medição
+mostrar que partilha/montagem move o score.
 Origem: [`docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md`](brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md)
 (Scope Boundaries / U9), que cita o **LI(A)RA** (time Jason, MAPC 2022 — `github.com/Liga-IA/liara-agents`,
 `src/asl/synchronism.asl`) como referência *proven* da técnica.
