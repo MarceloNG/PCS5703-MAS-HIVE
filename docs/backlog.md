@@ -36,7 +36,8 @@ cap. "The MAPC 2022") + os arquivos de config bundled (`sim/sim1.json`, `sim/rol
 
 | # | Item | Fundamento (fonte) |
 |---|------|--------------------|
-| **P0** | **Fase C — adotar `worker` (worker-first)**; critério = **adota + `request` passa** (NÃO score>0 oficial), validado em **isolamento** | Gate de score literal: `default` não tem `submit`. Boot 2026-06-18: adoção existe mas frágil (adopt-spam, 4/15 alcançam role-zone, workers não chegam a `request`). Ver achados abaixo. |
+| **P0 ✅** | **Fase C — adoção de `worker`** (gate por percept `role/1`): **PROVADA em isolamento (score 0→10, submits 0→3)**. Resta **U4 (elo MOISE+)** + portar ao oficial | Adotar→coletar→submeter→pontuar **fecha** (commits `4b6a2d8`/`b9aa684`). O bloqueio de score restante é **navegação (livelock)**, não adoção. |
+| **P1 (score-growth)** | **Redesenho de navegação — artefato GPS + footprint + handedness** (→ **ideação/brainstorm**) | **Bloqueio de score MEDIDO pós-Fase-C** (pinning/livelock no isolamento). Substitui PENALTY=16/jitter; tradeoffs em aberto. Ver bullet "Artefato GPS" no parking lot. |
 | **P0** | **Corrigir cardinalidades MOISE+ p/ ≥20 (e plano p/ 40)** | `hive_org.xml` soma `max` = 19 (4+8+4+3) → já não admite os 20 do Sim1 oficial. Edição barata, desbloqueante. |
 | **P1** | **Viés single-block no scoring do líder (#1)** | Livro §2: single-block tem *"very small compensation"*; reward sobe com complexidade. Alta alavanca assim que a Fase C pontuar. |
 | **P1** | **Experimento de alavanca / harness de métricas** | O próprio backlog condiciona tudo a isso; antecede U9 e promoção do parking lot. |
@@ -348,6 +349,25 @@ movimento, não em submit) e os próprios docs as condicionam a evidência. Prom
   **footprint-avoidance leve** (sem a infra de reserva de célula do #5/B8). Hoje o escape usa *jitter
   aleatório*, que não quebra simetria de forma estável. **Elevado** porque é o **bloqueio de score medido**
   (não mais alavanca indireta especulativa) — promover junto com a depuração de navegação/submit pós-Fase-C.
+- **Artefato GPS — roteamento sobre qualquer mapa (ideia do dono, 2026-06-18; → ideação/brainstorm).**
+  Um artefato CArtAgO **GPS** que **cria e recalcula rotas** sobre QUALQUER mapa (o `map_<nome>` individual,
+  o de um agente específico, ou o fundido da U9), **minimizando o nº de steps até o destino considerando
+  obstáculos**. Centraliza/extrai o A\* (hoje embutido no `SharedMap`) — alinhado ao follow-up do PR #5
+  (extrair o A\* p/ classe pura testável) e habilitado pela U9 (rotear sobre o mapa fundido).
+  **Tradeoffs em aberto, a decidir por ideação/brainstorm (o dono levantou; há mais ideias):**
+  - **Ocupação viva na rota?** enxergar colegas/adversários ao rotear (hoje: overlay #2 com `PENALTY=16`) —
+    manter, ajustar, ou substituir por footprint?
+  - **Handedness** — desviar de agente **sempre no mesmo sentido (horário)** (quebra simetria; substitui o
+    *jitter* aleatório do escape #3/#4).
+  - **Footprint como custo** — penalizar o footprint (próprio e dos colegas) como **+steps no A\***, em vez de
+    só reagir no escape; e **olhar além do footprint imediato** (look-ahead).
+  - **Substituir o "locking" atual** (`PENALTY=16`, #2) por um custo de ocupação/footprint mais principiado.
+  - **Qual o melhor tradeoff de navegação** é pergunta de pesquisa.
+  **Dependências / o que já temos:** extração do A\* (PR #5 follow-up) **habilita** o GPS; **U9** fornece o
+  mapa a rotear; **dispersão+handedness** (bullet acima) é a política de movimento que o GPS encapsula; o A\*
+  do `SharedMap` (overlay #2 `PENALTY=16` + escape jitter #3/#4) é o **ponto de partida** a substituir.
+  **Sequência sugerida:** ideação/brainstorm (fixar os tradeoffs) → extrair A\* → GPS → integrar
+  footprint/handedness. **Score-growth lever medido** (o pinning é o bloqueio atual).
 - **Dívida arquitetural — A\* aprende parede só por colisão.** Paredes percebidas vão p/ `cells`, que
   o A* não lê; ele só conhece obstáculo via `mark_obstacle` (colisão). Reframe de 2 camadas:
   `staticObstacles` (da percepção) + `liveOccupancy` (já existe, via #2). Latente; morde em
