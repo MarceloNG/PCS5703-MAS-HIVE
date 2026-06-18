@@ -1,4 +1,5 @@
 { include("common/perception.asl") }
+{ include("common/shared_map_init.asl") }
 { include("common/collection.asl") }
 { include("common/navigation.asl") }
 
@@ -11,14 +12,6 @@
        makeArtifact(Me, "connection.EISAccess", ["eismassimconfig.json", Me], EisId);
        focus(EisId);
        .print("Conectado ao EIS. Aguardando percepts...").
-
-// Fase D / U3: mapa por-agente (frame local privado).
-+!setup_shared_map
-    <- .my_name(Me);
-       .concat("map_", Me, MapName);
-       makeArtifact(MapName, "env.SharedMap", [], MapId);
-       focus(MapId).
--!setup_shared_map <- true.
 
 // SIM-START percepts
 +name(N)     <- .print("SIM-START: nome = ", N).

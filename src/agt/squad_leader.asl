@@ -1,4 +1,5 @@
 { include("common/perception.asl") }
+{ include("common/shared_map_init.asl") }
 { include("$jacamo/templates/common-cartago.asl") }
 { include("$jacamo/templates/common-moise.asl") }
 { include("common/organization.asl") }
@@ -23,16 +24,6 @@ my_role_type(squad_leader).
        focus(EisId);
        .print("[LEADER] Conectado. Modo: exploracao + coordenacao.");
        !register_squad_on_dashboard.
-
-// Fase D / U3: mapa por-agente (frame local privado). Cada agente cria a sua
-// instancia ("map_"+nome); nao ha mais um shared_map compartilhado (sem frame
-// global pre-fusao). 'Me' ja nomeia o EISAccess, dai o prefixo "map_".
-+!setup_shared_map
-    <- .my_name(Me);
-       .concat("map_", Me, MapName);
-       makeArtifact(MapName, "env.SharedMap", [], MapId);
-       focus(MapId).
--!setup_shared_map <- true.
 
 +!setup_task_board
     <- lookupArtifact("task_board", TbId); focus(TbId).
