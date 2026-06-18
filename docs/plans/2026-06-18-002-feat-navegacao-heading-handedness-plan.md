@@ -1,7 +1,7 @@
 ---
 id: "2026-06-18-002"
 title: "Navegação: heading-balanceado + handedness"
-status: active
+status: completed
 date: 2026-06-18
 origin: "docs/brainstorms/2026-06-18-navegacao-heading-handedness-requirements.md"
 ---
