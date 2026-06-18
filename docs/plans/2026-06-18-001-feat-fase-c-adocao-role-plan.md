@@ -114,8 +114,10 @@ Carregados do documento de origem (mesmos R-IDs).
   time **pontua**.
 - R4. Existe um config de avaliação com os **roles reais aditivos** (default sem ações de
   pontuação; worker = default + extras).
-- R5. Recuperação: um agente que perca o role de pontuação volta a tê-lo re-adotando
-  numa role-zone (o gate `!ensure_worker_role` re-checa).
+- R5. Recuperação: o gate `!ensure_worker_role` re-checa a cada deliberação. **Nota (revisão
+  2026-06-18): no engine NÃO há perda involuntária de role** — desativação só tira
+  attachments, não o role (`Entity.deactivate`). R5 é baixo-risco (o pipeline re-coleta
+  blocos); re-adoção só se o agente trocar de role de propósito.
 - R7. Boot no oficial (roles reais, 70×70) demonstra **score > 0** (vs 0 hoje); sem
   regressão no dev.
 
@@ -175,8 +177,13 @@ de avaliação; a composição via org o respeita quando entrar a especializaç�
 - **Requirements:** R1, R3, R5.
 - **Dependencies:** U1.
 - **Files:** `src/agt/common/role_adoption.asl` (novo módulo comum);
-  `{ include("common/role_adoption.asl") }` nos `.asl` de executor
-  (`collector`, `assembler`, `sentinel`, `squad_leader`).
+  `{ include("common/role_adoption.asl") }` **só nos executores de pipeline:
+  `collector` e `assembler`** — quem faz `request/attach/connect/submit`. `sentinel` usa
+  `clear` (já no `default`) e `squad_leader` coordena/leiloa → **não precisam de worker**
+  (adotar à toa gasta agente/steps indo à role-zone).
+  > **Ajuste da revisão (2026-06-18):** resolve a incoerência com a Open Question "quais
+  > executores" — escopo mínimo = collector+assembler. (Nota estratégica de medição, fora
+  > da Fase C: times campeões do MAPC fizeram quase todos worker.)
 - **Approach:** adaptar `~/repos/MAPC/src/agt/worker_role.asl`:
   - `+!ensure_worker_role : my_role(worker) <- true.` / `: true <- !adopt_worker_server.`
   - `+!adopt_worker_server : my_role(worker) <- true.`
@@ -185,6 +192,13 @@ de avaliação; a composição via org o respeita quando entrar a especializaç�
   - `: my_pos(MX,MY) & <role-zone lembrada via get_nearest_role_zone> <- !navegar (compute_next_move).`
   - `: true <- !explore_step.` (nenhuma conhecida — reusar a exploração existente)
   - Usar `my_role` (do percept `+role(R)`, já rastreado em `perception.asl`) como gate.
+  - **Integração no ciclo (gotcha nº 1 do boot):** o HIVE delibera por `+step(N)` com
+    **prioridade por ordem de include** (`collection.asl`: "incluir ANTES de navigation").
+    A adoção deve ser um plano **`+step(N)` incluído ANTES de `collection.asl`** (gateia a
+    coleta) que dispara `!ensure_worker_role` — **não** um handler reativo `+role(default)`.
+    Garantir **uma única ação MASSim por step** (adopt OU move OU explore). O próprio
+    `worker_role.asl` de referência avisa: um `+role(default)` reativo pode submeter **duas
+    ações no mesmo step**.
 - **Execution note:** lógica `.asl` não é unit-testável; validar por boot (U6).
 - **Patterns to follow:** `~/repos/MAPC/src/agt/worker_role.asl` (ciclo de adoção — citar
   e melhorar); `src/agt/common/navigation.asl` (`has_destination`/`compute_next_move`);
@@ -203,12 +217,16 @@ de avaliação; a composição via org o respeita quando entrar a especializaç�
 - **Files:** `src/org/hive_org.xml` (novo goal + mission + norma de obrigação para
   executores); `src/agt/common/organization.asl` (handler da obrigação).
 - **Approach:** adicionar ao `hive_org.xml` um goal (ex.: `worker_role_adopted`) numa
-  mission (ex.: `m_adopt`) com uma **norma** que obriga os roles de execução a
-  adotá-la; em `organization.asl`, tratar
-  `+obligation(Ag, _, <adopt_worker_role>, _) <- !ensure_worker_role; <discharge via scheme>`
-  espelhando o idioma `obligation → commitMission` já presente e o
-  `+!adopt_worker_role[scheme(...)]` do MAPC ref (discharge via `goalAchieved`/scheme, não
-  por crença).
+  mission (ex.: `m_adopt`) **separada** (não dentro do `task_execution_scheme` — desacopla,
+  respeita KTD5) com a norma de obrigação para collector/assembler; em `organization.asl`,
+  tratar a **obrigação-de-REALIZAÇÃO**:
+  `+obligation(Ag,_,achieved(S,adopt_worker_role,Ag),_) <- !ensure_worker_role; goalAchieved(...)`.
+  > **Ajuste da revisão (2026-06-18):** isto é comportamento **NOVO**, não "espelhar o idioma
+  > já presente". Hoje `organization.asl` só faz `commitMission` e **deliberadamente NÃO
+  > atinge goals** (KTD1); `adopt_worker_role` é o **1º goal que a org realmente dirige** — o
+  > cerne de "dar dentes ao MOISE+" (e o que o relatório avalia). Cuidado com o
+  > **endereçamento do artefato**: o ref usa `goalAchieved(...)[artifact_id(OrgArtId)]`, a
+  > `organization.asl` usa `[artifact_name(Scheme), wid(W)]` — alinhar p/ não falhar em silêncio.
 - **Execution note:** validar por boot (U6); confirmar que a obrigação dispara e descarrega
   sem travar o scheme existente (`task_execution_scheme`).
 - **Patterns to follow:** `src/agt/common/organization.asl` (handler de `obligation` +
@@ -228,10 +246,19 @@ de avaliação; a composição via org o respeita quando entrar a especializaç�
 - **Files:** evidência registrada para o relatório (sem alterar defaults do dev).
 - **Approach:** boot headless no oficial (config de U2, roles reais, 70×70) medindo
   **score** (results/*.json) — agentes acham role-zone, adotam worker, completam ≥1 task.
-  Boot no dev (`FastTestConfig`) confirma sem regressão. Confirmar no log se a
-  **desativação** preserva o role (cenário diz que perde attachments, não menciona role —
-  se zerar, o gate de U3 re-adota).
+  **Asserção concreta:** `FAILED_ROLE` em `request` (default) **some** após o `adopt`
+  (engine: `Simulation.java:118-119` retorna `FAILED_ROLE` p/ ação fora do role). Boot no
+  dev (`FastTestConfig`) confirma sem regressão.
+  > **Ajustes da revisão (2026-06-18):** (i) **desativação PRESERVA o role** — `Entity.deactivate()`
+  > só faz `detachAll()`+timer, nunca `setRole`; R5 não precisa re-adoção ativa, só re-coleta
+  > de blocos (resolvido sem boot). (ii) **Pré-boot: `hive_org.xml` soma `max=19`** — bootar
+  > com **≤19 agentes** OU subir as cardinalidades antes, senão o 20º agente fica sem role org
+  > → sem obrigação → ocioso, poluindo o boot.
 - **Execution note:** medição barata; um run por config (custo de run alto).
+  > **Sequenciamento (de-risk):** boot **intermediário após U3** com trigger simples
+  > (executores chamam `!ensure_worker_role` no `+step(N)`, sem org) → confirma `my_role→worker`
+  > + `score>0`. **Só então** entra U4 (a org dirige) e re-boota. Isola bug de adoção (U3) de
+  > bug de org (U4) — divide o ciclo de depuração intrincado em dois menores.
 - **Test scenarios:** `Test expectation: integração` — score > 0 no oficial; sem regressão
   no dev; suíte JUnit verde (inclui U1).
 - **Verification:** evidência de `Submit ... SUCESSO` / score > 0 no oficial capturada; dev
@@ -288,13 +315,15 @@ de avaliação; a composição via org o respeita quando entrar a especializaç�
 ## Open Questions
 
 Deferidas à implementação/medição:
-- **Desativação preserva o role MAPC?** (cenário: perde attachments; não menciona role.)
-  Confirmar no boot (U5); decide se R5 precisa re-adoção ativa ou é automático.
+- ✅ **RESOLVIDA (revisão 2026-06-18) — Desativação preserva o role MAPC? SIM.**
+  `Entity.deactivate()` só faz `detachAll()`+timer, nunca `setRole`. R5 é automático (sem
+  re-adoção); o agente só re-coleta blocos.
 - **Norma de contagem de role (R6):** qual o limite no config de avaliação? No mínimo
-  viável todos viram worker; se houver teto, a org precisa distribuir (entra com a
-  especialização).
-- **Quais executores incluem o módulo de adoção** — todos os 4 roles, ou só
-  collector/assembler? (Sentinel/squad_leader também coletam? — decisão de composição.)
+  viável collector+assembler viram worker; se houver teto, a org precisa distribuir (entra
+  com a especialização). *(Backlog/spec: os times de topo ignoraram normas de role e comeram
+  a multa — provável não-problema.)*
+- ✅ **RESOLVIDA (revisão 2026-06-18) — Quais executores adotam:** **collector + assembler**
+  (os que usam o pipeline). Sentinel (`clear` já no `default`) e squad_leader (coordena) **não**.
 
 ---
 
