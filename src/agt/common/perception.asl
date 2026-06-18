@@ -34,7 +34,10 @@ dr_pos(0, 0).
 +!offline_cascade <- true.
 
 // integra o move bem-sucedido no frame local (so quando dead-reckoning, i.e. sem percept).
-+!dead_reckon_move : not position(_, _) & last_attempted_dir(D) & dr_pos(X, Y)
+// guard lastAction(move): so integra se a acao deste step foi MESMO um move — senao um
+// last_attempted_dir remanescente de um move falho seria integrado por um sucesso de
+// acao nao-move (skip/attach/rotate/connect), driftando dr_pos permanentemente (review Fase D).
++!dead_reckon_move : not position(_, _) & lastAction(move) & last_attempted_dir(D) & dr_pos(X, Y)
     <- if (D == n) { NX = X; NY = Y - 1 }
        elif (D == s) { NX = X; NY = Y + 1 }
        elif (D == e) { NX = X + 1; NY = Y }
