@@ -1,6 +1,8 @@
 # HIVE — Backlog
 
-Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prioridade).
+Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prioridade) — **exceto** a
+tabela em "Prioridades (revisão vs spec, 2026-06-18)" abaixo, fruto do cruzamento com o livro oficial
+do MAPC 2022 e os arquivos de config.
 
 ## Status — o que já landou vs WIP (2026-06-18)
 
@@ -21,6 +23,26 @@ Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prior
   que torna a fusão de mapas (U9) mensurável. Detalhe em "Adaptação ao cenário oficial MAPC 2022" (item 2).
 
 **Próximo, após a Fase C:** medir score no oficial → promover a **fusão de mapas (U9)** (ver seção própria).
+
+## Prioridades (revisão vs spec, 2026-06-18)
+
+Cruzamento de `docs/backlog.md` contra o **livro oficial MAPC 2022** (`local/978-3-031-38712-8.pdf`,
+cap. "The MAPC 2022") + os arquivos de config bundled (`sim/sim1.json`, `sim/roles/standard.json`,
+`sim/norms/standard.json`) + o exercício da disciplina (`local/5703_ex02_26.pdf`). Ranking fundamentado:
+
+| # | Item | Fundamento (fonte) |
+|---|------|--------------------|
+| **P0** | **Fase C — adotar `worker` (escopo MÍNIMO, worker-first)** | Gate de score literal: `default` não tem `submit` (`roles/standard.json`). Livro §4: *"the worker role is preferable… the other roles are not strictly necessary"* — não sobre-engenheirar composição; constructor opcional. |
+| **P0** | **Corrigir cardinalidades MOISE+ p/ ≥20 (e plano p/ 40)** | `hive_org.xml` soma `max` = 19 (4+8+4+3) → já não admite os 20 do Sim1 oficial. Edição barata, desbloqueante. |
+| **P1** | **Viés single-block no scoring do líder (#1)** | Livro §2: single-block tem *"very small compensation"*; reward sobe com complexidade. Alta alavanca assim que a Fase C pontuar. |
+| **P1** | **Experimento de alavanca / harness de métricas** | O próprio backlog condiciona tudo a isso; antecede U9 e promoção do parking lot. |
+| **P2** | **U9 — fusão de mapas** | Alto valor (livro §4: cooperação é O diferencial), mas corretamente gated atrás de Fase C + medição. Manter deferido. |
+| **P3 ↓** | **Normas — REBAIXADO** (ver sub-item 2, reescrito) | Livro §4: times de topo **ignoraram normas e comeram a multa**; MMD venceu assim. Trocar "tratar normas genéricas" por: (a) checar se o detach da norma Carry não custa score; (b) decisão deliberada de "comer a multa". |
+| **P3** | **Track adversário** | Downstream da Fase C + run 2-times oficial (correto). |
+
+> **Prazo (exercício):** entrega de relatório+código consta como **20/06/2026**; competição vs. turma +
+> arguição "a anunciar". Se o relatório já foi entregue, a alavanca de nota restante é a **competição +
+> arguição** → reforça P0 (Fase C) como prioridade absoluta. Confirmar o estágio do prazo.
 
 ## Estratégia de coleta / montagem / submit (observado em 2026-06-17)
 
@@ -48,11 +70,19 @@ Métrica desse track = **submits/score**, não `[OSC]`. **Não é navegação.**
    quase sempre (100R vs 5R p/ 2 blocos), mesmo quando a multi-bloco vale mais. Resultado:
    o time ataca quase só tasks solo de 1 bloco e **ignora as multi-bloco (maior reward)**.
    Rever a fórmula para considerar reward total e viabilidade de montagem.
-2. **Normas além de "Carry" + custo-benefício da multa.** Hoje só a norma de carry é tratada
-   (`perception.asl` → `carry_limit`; detach de excesso). O `active_norm(Id,Start,End,Reqs,Fine)`
-   guarda o período e a multa, mas: outros tipos de norma são **ignorados**; o período (Start/End)
-   não é raciocinado proativamente; a multa nunca é **pesada contra o reward** (nunca decide
-   "vale violar"). Tratar normas genéricas e fazer a conta multa-vs-ganho.
+2. **Normas — REBAIXADO (P3) pela evidência do livro.** Hoje só a norma de carry é tratada
+   (`perception.asl` → `carry_limit`; detach de excesso). **A spec contradiz o impulso de "tratar
+   normas genéricas":** o livro §4 (*Lessons Learned/Norms*) observa que os times de topo **ignoraram
+   as normas e simplesmente aceitaram a multa** (*"teams to pay little attention to the norms and just
+   accept any coming punishment"*; *"almost no corresponding drops in the number of worker agents"*) — e
+   o MMD **venceu** assim. A config confirma que normas são **raras e baratas** (`sim/norms/standard.json`:
+   `chance:15`, `simultaneous:1`, multas 1–10 energia, recupera 1/step de 100). Reescopo:
+   - **(a) Risco latente no que JÁ existe:** o detach do excesso (conformidade da norma Carry) pode
+     estar **custando score** — largar um bloco útil p/ poupar 2–3 de energia é trade ruim. Medir /
+     possivelmente reverter para "comer a multa".
+   - **(b) Exposição nova com a Fase C:** ao adotar `worker`, ligam-se as normas **`Adopt`**
+     (`playing:0` e `playing:50%` no config) — mas a recomendação da spec continua: **ignorar**. Tornar
+     isso uma decisão *deliberada* (eat-the-penalty), não uma rotina de conformidade.
 3. **Medir a priorização + cenário oficial.** Instrumentar pontos capturados vs disponíveis,
    multas pagas e tasks de alto valor perdidas. Rodar a config oficial do MAPC 2022
    (`massim_2022/server/conf/SampleConfig.json`, 2 times) para realismo competitivo — aí
@@ -67,8 +97,15 @@ Métrica desse track = **submits/score**, não `[OSC]`. **Não é navegação.**
 
 ## Adaptação ao cenário oficial MAPC 2022 (pré-requisito p/ rodar 2-times oficial)
 
-A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json`) é **70×70**, até
+A config **bundled** (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json`) é **70×70**, até
 **20 agentes/time**, **750 steps**, e usa **roles dinâmicos**. Auditoria (2026-06-17):
+
+> **Correção (revisão vs spec, 2026-06-18):** os 750 steps/70×70 são do *sample bundled*, **não** do
+> torneio. O torneio 2022 (livro §3) foram **3 simulações**: **Sim1** = 400 steps / 70×70 / 20 ag.;
+> **Sim2** = 600 / 70×70 / **obstáculos densos**; **Sim3** = **800 steps / 100×100 / 40 agentes**. Se a
+> competição da turma espelhar o torneio, o **Sim3 (100×100, 40 agentes)** é um ponto cego — não modelado
+> em lugar nenhum do backlog (ver item 3). (Aviso de nomenclatura: `conf/OfficialTestConfig.json` chama-se
+> "Official" mas usa um `default` degenerado *com todas as ações* + 15 ag./150 steps — não é o oficial.)
 
 1. ✅ **FEITO — Grid parametrizável.** Resolvido: `hive.GridConfig` + flags `-PgridW/-PgridH` (Track 3
    Fase B); e na Fase D, no oficial as dims ficam 0 (frame não-normalizado, A* sem-wrap) — eliminando o
@@ -78,8 +115,16 @@ A config oficial (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.json
    coletar/montar/submeter é preciso ir a uma **role-zone** e `adopt(worker|constructor)`. O HIVE
    **não tem lógica de adoção de role** → na config oficial o time **não pontua** (só anda). Requer:
    navegar à role-zone → `adopt` → só então coletar. **Sem isso, o teste oficial dá score 0.**
-3. **Escala p/ 20 agentes/time.** O `entities` é o **máximo** de contas (dá pra rodar com menos — 15
-   conectam, restantes ociosos). Para competir de igual, subir o squad para 20 e revisar a composição.
+   **Costurar com o MOISE+ (graduado):** as obrigações da org (`collector→m_collect`,
+   `assembler→m_submit` em `src/org/hive_org.xml`) **pressupõem** que o agente pode coletar/montar — i.e.,
+   que já adotou `worker`/`constructor`. No oficial, um `collector` está *obrigado* a coletar e
+   *fisicamente não consegue* até adotar. A Fase C tem de ligar a camada org à camada de role MAPC (é
+   justo o que o relatório avalia: "facilidade/dificuldade do modelo organizacional").
+3. **Escala p/ 20 (e 40) agentes/time.** O `entities` é o **máximo** de contas (dá pra rodar com menos —
+   15 conectam, restantes ociosos). **Blocker concreto:** as cardinalidades do MOISE+ em
+   `src/org/hive_org.xml` somam `max` = **19** (`squad_leader 4 + collector 8 + assembler 4 + sentinel 3`)
+   → o time **já não admite os 20 do Sim1**, e está longe dos **40 do Sim3**. Subir o squad p/ 20 exige
+   editar essas cardinalidades; competir no Sim3 exige repensar a composição p/ 40.
 
 > **Atualização (2026-06-18, pós-Fase D):** o oficial **já roda** (a Fase D destravou navegação sem
 > `absolutePosition` — boot confirmou agentes convergindo a alvos). O que falta para **pontuar** é só a
