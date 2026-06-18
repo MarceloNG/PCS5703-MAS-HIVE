@@ -6,11 +6,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SharedMap extends Artifact {
 
-    private ConcurrentHashMap<String, String> cells;
-    private Set<String> knownDispensers;
-    private Set<String> knownGoalZones;
-    private Set<String> knownRoleZones;
-    private Set<String> visitedCells;
+    ConcurrentHashMap<String, String> cells;              // package-private p/ teste (Fase D / R7)
+    Set<String> knownDispensers;                          // package-private p/ teste (Fase D / R7)
+    Set<String> knownGoalZones;                           // package-private p/ teste (Fase D / R7)
+    Set<String> knownRoleZones;                           // package-private p/ teste (Fase D / R7)
+    Set<String> visitedCells;                             // package-private p/ teste (Fase D / R7)
     ConcurrentHashMap<String, Integer> obstacles;         // package-private p/ teste (backfill Track 1)
     ConcurrentHashMap<String, int[]> occupancy;           // nome -> {x, y, step}
     int occupancyStep = 0;                                // ultimo step reportado (p/ expirar entradas obsoletas)
@@ -442,5 +442,62 @@ public class SharedMap extends Artifact {
             return dx > 0 ? "e" : "w";
         }
         return dy > 0 ? "s" : "n";
+    }
+
+    // ===== Fase D / R7: costura de traducao de frame =====
+    // Re-keia todo o estado por-celula deste mapa por um offset (dX,dY), traduzindo
+    // este frame para outro (toroidalmente, com as dims correntes). Inerte no
+    // incremento 1 (nenhuma fusao chama); existe para a fusao cross-agente (U9)
+    // entrar como camada de traducao SEM reescrever o mapa, e e exercitada em teste
+    // (prova que o mapa por-agente e parametrizado por frame). Nao re-emite obs
+    // properties (known_*) — isso fica para a U9.
+    String shiftKey(String key, int dX, int dY) {
+        int ci = key.indexOf(',');
+        int x = Integer.parseInt(key.substring(0, ci));
+        int y = Integer.parseInt(key.substring(ci + 1));
+        return normX(x + dX) + "," + normY(y + dY);
+    }
+
+    private Set<String> shiftKeySet(Set<String> in, int dX, int dY) {
+        Set<String> out = ConcurrentHashMap.newKeySet();
+        for (String k : in) out.add(shiftKey(k, dX, dY));
+        return out;
+    }
+
+    private Set<String> shiftDispensers(Set<String> in, int dX, int dY) {
+        Set<String> out = ConcurrentHashMap.newKeySet();
+        for (String k : in) {
+            int ci = k.indexOf(',');
+            int co = k.indexOf(':');
+            int x = Integer.parseInt(k.substring(0, ci));
+            int y = Integer.parseInt(k.substring(ci + 1, co));
+            String details = k.substring(co + 1);
+            out.add(normX(x + dX) + "," + normY(y + dY) + ":" + details);
+        }
+        return out;
+    }
+
+    void translateCells(int dX, int dY) {
+        ConcurrentHashMap<String, String> nc = new ConcurrentHashMap<>();
+        for (Map.Entry<String, String> e : cells.entrySet()) {
+            nc.put(shiftKey(e.getKey(), dX, dY), e.getValue());
+        }
+        cells = nc;
+
+        ConcurrentHashMap<String, Integer> no = new ConcurrentHashMap<>();
+        for (Map.Entry<String, Integer> e : obstacles.entrySet()) {
+            no.put(shiftKey(e.getKey(), dX, dY), e.getValue());
+        }
+        obstacles = no;
+
+        visitedCells = shiftKeySet(visitedCells, dX, dY);
+        knownGoalZones = shiftKeySet(knownGoalZones, dX, dY);
+        knownRoleZones = shiftKeySet(knownRoleZones, dX, dY);
+        knownDispensers = shiftDispensers(knownDispensers, dX, dY);
+
+        for (int[] p : occupancy.values()) {
+            p[0] = normX(p[0] + dX);
+            p[1] = normY(p[1] + dY);
+        }
     }
 }
