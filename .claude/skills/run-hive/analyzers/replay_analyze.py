@@ -20,14 +20,19 @@ Uso:
 
 import argparse
 import json
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 # repo = .../.claude/skills/run-hive/analyzers/replay_analyze.py -> parents[4]
 REPO = Path(__file__).resolve().parents[4]
-DEFAULT_REPLAY_ROOT = REPO / "massim_2022" / "server" / "replays"
-DEFAULT_RESULTS_ROOT = REPO / "massim_2022" / "server" / "results"
+# Sim isolada (harness #11): HIVE_REPLAY_ROOT/HIVE_RESULTS_ROOT redirecionam p/ o workdir
+# por-porta (resultPath/replayPath isolados); sem env, usa o default do servidor.
+DEFAULT_REPLAY_ROOT = Path(os.environ.get(
+    "HIVE_REPLAY_ROOT", REPO / "massim_2022" / "server" / "replays"))
+DEFAULT_RESULTS_ROOT = Path(os.environ.get(
+    "HIVE_RESULTS_ROOT", REPO / "massim_2022" / "server" / "results"))
 STUCK_THRESHOLD = 5
 
 

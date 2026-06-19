@@ -1,0 +1,11 @@
+# Setup do cenário 00-smoke (harness #11) — EXEMPLO de fixture determinística.
+# O servidor executa estas ações ANTES do step 1 (massim GameState.handleCommand).
+# Comandos: move/add/terrain/create task/attach (ver massim_2022/docs/scenario.md e
+# o exemplo massim_2022/server/conf/setup/test.txt). Linhas com # ou vazias são ignoradas;
+# "stop" interrompe o resto do setup.
+#
+# Aqui: planta 1 dispenser + 1 bloco perto da origem só para tornar a fixtura visível no
+# replay. Posições em coordenadas ABSOLUTAS do grid (cenário usa absolutePosition:true).
+
+add 7 7 dispenser b1
+add 8 7 block b1
