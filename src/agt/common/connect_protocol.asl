@@ -46,27 +46,59 @@
        .print("[NORM] Step ", N, ": Detach excess block dir=", DDir, " (limit=", Limit, " att=", NumAtt, ")");
        .concat("detach(", DDir, ")", Act); action(Act).
 
-// --- PRE-SUBMIT: detach extra blocks if >1 attached for 1-block task ---
+// --- PRE-SUBMIT: detach extra blocks if >NBlocks attached (guard por NBlocks, não >1) ---
+// Corrigido de NumAtt>1 para NumAtt>NBlocks: task de N blocos legítimos não deve
+// descartar blocos em posições distantes (ex.: bloco em (2,0) de task 2-blocos).
 
 +step(N)
     : pending_submit(TaskName) & not submitted_task(_)
-      & solo_mode(_) & .count(attached(_, _), NumAtt) & NumAtt > 1
+      & solo_mode(TaskName) & known_task(TaskName, _, _, NBlocks)
+      & .count(attached(_, _), NumAtt) & NumAtt > NBlocks
       & attached(0, -1) & attached(0, 1)
     <- .print("[SUBMIT] Step ", N, ": Detaching extra adj block (n)");
        action("detach(n)").
 
 +step(N)
     : pending_submit(TaskName) & not submitted_task(_)
-      & solo_mode(_) & .count(attached(_, _), NumAtt) & NumAtt > 1
+      & solo_mode(TaskName) & known_task(TaskName, _, _, NBlocks)
+      & .count(attached(_, _), NumAtt) & NumAtt > NBlocks
       & attached(1, 0) & attached(-1, 0)
     <- .print("[SUBMIT] Step ", N, ": Detaching extra adj block (w)");
        action("detach(w)").
 
 +step(N)
     : pending_submit(TaskName) & not submitted_task(_)
-      & solo_mode(_) & .count(attached(_, _), NumAtt) & NumAtt > 1
+      & solo_mode(TaskName) & known_task(TaskName, _, _, NBlocks)
+      & .count(attached(_, _), NumAtt) & NumAtt > NBlocks
       & attached(AX, AY) & (math.abs(AX) + math.abs(AY) > 1)
     <- action("rotate(cw)").
+
+// --- BLOCOS-NA-MÃO → SUBMIT multi-bloco (gate #18 / Eixo 7a) --------------------
+// Se já tenho TODOS os N blocos da task pré-anexados nas posições exigidas, ir direto
+// pro submit sem coletar. Regra separada da de 1 bloco (abaixo) para zero risco de
+// regressão. solo_block_type omitido intencionalmente: re-coleta multi-bloco é 07b.
++step(N)
+    : can_score_role
+      & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
+      & not needs_clear_blocks(_) & not collecting(_, _, _)
+      & known_task(TaskName, Deadline, _, NBlocks) & NBlocks > 1 & Deadline > N
+      & .count(attached(_, _), NumAtt) & NumAtt >= NBlocks
+      & my_pos(MX, MY)
+    <- .my_name(Me);
+       hive.AllReqsSatisfied(TaskName);
+       .print("[SUBMIT] Step ", N, ": Multi-req ", NBlocks, " blocos na mão p/ ", TaskName, " → submit direto.");
+       mark_busy(Me);
+       +my_active_task(TaskName, "solo");
+       +solo_mode(TaskName);
+       +task_accepted_step(TaskName, N);
+       +my_task_deadline(TaskName, Deadline);
+       +pending_submit(TaskName);
+       get_nearest_goal_zone(MX, MY, GX, GY);
+       if (GX \== -1) {
+           .abolish(has_destination(_, _));
+           +has_destination(GX, GY)
+       };
+       action("skip").
 
 // --- BLOCO-NA-MÃO → SUBMIT (gate de score, issue #14) --------------
 // Se já tenho o bloco que a task exige ANEXADO na posição exigida (pré-anexado pela

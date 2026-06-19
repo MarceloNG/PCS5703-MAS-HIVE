@@ -1,0 +1,52 @@
+# =====================================================================
+# Setup determinístico do cenário 07a-multi-req (Eixo 7a / issue #18).
+# Multi-req submit: worker (agentA4) com 2 blocos pré-alinhados → submit.
+# Diferente do 06-single-block (1 bloco) e 06c (sem pré-anexar).
+#
+# Geometria (cadeia leste — sem rotação necessária):
+#   - agentA4 (collector) em (3,3), role-zone lá → adota worker.
+#   - bloco₁ b1 em (4,3) → attach(3,3,4,3) → attached(1,0) do agente.
+#   - bloco₂ b1 em (5,3) → attach(4,3,5,3) → attached(2,0) do agente (encadeado).
+#   - task t1 = b1@(1,0) + b1@(2,0): ambos já na posição correta → submit direto.
+#   - goal-zone em (3,7): agente navega carregando a cadeia (sem rotação).
+#
+# Move TODOS os 15 agentes a células distintas antes (lição do #14 — spawn collision).
+# agentAN (servidor) ↔ connectionAN (jacamo): A4-A9=collector (ver hive.jcm).
+# Gramática: move X Y agentN | terrain X Y role|goal | add X Y block <tipo>
+#            attach X1 Y1 X2 Y2 | create task <n> <dl> bx,by,t;...
+# Eixos MASSim: x=leste(+), y=sul(+). Cwd do servidor = massim_2022/server/.
+# =====================================================================
+
+# 1) Estacionar os 14 não-alvo na borda inferior (longe de (3,3)-(5,3) e (3,7))
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
+
+# 2) Worker-alvo (collector agentA4) em (3,3), sobre a role-zone → adota worker
+move 3 3 agentA4
+terrain 3 3 role
+
+# 3) Pré-anexar 2 blocos em cadeia leste
+#    bloco₁ em (4,3): attach(agente(3,3) ↔ bloco(4,3)) → attached(1,0)
+add 4 3 block b1
+attach 3 3 4 3
+#    bloco₂ em (5,3): attach(bloco₁(4,3) ↔ bloco₂(5,3)) → chain → attached(2,0)
+add 5 3 block b1
+attach 4 3 5 3
+
+# 4) Goal-zone ao sul (navegação curta carregando cadeia → submit)
+terrain 3 7 goal
+
+# 5) Task t1: 2 blocos b1 nos offsets (1,0) e (2,0) = exatamente onde os blocos estão
+create task t1 100 1,0,b1;2,0,b1
