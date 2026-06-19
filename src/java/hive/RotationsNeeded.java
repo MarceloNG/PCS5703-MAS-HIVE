@@ -9,14 +9,16 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Internal action: calcula o número mínimo de rotações CW (1-3) para alinhar os
- * blocos anexados com os requisitos posicionais de uma task.
+ * Internal action: calcula a rotação ótima para alinhar os blocos anexados com
+ * os requisitos posicionais de uma task antes do submit.
  *
- * Chamada no corpo do plano:  hive.RotationsNeeded(TaskName, R)
- * Unifica R com 1, 2 ou 3 se alguma rotação CW alinhar os blocos.
+ * Chamada no corpo do plano:  hive.RotationsNeeded(TaskName, R, Dir)
+ * Unifica R com o número de passos e Dir com "cw" ou "ccw".
+ * 3 CW equivalem a 1 CCW — o dir ótimo é retornado diretamente.
  * Falha se os blocos já estão alinhados (R=0) ou se nenhuma rotação ajuda.
  *
- * Rotação CW em coordenadas MASSim (X=leste, Y=sul): (dx, dy) → (−dy, dx)
+ * Rotação CW:  (dx, dy) → (−dy, dx)   [coordenadas MASSim: X=leste, Y=sul]
+ * Rotação CCW: (dx, dy) → ( dy, −dx)  (inverso de CW)
  */
 public class RotationsNeeded extends DefaultInternalAction {
 
@@ -59,13 +61,15 @@ public class RotationsNeeded extends DefaultInternalAction {
 
         int r = needed(reqs, attached);
         if (r < 0) return false;
-        return un.unifies(args[1], ASSyntax.createNumber(r));
+        int optCount = optimalCount(r);
+        String dir = optimalDir(r);
+        return un.unifies(args[1], ASSyntax.createNumber(optCount)) &&
+               un.unifies(args[2], ASSyntax.createAtom(dir));
     }
 
     /**
      * Retorna o número mínimo de rotações CW (1–3) para alinhar attached com reqs.
-     * Retorna -1 se: blocos já alinhados (R=0, AllReqsSatisfied trata esse caso)
-     *                 ou se nenhuma rotação produz o alinhamento.
+     * Retorna -1 se blocos já alinhados ou se nenhuma rotação produz alinhamento.
      */
     public static int needed(List<int[]> reqs, List<int[]> attached) {
         if (AllReqsSatisfied.check(reqs, attached)) return -1;
@@ -76,6 +80,16 @@ public class RotationsNeeded extends DefaultInternalAction {
             if (AllReqsSatisfied.check(reqs, rotated)) return r;
         }
         return -1;
+    }
+
+    /** Número ótimo de passos: 3 CW → 1 CCW, demais ficam iguais. */
+    static int optimalCount(int cwRotations) {
+        return cwRotations == 3 ? 1 : cwRotations;
+    }
+
+    /** Direção ótima: 3 CW → "ccw"; 1 ou 2 CW → "cw". */
+    static String optimalDir(int cwRotations) {
+        return cwRotations == 3 ? "ccw" : "cw";
     }
 
     /** Aplica 1 rotação horária: (dx, dy) → (−dy, dx) */

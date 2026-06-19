@@ -24,7 +24,7 @@
 +step(N) : needs_clear_blocks(Type) & attached(-1, 0) <- action("detach(w)").
 
 +step(N)
-    : needs_clear_blocks(Type) & attached(_, _) & not trying_rotate(_, _)
+    : needs_clear_blocks(Type) & attached(_, _) & not trying_rotate(_, _, _)
     <- action("rotate(cw)").
 
 +step(N)
@@ -37,7 +37,7 @@
 +step(N)
     : carry_limit(Limit) & .count(attached(_, _), NumAtt) & NumAtt > Limit
       & not pending_submit(_) & not submitted_task(_) & not collecting(_, _, _)
-      & not collected_block(_) & not trying_rotate(_, _)
+      & not collected_block(_) & not trying_rotate(_, _, _)
       & attached(AX, AY)
     <- if (AY == -1) { DDir = n }
        elif (AY == 1) { DDir = s }
@@ -77,27 +77,27 @@
 // Loop de rotação CW: decrementa trying_rotate e executa rotate(cw) a cada step.
 
 +step(N)
-    : trying_rotate(TaskName, RC) & RC > 0
+    : trying_rotate(TaskName, RC, Dir) & RC > 0
       & known_task(TaskName, Deadline, _, _) & Deadline > N
       & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
     <- NewRC = RC - 1;
-       .abolish(trying_rotate(TaskName, _));
-       +trying_rotate(TaskName, NewRC);
-       .print("[ROTATE] Step ", N, ": Rotacionando CW p/ alinhar ", TaskName, " (restam ", NewRC, ").");
-       action("rotate(cw)").
+       .abolish(trying_rotate(TaskName, _, _));
+       +trying_rotate(TaskName, NewRC, Dir);
+       .print("[ROTATE] Step ", N, ": Rotacionando ", Dir, " p/ alinhar ", TaskName, " (restam ", NewRC, ").");
+       .concat("rotate(", Dir, ")", Act); action(Act).
 
 // --- ROTAÇÃO PRÉ-SUBMIT: finalizar — verificar alinhamento e submeter (Eixo 7a') ---
 // AllReqsSatisfied no CONTEXTO: se falhar (rotate falhou/lag), plano não é selecionado;
 // o RESCUE abaixo faz skip enquanto aguarda o percept correto.
 
 +step(N)
-    : trying_rotate(TaskName, 0)
+    : trying_rotate(TaskName, 0, _)
       & can_score_role
       & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
       & known_task(TaskName, Deadline, _, NBlocks) & Deadline > N
       & hive.AllReqsSatisfied(TaskName)
       & my_pos(MX, MY)
-    <- .abolish(trying_rotate(TaskName, _));
+    <- .abolish(trying_rotate(TaskName, _, _));
        .my_name(Me);
        .print("[ROTATE] Step ", N, ": Alinhado! Multi-req ", NBlocks, " blocos p/ ", TaskName, " → submit.");
        mark_busy(Me);
@@ -116,22 +116,22 @@
 // --- ROTAÇÃO: rescue — RC=0 mas AllReqsSatisfied falhou (rotate falhou ou lag) ----
 // Skip e retenta no próximo step; se deadline expirar, CLEANUP ativa.
 +step(N)
-    : trying_rotate(TaskName, 0)
+    : trying_rotate(TaskName, 0, _)
       & known_task(TaskName, Deadline, _, _) & Deadline > N
       & not hive.AllReqsSatisfied(TaskName)
     <- action("skip").
 
 // --- ROTAÇÃO: cleanup — trying_rotate órfão (task expirada) -----------------------
 +step(N)
-    : trying_rotate(TaskName, _) & known_task(TaskName, Deadline, _, _) & N >= Deadline
-    <- .abolish(trying_rotate(TaskName, _));
+    : trying_rotate(TaskName, _, _) & known_task(TaskName, Deadline, _, _) & N >= Deadline
+    <- .abolish(trying_rotate(TaskName, _, _));
        .print("[ROTATE] Step ", N, ": Cleanup trying_rotate (task expirada dl=", Deadline, "): ", TaskName, ".");
        action("skip").
 
 // --- ROTAÇÃO: cleanup — trying_rotate órfão (task desconhecida) -------------------
 +step(N)
-    : trying_rotate(TaskName, _) & not known_task(TaskName, _, _, _)
-    <- .abolish(trying_rotate(TaskName, _));
+    : trying_rotate(TaskName, _, _) & not known_task(TaskName, _, _, _)
+    <- .abolish(trying_rotate(TaskName, _, _));
        .print("[ROTATE] Step ", N, ": Cleanup trying_rotate (task desconhecida): ", TaskName, ".");
        action("skip").
 
@@ -174,13 +174,13 @@
     : can_score_role
       & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not collecting(_, _, _)
-      & not trying_rotate(_, _)
+      & not trying_rotate(_, _, _)
       & known_task(TaskName, Deadline, _, NBlocks) & NBlocks > 1 & Deadline > N
       & .count(attached(_, _), NumAtt) & NumAtt >= NBlocks
       & not hive.AllReqsSatisfied(TaskName)
-    <- if (hive.RotationsNeeded(TaskName, R)) {
-           +trying_rotate(TaskName, R);
-           .print("[ROTATE] Step ", N, ": Blocos desalinhados p/ ", TaskName, " — ", R, " rotação(ões) CW necessária(s).")
+    <- if (hive.RotationsNeeded(TaskName, R, Dir)) {
+           +trying_rotate(TaskName, R, Dir);
+           .print("[ROTATE] Step ", N, ": Blocos desalinhados p/ ", TaskName, " — ", R, " rotação(ões) ", Dir, " necessária(s).")
        };
        action("skip").
 

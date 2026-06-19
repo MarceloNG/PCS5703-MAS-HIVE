@@ -141,4 +141,49 @@ class RotationsNeededTest {
                 "Posição " + i + " deve ser identidade após 4 rotações");
         }
     }
+
+    // --- Direção ótima: 3 CW → 1 CCW ---
+
+    @Test
+    void optimalCount_1cw_retorna1() {
+        assertEquals(1, RotationsNeeded.optimalCount(1));
+    }
+
+    @Test
+    void optimalCount_2cw_retorna2() {
+        assertEquals(2, RotationsNeeded.optimalCount(2));
+    }
+
+    @Test
+    void optimalCount_3cw_retorna1_ccw() {
+        // 3 CW = 1 CCW — usa 1 passo, não 3
+        assertEquals(1, RotationsNeeded.optimalCount(3));
+    }
+
+    @Test
+    void optimalDir_1cw_retornaCw() {
+        assertEquals("cw", RotationsNeeded.optimalDir(1));
+    }
+
+    @Test
+    void optimalDir_2cw_retornaCw() {
+        assertEquals("cw", RotationsNeeded.optimalDir(2));
+    }
+
+    @Test
+    void optimalDir_3cw_retornaCcw() {
+        assertEquals("ccw", RotationsNeeded.optimalDir(3));
+    }
+
+    @Test
+    void cadeiaSul_vsTaskLeste_direcionaCcwComUmPasso() {
+        // needed() retorna 3 (CW) → optimalDir devolve "ccw", optimalCount devolve 1
+        int r = RotationsNeeded.needed(
+            pos(p(1, 0), p(2, 0)),
+            pos(p(0, 1), p(0, 2))
+        );
+        assertEquals(3, r);
+        assertEquals(1,     RotationsNeeded.optimalCount(r));
+        assertEquals("ccw", RotationsNeeded.optimalDir(r));
+    }
 }
