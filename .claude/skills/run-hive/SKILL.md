@@ -42,6 +42,8 @@ Subcomandos: `run` · `score` (mostra o `results/*.json` mais recente) · `analy
 
 Flags de `run`: `--conf F` | `--scenario NN-nome` (cenário controlado) · `--steps N` · `--port P` (sim paralela isolada) · `--assert` (PASS/FAIL do bloco `assert` do cenário ao fim; exit 0/1) · `--monitor`.
 
+**Regressão de cenários (suíte "na mão"):** `.claude/skills/run-hive/regression.sh [nomes...]` roda **em série** todos os `conf/scenarios/*.json` com bloco `assert` (ou só os nomes passados) e imprime PASS/FAIL de cada um (exit !=0 se algum falhar). É **caro** (1 sim/cenário) — rode **antes de mexer em arquivo core** (`perception`/`navigation`/`role_adoption`) ou antes de mesclar, **não** toda vez. Cada cenário com `assert` funciona como um teste e2e da sua capacidade isolada.
+
 ## Cenários controlados (`conf/scenarios/`) — isolar e asseverar uma capacidade
 
 Cenário determinístico = config MASSim + bloco `assert` (métrica de **capacidade**, não score). Convenção `conf/scenarios/NN-nome.json` (+ opcional `setup/NN-nome.txt`, injetado no campo `setup` por uma cópia temp — o original nunca é mutado). Detalhes e métricas: **`conf/scenarios/README.md`**.
