@@ -65,6 +65,11 @@ task run(type: JavaExec, dependsOn: 'classes') {
     if (project.hasProperty('eisConf')) {
         systemProperty 'hive.eis.conf', project.property('eisConf')
     }
+    // Porta do dashboard WebSocket (--port P → -PdashPort=P+100 via run-hive.sh).
+    // Default 8765 (definido em HiveDashboard.java via Integer.getInteger).
+    if (project.hasProperty('dashPort')) {
+        systemProperty 'hive.dashboard.port', project.property('dashPort')
+    }
 }
 
 task printCp {

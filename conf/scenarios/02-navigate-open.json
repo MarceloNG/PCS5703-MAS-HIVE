@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 15,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 1 },
+      "clusterBounds": [1, 1],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 10,
+        "width": 10,
+        "instructions": [],
+        "goals": { "number": 0, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 0, "size": [1, 1] }
+      },
+      "blockTypes": [1, 1],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 0, "iterations": [0, 0], "maxDuration": [0, 0] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/02-navigate-open.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "role_adoption", "min": 1 },
+  "//": "Cenario 02-navigate-open (Eixo 2 / issue #13). ISOLA A* puro: 1 agente (entities:1), role-zone DENTRO da visao inicial (percebida no step 1, sem exploracao), grid 10x10, 15 steps. Setup: agentA1 em (1,5), role-zone em (5,5) — distancia Manhattan = 4, dentro de visao=5. Agente percebe roleZone no step 1, seek_role_zone aciona A*, chega em ~4 moves + 2 adopts = ~step 7. Se adotar em <=10 steps: A* funcionando. Se demorar mais: A* nao esta sendo usado (exploracao). goals:0 + dispensers:[0,0] + tasks:concurrent:0 eliminam distracao. METRICA: role_adoption >= 1 (prova que agente NAVEGOU e chegou).",
+  "//setup": "agentA1 em (1,5); role-zone em (5,5) — relativo (4,0) do agente, dentro de visao=5 imediatamente. O agente percebe roleZone(4,0) no step 1, SharedMap registra role_zone em (5,5), seek_role_zone chama get_nearest_role_zone -> has_destination(5,5) -> A* traca caminho de 4 passos em linha reta (sem obstaculos). roleZones:0 + goals:0 garantem que a unica zone e a da fixture."
+}

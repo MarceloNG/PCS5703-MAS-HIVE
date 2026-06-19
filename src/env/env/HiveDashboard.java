@@ -27,7 +27,7 @@ public class HiveDashboard extends Artifact {
     private final ConcurrentHashMap<String, JSONObject> mapGoalZones = new ConcurrentHashMap<>();
 
     void init() {
-        init(8765);
+        init(Integer.getInteger("hive.dashboard.port", 8765));
     }
 
     void init(int port) {

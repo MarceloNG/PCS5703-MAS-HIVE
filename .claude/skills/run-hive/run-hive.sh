@@ -142,7 +142,7 @@ cmd_run() {
   conf="$(cd "$(dirname "$conf")" && pwd)/$(basename "$conf")"
 
   # --- isolamento de porta/workdir (sim paralela) ----------------------------
-  local isolated="" eis_arg=""
+  local isolated="" eis_arg="" dash_arg=""
   if [ -n "$port_override" ]; then
     PORT="$port_override"; isolated="1"
     LOGDIR="/tmp/hive-run-$PORT"
@@ -159,7 +159,10 @@ d = json.load(open(src)); d["port"] = port
 json.dump(d, open(dst, "w"), indent=2)
 PY
     eis_arg="-PeisConf=$EIS_CONF"
-    log "ISOLAMENTO: porta=$PORT  workdir=$LOGDIR  eisConf=$EIS_CONF"
+    # porta do dashboard WebSocket = porta da sim + 100 (evita conflito entre frentes paralelas).
+    DASH_PORT=$((PORT + 100))
+    dash_arg="-PdashPort=$DASH_PORT"
+    log "ISOLAMENTO: porta=$PORT  workdir=$LOGDIR  eisConf=$EIS_CONF  dashPort=$DASH_PORT"
   fi
 
   ensure_jar
@@ -202,7 +205,7 @@ PY
   local i=0; until port_open; do sleep 1; i=$((i+1)); if [ $i -ge 60 ]; then log "servidor não abriu a porta"; kill "$spid" 2>/dev/null; exit 1; fi; done
 
   log "lançando 15 agentes (gradle run)…"
-  ( cd "$REPO" && exec "$GRADLE" -q --console=plain $eis_arg run ) >"$AGENT_LOG" 2>&1 &
+  ( cd "$REPO" && exec "$GRADLE" -q --console=plain $eis_arg $dash_arg run ) >"$AGENT_LOG" 2>&1 &
   local apid=$!; echo "$apid" > "$AGENT_PIDF"
 
   log "sim rodando — aguardando conclusão (novo result_*.json OU fim do processo). Logs: $SERVER_LOG / $AGENT_LOG"

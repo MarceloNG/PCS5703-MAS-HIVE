@@ -1,0 +1,21 @@
+# =====================================================================
+# Setup do cenário 02-navigate-open (Eixo 2 / issue #13).
+#
+# OBJETIVO: provar A* puro — agente percebe a role-zone no step 1
+# (dentro da visão=5), aciona seek_role_zone → A* traça o caminho
+# mais curto (4 passos em linha reta), sem exploração.
+#
+# agentA1 em (1,5), role-zone em (5,5):
+#   distância Manhattan = 4, posição relativa = (4,0) < visão=5.
+#   Percebida no 1º step → SharedMap registra → A* roteia diretamente.
+#
+# Se o agente adotar em ≤10 steps: A* funcionando.
+# Se demorar muito mais: não está usando A* (está explorando).
+#
+# entities:1 no JSON → apenas agentA1 conecta ao servidor.
+# grid 10x10: células válidas (0..9, 0..9).
+# roleZones:0 + goals:0 garantem zero distrações aleatórias.
+# =====================================================================
+
+terrain 5 5 role
+move 1 5 agentA1
