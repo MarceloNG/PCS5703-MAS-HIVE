@@ -1,0 +1,45 @@
+# =====================================================================
+# Setup determinístico do cenário 06c-single-collect (Eixo 6c / issue #26).
+# single-block COMPLETO: o worker COLETA (request→attach do dispenser) e submete.
+# Diferente do 06-single-block, NÃO pré-anexa — o agente coleta de fato.
+#
+# Geometria pensada p/ NÃO exigir rotação (isola a coleta):
+#   - worker (collector agentA4) em (3,3), com role-zone lá → adota worker.
+#   - dispenser b1 a LESTE em (6,3): o worker se aproxima pelo oeste → request(e)
+#     → bloco anexa em (1,0) = exatamente o requisito da task t1 (1,0,b1).
+#   - goal-zone em (3,7): navega carregando o bloco em (1,0) (sem rotação) → submit.
+#
+# Move TODOS os 15 a células distintas (evita colisão de spawn — lição do #14).
+# agentAN (servidor) ↔ connectionAN (jacamo): A4-A9=collector (ver hive.jcm).
+# Gramática: move X Y agentN | terrain X Y role|goal | add X Y dispenser <tipo> | create task <n> <dl> bx,by,t
+# Eixos MASSim: x=leste(+), y=sul(+).
+# =====================================================================
+
+# 1) Estacionar os 14 não-alvo na borda inferior (longe de (3,3)/(6,3)/(3,7))
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
+
+# 2) Worker-alvo (collector) em (3,3), sobre a role-zone (adota worker)
+move 3 3 agentA4
+terrain 3 3 role
+
+# 3) Dispenser b1 a leste (worker se aproxima pelo oeste → bloco anexa em (1,0))
+add 6 3 dispenser b1
+
+# 4) Goal-zone a poucas células (navega carregando o bloco → submit)
+terrain 3 7 goal
+
+# 5) Task t1: 1 bloco b1 no offset (1,0) = leste = onde o bloco anexa naturalmente
+create task t1 100 1,0,b1

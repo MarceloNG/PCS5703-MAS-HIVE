@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 60,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 15 },
+      "clusterBounds": [1, 3],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 12,
+        "width": 12,
+        "instructions": [],
+        "goals": { "number": 1, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 1, "size": [1, 2] }
+      },
+      "blockTypes": [2, 2],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/06c-single-collect.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "submits_ok", "min": 1 },
+  "//": "Cenario 06c-single-collect (Eixo 6c / issue #26) — single-block COMPLETO. Diferente do 06 (que pre-anexa), aqui o worker COLETA: vai ao dispenser b1, request->attach, navega a goal-zone, submit. Grid 12x12 vazio, randomFail:0, seed fixa, eventos/normas off, absolutePosition:true, 60 steps. dispensers:[0,0] (o dispenser b1 vem do setup, em posicao conhecida). METRICA: submits_ok >= 1 de um bloco COLETADO. Prova a metade de coleta do pipeline de score (a do #14 era pre-anexada).",
+  "//setup": "O setup move os 15 agentes a celulas distintas (evita colisao de spawn), poe o COLLECTOR alvo numa role-zone (adota worker), cria 1 dispenser b1 e 1 goal-zone a poucas celulas, e a task t1=b1 em (1,0). PATH relativo ao cwd do servidor, por isso '../../conf/...'. RISCO: o SELF-ASSIGN de coleta e gated em N>30 — com 60 steps pode caber (self-assign ~step31 + nav/coleta/submit); se nao couber, abrir o gate p/ cenario curto (ver plano 004, U3)."
+}
