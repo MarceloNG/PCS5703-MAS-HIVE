@@ -178,6 +178,7 @@ my_role_type(collector).
        .abolish(nav_block_count(_));
        .abolish(searching_dispenser(_));
        .abolish(needs_clear_blocks(_));
+       .abolish(trying_rotate(_, _, _));
        .concat("{\"task\":\"", TaskName, "\"}", FJson);
        !dash_log("task_finalized", FJson);
        !dash_task_phase(TaskName, "done", 100);

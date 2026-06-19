@@ -1,0 +1,55 @@
+# =====================================================================
+# Setup determinístico do cenário 07a-prime-wrong (Eixo 7a' / issue #18).
+# CASO NEGATIVO: worker com 2 blocos em L-shape → sem submit (forma incompatível).
+#
+# Geometria (L-shape incompatível com qualquer rotação):
+#   - agentA4 (collector) em (3,3), role-zone lá → adota worker.
+#   - bloco₁ b1 em (4,3) → attach(3,3,4,3) → attached(1,0) do agente [LESTE].
+#   - bloco₂ b1 em (3,4) → attach(3,3,3,4) → attached(0,1) do agente [SUL].
+#   - task t1 = b1@(1,0) + b1@(2,0): cadeia LESTE — incompatível com L-shape.
+#
+# Prova de incompatibilidade (rotação CW: (dx,dy)→(-dy,dx)):
+#   0× CW: (1,0)+(0,1)  — falta (2,0) ✗
+#   1× CW: (0,1)+(-1,0) ✗
+#   2× CW: (-1,0)+(0,-1) ✗
+#   3× CW: (0,-1)+(1,0) ✗ — falta (2,0) em todas
+#
+#   RotationsNeeded falha → AllReqsSatisfied falha → agente não submete.
+#   Resultado esperado: submits_ok = 0.
+#
+# Move TODOS os 15 agentes a células distintas antes (lição do #14 — spawn collision).
+# =====================================================================
+
+# 1) Estacionar os 14 não-alvo na borda inferior
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
+
+# 2) Worker-alvo (collector agentA4) em (3,3), sobre a role-zone → adota worker
+move 3 3 agentA4
+terrain 3 3 role
+
+# 3) Pré-anexar 2 blocos em L-shape — forma INCOMPATÍVEL com cadeia Leste
+#    bloco₁ em (4,3): attach(agente(3,3) ↔ bloco(4,3)) → attached(1,0)  [leste]
+add 4 3 block b1
+attach 3 3 4 3
+#    bloco₂ em (3,4): attach(agente(3,3) ↔ bloco(3,4)) → attached(0,1)  [sul]
+add 3 4 block b1
+attach 3 3 3 4
+
+# 4) Goal-zone ao sul (não importa — agente não deve atingi-la para submit)
+terrain 3 7 goal
+
+# 5) Task t1: exige b1@(1,0) e b1@(2,0) = cadeia LESTE — incompatível com L-shape
+create task t1 100 1,0,b1;2,0,b1

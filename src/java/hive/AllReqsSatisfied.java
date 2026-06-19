@@ -65,6 +65,7 @@ public class AllReqsSatisfied extends DefaultInternalAction {
      * Método estático puro para testabilidade em JUnit sem dependência de Jason.
      */
     public static boolean check(List<int[]> reqs, List<int[]> attached) {
+        if (reqs.isEmpty()) return false;
         for (int[] req : reqs) {
             boolean found = false;
             for (int[] att : attached) {

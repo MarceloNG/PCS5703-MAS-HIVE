@@ -81,17 +81,17 @@ class AllReqsSatisfiedTest {
     // --- Edge cases ---
 
     @Test
-    void reqsVazio_semRequisitos_retornaTrue() {
-        // Task sem requisitos: trivialmente satisfeita
-        assertTrue(AllReqsSatisfied.check(
+    void reqsVazio_semRequisitos_retornaFalse() {
+        // reqs vazia indica corrida perceptual (task_req ainda não chegou) — false defensivo
+        assertFalse(AllReqsSatisfied.check(
             Collections.emptyList(),
             att(pos(1, 0))
         ));
     }
 
     @Test
-    void reqsVazioAttachedVazio_retornaTrue() {
-        assertTrue(AllReqsSatisfied.check(
+    void reqsVazioAttachedVazio_retornaFalse() {
+        assertFalse(AllReqsSatisfied.check(
             Collections.emptyList(),
             Collections.emptyList()
         ));

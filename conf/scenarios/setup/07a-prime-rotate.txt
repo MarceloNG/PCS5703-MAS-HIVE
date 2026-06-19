@@ -1,0 +1,52 @@
+# =====================================================================
+# Setup determinístico do cenário 07a-prime-rotate (Eixo 7a' / issue #18).
+# CASO POSITIVO: worker com 2 blocos em cadeia NORTE → 1 rotate(cw) → cadeia LESTE → submit.
+#
+# Geometria (blocos norte, task exige leste):
+#   - agentA4 (collector) em (3,3), role-zone lá → adota worker.
+#   - bloco₁ b1 em (3,2) → attach(3,3,3,2) → attached(0,-1) do agente [NORTE].
+#   - bloco₂ b1 em (3,1) → attach(3,2,3,1) → cadeia → attached(0,-2) [NORTE -2].
+#   - task t1 = b1@(1,0) + b1@(2,0): blocos necessários a LESTE.
+#   - 1 rotate(cw): (0,-1)→(1,0) e (0,-2)→(2,0) — alinhados.
+#   - AllReqsSatisfied("t1") retorna true após a rotação.
+#   - Resultado esperado: submits_ok ≥ 1.
+#
+# Move TODOS os 15 agentes a células distintas antes (lição do #14 — spawn collision).
+# Rotação CW em coordenadas MASSim (X=leste, Y=sul): (dx,dy) → (−dy, dx)
+# Gramática: move X Y agentN | terrain X Y role|goal | add X Y block <tipo>
+#            attach X1 Y1 X2 Y2 | create task <n> <dl> bx,by,t;...
+# =====================================================================
+
+# 1) Estacionar os 14 não-alvo na borda inferior (longe de (3,1)-(3,3) e (3,7))
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
+
+# 2) Worker-alvo (collector agentA4) em (3,3), sobre a role-zone → adota worker
+move 3 3 agentA4
+terrain 3 3 role
+
+# 3) Pré-anexar 2 blocos em cadeia NORTE (orientação girada de leste por 1 CW⁻¹)
+#    bloco₁ em (3,2): attach(agente(3,3) ↔ bloco(3,2)) → attached(0,-1) [norte]
+add 3 2 block b1
+attach 3 3 3 2
+#    bloco₂ em (3,1): attach(bloco₁(3,2) ↔ bloco₂(3,1)) → cadeia → attached(0,-2)
+add 3 1 block b1
+attach 3 2 3 1
+
+# 4) Goal-zone ao sul (navegação carregando cadeia após rotação)
+terrain 3 7 goal
+
+# 5) Task t1: exige b1@(1,0) e b1@(2,0) = LESTE — 1 rotate(cw) a partir da cadeia Norte
+create task t1 100 1,0,b1;2,0,b1
