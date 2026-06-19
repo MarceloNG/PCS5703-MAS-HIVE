@@ -77,7 +77,7 @@
     : can_score_role
       & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not collecting(_, _, _)
-      & attached(DX, DY) & thing(DX, DY, block, BlockType)
+      & attached(DX, DY)
       & known_task(TaskName, Deadline, _, 1) & Deadline > N
       & task_req(TaskName, DX, DY, BlockType)
       & my_pos(MX, MY)

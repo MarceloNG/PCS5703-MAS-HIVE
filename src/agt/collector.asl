@@ -124,7 +124,10 @@ my_role_type(collector).
        +solo_mode(TaskName);
        +solo_block_type(BlockType);
        +task_accepted_step(TaskName, CurStep);
-       if (attached(_, _)) {
+       if (attached(DX, DY) & task_req(TaskName, DX, DY, BlockType)) {
+           .print("[COLLECTOR] Bloco ", BlockType, " já na mão p/ ", TaskName, " → submit (sem coletar/descartar).");
+           +collected_block(BlockType)
+       } elif (attached(_, _)) {
            +needs_clear_blocks(BlockType)
        } else {
            !collect_block(BlockType)
