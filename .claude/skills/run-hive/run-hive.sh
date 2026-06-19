@@ -7,7 +7,7 @@
 # fim, e ao final imprime o SCORE (results/*.json) e roda o analyzer de replay.
 #
 # Subcomandos:
-#   run    [--conf F|--scenario NN-nome] [--steps N] [--port P] [--assert]
+#   run    [--conf F|--scenario NN-nome] [--steps N] [--port P] [--monitor [PORT]] [--assert]
 #                                   build+launch+espera+score+analyze (bloqueante)
 #   score                           score do results/*.json mais recente
 #   analyze [replay] [args...]      roda analyzers/replay_analyze.py
@@ -127,7 +127,12 @@ cmd_run() {
     --steps) steps="$2"; shift 2;;
     --port) port_override="$2"; shift 2;;       # isola porta+workdir p/ sim paralela
     --assert) do_assert="1"; shift;;            # ao fim, PASS/FAIL da métrica do cenário
-    --monitor) monitor="--monitor"; shift;;     # monitor web em http://localhost:8000 (humano)
+    --monitor)                                  # monitor web (porta opcional; default 8000)
+        if [ -n "${2:-}" ] && [[ "$2" =~ ^[0-9]+$ ]]; then
+            monitor="--monitor $2"; shift 2
+        else
+            monitor="--monitor 8000"; shift
+        fi;;
     *) log "arg desconhecido p/ run: $1"; exit 2;;
   esac; done
 
@@ -190,8 +195,12 @@ PY
   fi
   log "config efetiva: $conf"
 
+  # porta do monitor (para a mensagem de log)
+  local mon_port=8000
+  [[ "$monitor" =~ ([0-9]+)$ ]] && mon_port="${BASH_REMATCH[1]}"
+
   # baseline p/ detectar conclusão pelo ARTEFATO (novo result_*.json), não pela morte do
-  # processo — com --monitor o servidor segue vivo servindo :8000 e nunca encerra.
+  # processo — com --monitor o servidor segue vivo servindo :$mon_port e nunca encerra.
   local res0; res0="$(ls -t "$RESULTS_DIR"/*.json 2>/dev/null | head -1)"
   : > "$SERVER_LOG"; : > "$AGENT_LOG"
   log "lançando servidor…"
@@ -221,7 +230,7 @@ PY
   kill "$apid" 2>/dev/null || true   # agentes (gradle) já cumpriram seu papel
   if [ -n "$monitor" ] && kill -0 "$spid" 2>/dev/null; then
     disown "$spid" 2>/dev/null || true   # mantém o monitor vivo após o driver sair (humano segue olhando)
-    log "monitor segue em http://localhost:8000 (PID $spid). Encerre com: $0 stop"
+    log "monitor segue em http://localhost:$mon_port (PID $spid). Encerre com: $0 stop"
   else
     if [ -n "$isolated" ]; then stop_pids; else stop_sim; fi
   fi
@@ -249,5 +258,5 @@ case "$sub" in
   analyze) cmd_analyze "$@";;
   assert)  cmd_assert "$@";;
   stop)    stop_sim;;
-  *) log "uso: run-hive.sh {run|score|analyze|assert|stop} [--conf F|--scenario NN] [--steps N] [--port P] [--assert]"; exit 2;;
+  *) log "uso: run-hive.sh {run|score|analyze|assert|stop} [--conf F|--scenario NN] [--steps N] [--port P] [--monitor [PORT]] [--assert]"; exit 2;;
 esac

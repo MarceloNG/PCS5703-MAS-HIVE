@@ -115,15 +115,17 @@
 // Se já tenho TODOS os N blocos da task pré-anexados nas posições exigidas, ir direto
 // pro submit sem coletar. Regra separada da de 1 bloco (abaixo) para zero risco de
 // regressão. solo_block_type omitido intencionalmente: re-coleta multi-bloco é 07b.
+// AllReqsSatisfied no CONTEXTO (não no body): quando falha, o plano não é selecionado
+// e o Jason passa para ROTATION INITIATE (evita abandono de intenção por falha no body).
 +step(N)
     : can_score_role
       & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not collecting(_, _, _)
       & known_task(TaskName, Deadline, _, NBlocks) & NBlocks > 1 & Deadline > N
       & .count(attached(_, _), NumAtt) & NumAtt >= NBlocks
+      & hive.AllReqsSatisfied(TaskName)
       & my_pos(MX, MY)
     <- .my_name(Me);
-       hive.AllReqsSatisfied(TaskName);
        .print("[SUBMIT] Step ", N, ": Multi-req ", NBlocks, " blocos na mão p/ ", TaskName, " → submit direto.");
        mark_busy(Me);
        +my_active_task(TaskName, "solo");
@@ -139,8 +141,10 @@
        action("skip").
 
 // --- ROTAÇÃO PRÉ-SUBMIT: iniciar rotação quando blocos desalinhados (Eixo 7a') ----
-// Atingido quando AllReqsSatisfied falhou no BLOCOS-NA-MÃO acima (blocos existem mas
-// em posição girada). RotationsNeeded determina quantas CW alinham a forma.
+// Selecionado quando AllReqsSatisfied falhou no contexto do BLOCOS-NA-MÃO (blocos
+// existem mas em posição girada). RotationsNeeded determina quantas CW alinham a
+// forma; se retornar false (forma incompatível), o `if` é pulado e apenas skip é
+// executado — o agente não submete (comportamento correto para formas inválidas).
 
 +step(N)
     : can_score_role
@@ -149,9 +153,11 @@
       & not trying_rotate(_, _)
       & known_task(TaskName, Deadline, _, NBlocks) & NBlocks > 1 & Deadline > N
       & .count(attached(_, _), NumAtt) & NumAtt >= NBlocks
-    <- hive.RotationsNeeded(TaskName, R);
-       +trying_rotate(TaskName, R);
-       .print("[ROTATE] Step ", N, ": Blocos desalinhados p/ ", TaskName, " — ", R, " rotação(ões) CW necessária(s).");
+      & not hive.AllReqsSatisfied(TaskName)
+    <- if (hive.RotationsNeeded(TaskName, R)) {
+           +trying_rotate(TaskName, R);
+           .print("[ROTATE] Step ", N, ": Blocos desalinhados p/ ", TaskName, " — ", R, " rotação(ões) CW necessária(s).")
+       };
        action("skip").
 
 // --- BLOCO-NA-MÃO → SUBMIT (gate de score, issue #14) --------------
