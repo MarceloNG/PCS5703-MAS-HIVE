@@ -190,6 +190,9 @@ PY
   fi
   log "config efetiva: $conf"
 
+  # baseline p/ detectar conclusão pelo ARTEFATO (novo result_*.json), não pela morte do
+  # processo — com --monitor o servidor segue vivo servindo :8000 e nunca encerra.
+  local res0; res0="$(ls -t "$RESULTS_DIR"/*.json 2>/dev/null | head -1)"
   : > "$SERVER_LOG"; : > "$AGENT_LOG"
   log "lançando servidor…"
   ( cd "$SERVER_DIR" && exec java -jar "$JAR" -conf "$conf" $monitor ) >"$SERVER_LOG" 2>&1 &
@@ -202,10 +205,26 @@ PY
   ( cd "$REPO" && exec "$GRADLE" -q --console=plain $eis_arg run ) >"$AGENT_LOG" 2>&1 &
   local apid=$!; echo "$apid" > "$AGENT_PIDF"
 
-  log "sim rodando — aguardando o servidor terminar (PID $spid). Logs: $SERVER_LOG / $AGENT_LOG"
-  wait "$spid" 2>/dev/null || true
-  log "servidor encerrou. Parando agentes…"
-  if [ -n "$isolated" ]; then kill "$apid" 2>/dev/null || true; stop_pids; else kill "$apid" 2>/dev/null || true; stop_sim; fi
+  log "sim rodando — aguardando conclusão (novo result_*.json OU fim do processo). Logs: $SERVER_LOG / $AGENT_LOG"
+  local waited=0 max_wait="${HIVE_MAX_WAIT:-1800}" res_now=""
+  while :; do
+    # 1) processo encerrou (caso sem --monitor) → terminou
+    kill -0 "$spid" 2>/dev/null || { log "servidor encerrou (processo)."; break; }
+    # 2) artefato novo apareceu (vale também com --monitor, que mantém o processo vivo)
+    res_now="$(ls -t "$RESULTS_DIR"/*.json 2>/dev/null | head -1)"
+    if [ -n "$res_now" ] && [ "$res_now" != "$res0" ]; then
+      log "sim concluído — result: $(basename "$res_now") (o --monitor não pendura mais o driver)."; break
+    fi
+    sleep 2; waited=$((waited+2))
+    [ "$waited" -ge "$max_wait" ] && { log "timeout ${max_wait}s aguardando conclusão — seguindo p/ análise."; break; }
+  done
+  kill "$apid" 2>/dev/null || true   # agentes (gradle) já cumpriram seu papel
+  if [ -n "$monitor" ] && kill -0 "$spid" 2>/dev/null; then
+    disown "$spid" 2>/dev/null || true   # mantém o monitor vivo após o driver sair (humano segue olhando)
+    log "monitor segue em http://localhost:8000 (PID $spid). Encerre com: $0 stop"
+  else
+    if [ -n "$isolated" ]; then stop_pids; else stop_sim; fi
+  fi
   echo; cmd_score
 
   if [ -d "$REPLAYS_DIR" ]; then
