@@ -38,7 +38,20 @@ Configs (passar em `--conf`):
 | `conf/FastTestConfig.json` | dev | dev rápido (100 steps) |
 | `conf/TestConfig.json` | dev | dev longo (800 steps) |
 
-Subcomandos: `run` · `score` (mostra o `results/*.json` mais recente) · `analyze [replay] [args]` · `stop` (mata servidor+agentes desta máquina — por padrão de jar/launcher, nunca o teu shell).
+Subcomandos: `run` · `score` (mostra o `results/*.json` mais recente) · `analyze [replay] [args]` · `assert [args]` (PASS/FAIL de capacidade, ver abaixo) · `stop` (mata servidor+agentes desta máquina — por padrão de jar/launcher, nunca o teu shell).
+
+Flags de `run`: `--conf F` | `--scenario NN-nome` (cenário controlado) · `--steps N` · `--port P` (sim paralela isolada) · `--assert` (PASS/FAIL do bloco `assert` do cenário ao fim; exit 0/1) · `--monitor`.
+
+## Cenários controlados (`conf/scenarios/`) — isolar e asseverar uma capacidade
+
+Cenário determinístico = config MASSim + bloco `assert` (métrica de **capacidade**, não score). Convenção `conf/scenarios/NN-nome.json` (+ opcional `setup/NN-nome.txt`, injetado no campo `setup` por uma cópia temp — o original nunca é mutado). Detalhes e métricas: **`conf/scenarios/README.md`**.
+
+```bash
+# roda o cenário 00-smoke (resolve config + setup) e imprime PASS/FAIL; exit 0=PASS, 1=FAIL
+.claude/skills/run-hive/run-hive.sh run --scenario 00-smoke --assert
+# assere sobre um replay já existente (sem rodar a sim)
+.claude/skills/run-hive/run-hive.sh assert --scenario-conf conf/scenarios/00-smoke.json
+```
 
 ## Analyzers — escolha/evolua/crie por foco
 
@@ -52,6 +65,7 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
 ```
 
 - `analyzers/replay_analyze.py` — **geral**: o sinal da Fase C (quantos viraram `worker` e quando), `failed_role`/`failed_path`, submits, score casado pelo id do replay.
+- `analyzers/assert_metric.py` — **asserção de capacidade** (harness #11): PASS/FAIL de uma métrica plugável (`role_adoption`, `final_workers`, `submits_ok`, `max_stuck`) contra `min`/`max`/`equals`; lê o bloco `assert` do cenário ou flags diretas; reusa os loaders do geral. Honra `HIVE_REPLAY_ROOT`/`HIVE_RESULTS_ROOT` (sim isolada por porta).
 - **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/submit_strategy.py` (rotate-loop de submit, coleta-solo vs montagem), `analyzers/norms.py` (multas vs reward). Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
 
 ## Run (human path) — assistir ao vivo
@@ -61,7 +75,7 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
 .claude/skills/run-hive/run-hive.sh run --conf conf/OfficialRolesConfig.json --monitor
 ```
 
-Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/score). `--monitor` é só para um humano assistir — qualquer replay também pode ser revisto depois no replay-viewer do monitor. **Não** rode múltiplas sims na mesma máquina ao mesmo tempo: servidor (12300), eismassim (12300) e `results/`/`replays/` são compartilhados → use **em série**, ou isole porta+workdir por run (não implementado).
+Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/score). `--monitor` é só para um humano assistir — qualquer replay também pode ser revisto depois no replay-viewer do monitor. Para rodar **duas sims em paralelo** sem colidir, use `--port P` (isola porta, eismassimconfig, `results/`/`replays/`/`logs/` em `/tmp/hive-run-P/`); sem `--port` é **série** (default 12300 compartilhado).
 
 ## Gotchas (cicatrizes reais desta sessão)
 
@@ -78,8 +92,9 @@ Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/sco
 "Tudo se melhora" — capacidades previstas (vamos precisar de todas), por custo crescente:
 
 - ✅ **`--monitor`** — assistir ao vivo (feito).
+- ✅ **Harness de cenários (`--scenario` + `--assert`)** — `conf/scenarios/NN-nome.json` + `setup/NN-nome.txt`, asserção de capacidade plugável (`assert_metric.py`). Feito (#11).
+- ✅ **Sims em paralelo (`--port`)** — isola porta + eismassimconfig por-porta (via `-PeisConf` → `-Dhive.eis.conf` em `EISAccess`, sem mexer nos `.asl`) + `results/`/`replays/`/`logs/` por run. Feito (#11).
 - ⏳ **Analyzers por foco** — criar irmãos em `analyzers/` conforme o track: `navigation.py` (livelock/stuck/oscilação), `submit_strategy.py` (rotate-loop de submit, solo vs montagem), `norms.py` (multa vs reward). A view geral já existe.
-- ⏳ **Sims em paralelo** — hoje só em **série** (porta 12300 + `results/`/`replays/` compartilhados). Para paralelizar: `--port` + eismassim por porta + workdir isolado por run.
 - ⏳ **HIVE vs HIVE (self-play, 2 times — "Brasil x Brasil")** — o MASSim **suporta nativamente** (é o formato do torneio: times A+B). Falta o nosso lado: (a) config 2-times (adaptar `massim_2022/server/conf/SampleConfig.json`, que já tem A+B/`teamsPerMatch:2`); (b) 2º set de agentes do time B — entidades eismassim `agentB*` + um launch JaCaMo do time B (o backlog planeja via worktree "time B: `agentB*`"). Habilita medir adversário/contenção real (track adversário, hoje deferido).
 
 ## Troubleshooting

@@ -59,6 +59,12 @@ task run(type: JavaExec, dependsOn: 'classes') {
     // Default 40 (dev). Oficial: -PgridW=70 -PgridH=70. Mapas menores p/ teste: -PgridW=20 -PgridH=20.
     systemProperty 'hive.grid.width', (project.findProperty('gridW') ?: '40')
     systemProperty 'hive.grid.height', (project.findProperty('gridH') ?: '40')
+    // Isolamento de porta (harness #11): -PeisConf=<path> aponta os agentes p/ um
+    // eismassimconfig por-porta (lido em EISAccess via -Dhive.eis.conf). Sem ele, os
+    // .asl usam o "eismassimconfig.json" relativo do default. Habilita sims paralelas.
+    if (project.hasProperty('eisConf')) {
+        systemProperty 'hive.eis.conf', project.property('eisConf')
+    }
 }
 
 task printCp {

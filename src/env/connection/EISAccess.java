@@ -50,6 +50,15 @@ public class EISAccess extends Artifact implements AgentListener {
     void init(String conf, String entityName) {
         this.agName = entityName;
 
+        // Isolamento de porta (harness #11): se -Dhive.eis.conf=<path> for passado ao JVM
+        // (via build.gradle -PeisConf), usa esse eismassimconfig por-porta no lugar do path
+        // relativo hardcoded nos .asl ("eismassimconfig.json"). Habilita sims paralelas sem
+        // mexer nos .asl nem na cwd dos agentes. EnvironmentInterface aceita path absoluto.
+        String confOverride = System.getProperty("hive.eis.conf");
+        if (confOverride != null && !confOverride.isBlank()) {
+            conf = confOverride;
+        }
+
         synchronized (lock) {
             if (!eisStarted) {
                 sharedEI = new EnvironmentInterface(conf);
