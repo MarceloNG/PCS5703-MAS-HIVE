@@ -5,11 +5,18 @@ bin/main/
 *.class
 *.jar
 
+# Python
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 
 # IDE
 .vscode/
+
+# Worktrees de subagentes (efêmeros)
+.claude/worktrees/
 
 # Docs privados / paper
 doc/5703_ex02_26.pdf

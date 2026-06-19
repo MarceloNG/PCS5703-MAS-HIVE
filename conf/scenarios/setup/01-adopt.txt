@@ -1,0 +1,70 @@
+# =====================================================================
+# Setup determinístico do cenário 01-adopt (Eixo 1 / issue #12).
+#
+# OBJETIVO: tirar a NAVEGAÇÃO da equação e isolar a MECÂNICA DE ADOÇÃO.
+# Cada um dos 15 agentes nasce em posição aleatória (seed), mas o engine roda
+# este setup DEPOIS de criar as entidades (ver GameState: cria entidades →
+# dispensers → setup file). Então `move X Y agentAN` TELEPORTA o agente NOMEADO
+# para uma célula ABSOLUTA — sem precisar conhecer o spawn (que é seed-dependente).
+# Isso resolve a dúvida do enunciado: a fixture É determinística sim-free porque
+# o teleporte é por NOME, não por posição inicial.
+#
+# `terrain X Y role` cria uma role-zone de 1 célula naquela posição absoluta.
+# Colocamos cada agente EXATAMENTE SOBRE sua role-zone → no step 1 ele percebe
+# roleZone(0,0) e pode adopt(explorer)/adopt(worker) já no 1º passo (0 navegação).
+#
+# GOTCHA DE PATH: o servidor roda com cwd = massim_2022/server/. O valor de
+# `setup` em conf/scenarios/01-adopt.json é resolvido relativo a esse cwd. Como
+# este arquivo vive no REPO (conf/scenarios/setup/), o `setup` na config precisa
+# de um caminho que alcance o repo a partir do cwd do servidor (caminho relativo
+# subindo do server dir, ou absoluto). Ver nota no JSON. NÃO referencie só
+# "conf/scenarios/setup/01-adopt.txt" (isso aponta p/ DENTRO do server dir).
+#
+# Grid 15x15 (células 0..14). 15 role-cells espaçadas (passo 3) na metade
+# esquerda, longe do goal central. Uma role-cell e um agente por linha do bloco.
+# =====================================================================
+
+terrain 0 0 role
+move 0 0 agentA1
+
+terrain 3 0 role
+move 3 0 agentA2
+
+terrain 6 0 role
+move 6 0 agentA3
+
+terrain 0 3 role
+move 0 3 agentA4
+
+terrain 3 3 role
+move 3 3 agentA5
+
+terrain 6 3 role
+move 6 3 agentA6
+
+terrain 0 6 role
+move 0 6 agentA7
+
+terrain 3 6 role
+move 3 6 agentA8
+
+terrain 6 6 role
+move 6 6 agentA9
+
+terrain 0 9 role
+move 0 9 agentA10
+
+terrain 3 9 role
+move 3 9 agentA11
+
+terrain 6 9 role
+move 6 9 agentA12
+
+terrain 0 12 role
+move 0 12 agentA13
+
+terrain 3 12 role
+move 3 12 agentA14
+
+terrain 6 12 role
+move 6 12 agentA15

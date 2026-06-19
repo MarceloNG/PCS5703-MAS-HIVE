@@ -66,6 +66,12 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
 
 - `analyzers/replay_analyze.py` — **geral**: o sinal da Fase C (quantos viraram `worker` e quando), `failed_role`/`failed_path`, submits, score casado pelo id do replay.
 - `analyzers/assert_metric.py` — **asserção de capacidade** (harness #11): PASS/FAIL de uma métrica plugável (`role_adoption`, `final_workers`, `submits_ok`, `max_stuck`) contra `min`/`max`/`equals`; lê o bloco `assert` do cenário ou flags diretas; reusa os loaders do geral. Honra `HIVE_REPLAY_ROOT`/`HIVE_RESULTS_ROOT` (sim isolada por porta).
+- `analyzers/adoption.py` — **foco: ADOÇÃO DE ROLE** (Eixo 1 / issue #12). Detalha o sinal: quantos viram `worker`, quantos pelo path explorer-first (`default→explorer→worker`), **RE-adoções** (adopt-spam pós-sucesso; alvo 0), **adopts falhos por motivo** (`failed_location` fora da role-zone, `failed_parameter` role/path inválido) e time-to-first-adoption. Tem `--check` (gate: sai !=0 se < `--min-workers` ou > `--max-readopts`) p/ asseverar limiares. Validado sim-free pela fixture sintética `analyzers/fixtures/synthetic_adopt_A/` via `analyzers/test_adoption.py` (`python3 test_adoption.py`).
+
+  ```bash
+  .claude/skills/run-hive/analyzers/adoption.py <replay_dir> --json
+  .claude/skills/run-hive/analyzers/adoption.py <replay_dir> --check --min-workers 10 --max-readopts 0
+  ```
 - **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/submit_strategy.py` (rotate-loop de submit, coleta-solo vs montagem), `analyzers/norms.py` (multas vs reward). Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
 
 ## Run (human path) — assistir ao vivo
