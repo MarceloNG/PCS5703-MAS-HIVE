@@ -3,28 +3,49 @@
 # GATE DE SCORE: isola a ÚLTIMA MILHA — worker com o bloco da task NA MÃO,
 # sobre a goal-zone, SUBMETE. Tira a coleta (request/attach/navegação) da equação.
 #
-# Gramática (massim GameState.handleCommand): roda DEPOIS de criar as entidades.
-#   move X Y agentN              -> teleporta o agente NOMEADO p/ (X,Y) absoluto
-#   terrain X Y role|goal        -> cria zona de 1 célula em (X,Y)
-#   add X Y block <tipo>         -> cria um bloco do <tipo> em (X,Y)
-#   attach X1 Y1 X2 Y2           -> anexa os dois attachables adjacentes (agente<->bloco)
-#   create task <n> <dl> bx,by,t -> task <n>, deadline <dl>, requisito bloco t em (bx,by) relativo
+# IMPORTANTE: a entidade do SERVIDOR agentAN é controlada pelo agente JaCaMo
+# connectionAN (ver hive.jcm): A1-A3=squad_leader, A4-A9=collector, A10-A12=assembler,
+# A13-A15=sentinel. O portador do bloco precisa ser um COLLECTOR -> usamos agentA4.
 #
-# Convenção de eixos MASSim: x = leste(+), y = sul(+). Bloco a LESTE do agente = (1,0).
+# COLISÃO DE SPAWN: o setup roda DEPOIS do spawn (clusterBounds aleatório). Se a célula
+# alvo estiver ocupada, o `move` falha silenciosamente. Por isso movemos TODOS os 15
+# agentes p/ células distintas conhecidas (como o 01-adopt), estacionando os 14 não-alvo
+# longe, e SÓ ENTÃO movendo agentA4 p/ (5,5) — garantindo a célula livre.
+#
+# Gramática (massim GameState.handleCommand):
+#   move X Y agentN  |  terrain X Y role|goal  |  add X Y block <tipo>
+#   attach X1 Y1 X2 Y2  |  create task <n> <dl> bx,by,t
+# Eixos MASSim: x=leste(+), y=sul(+). Bloco a LESTE do agente = (1,0).
 # =====================================================================
 
-# agentA1 no centro (5,5)
-move 5 5 agentA1
+# 1) Estacionar os 14 não-alvo na borda inferior (longe de (5,5)/(6,5)/zonas) — libera (5,5)
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
 
-# role-zone + goal-zone na MESMA célula do agente:
-#   - role-zone: adota worker no step ~2 (path default->explorer->worker, provado em #12)
-#   - goal-zone: já está sobre ela -> submit dispara sem navegação
+# 2) Agora (5,5) está livre — posiciona o COLLECTOR alvo
+move 5 5 agentA4
+
+# 3) role-zone + goal-zone na MESMA célula do agentA4:
+#    - role-zone: adota worker (path default->explorer->worker, provado em #12)
+#    - goal-zone: já está sobre ela -> submit dispara sem navegação
 terrain 5 5 role
 terrain 5 5 goal
 
-# bloco b1 a leste do agente (6,5) e anexa agente(5,5) <-> bloco(6,5)
+# 4) bloco b1 a leste (6,5) e anexa agentA4(5,5) <-> bloco(6,5)
 add 6 5 block b1
 attach 5 5 6 5
 
-# task t1: 1 bloco b1 no offset relativo (1,0) = leste = exatamente onde o bloco está anexado
+# 5) task t1: 1 bloco b1 no offset relativo (1,0) = leste = onde o bloco está anexado
 create task t1 100 1,0,b1

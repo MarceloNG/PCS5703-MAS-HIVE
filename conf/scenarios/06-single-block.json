@@ -42,7 +42,7 @@
         "roleZones": { "number": 1, "size": [1, 2] }
       },
       "blockTypes": [2, 2],
-      "dispensers": [1, 1],
+      "dispensers": [0, 0],
       "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
       "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
       "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
