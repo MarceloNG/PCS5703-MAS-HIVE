@@ -73,6 +73,44 @@
       & attached(AX, AY) & (math.abs(AX) + math.abs(AY) > 1)
     <- action("rotate(cw)").
 
+// --- ROTAÇÃO PRÉ-SUBMIT: continuar girando (Eixo 7a' / issue #18) ---------------
+// Loop de rotação CW: decrementa trying_rotate e executa rotate(cw) a cada step.
+
++step(N)
+    : trying_rotate(TaskName, RC) & RC > 0
+      & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
+    <- NewRC = RC - 1;
+       .abolish(trying_rotate(TaskName, _));
+       +trying_rotate(TaskName, NewRC);
+       .print("[ROTATE] Step ", N, ": Rotacionando CW p/ alinhar ", TaskName, " (restam ", NewRC, ").");
+       action("rotate(cw)").
+
+// --- ROTAÇÃO PRÉ-SUBMIT: finalizar — verificar alinhamento e submeter (Eixo 7a') ---
+// Após RC=0: AllReqsSatisfied gate defensivo, depois mesmo fluxo do BLOCOS-NA-MÃO.
+
++step(N)
+    : trying_rotate(TaskName, 0)
+      & can_score_role
+      & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
+      & known_task(TaskName, Deadline, _, NBlocks) & Deadline > N
+      & my_pos(MX, MY)
+    <- .abolish(trying_rotate(TaskName, _));
+       hive.AllReqsSatisfied(TaskName);
+       .my_name(Me);
+       .print("[ROTATE] Step ", N, ": Alinhado! Multi-req ", NBlocks, " blocos p/ ", TaskName, " → submit.");
+       mark_busy(Me);
+       +my_active_task(TaskName, "solo");
+       +solo_mode(TaskName);
+       +task_accepted_step(TaskName, N);
+       +my_task_deadline(TaskName, Deadline);
+       +pending_submit(TaskName);
+       get_nearest_goal_zone(MX, MY, GX, GY);
+       if (GX \== -1) {
+           .abolish(has_destination(_, _));
+           +has_destination(GX, GY)
+       };
+       action("skip").
+
 // --- BLOCOS-NA-MÃO → SUBMIT multi-bloco (gate #18 / Eixo 7a) --------------------
 // Se já tenho TODOS os N blocos da task pré-anexados nas posições exigidas, ir direto
 // pro submit sem coletar. Regra separada da de 1 bloco (abaixo) para zero risco de
@@ -98,6 +136,22 @@
            .abolish(has_destination(_, _));
            +has_destination(GX, GY)
        };
+       action("skip").
+
+// --- ROTAÇÃO PRÉ-SUBMIT: iniciar rotação quando blocos desalinhados (Eixo 7a') ----
+// Atingido quando AllReqsSatisfied falhou no BLOCOS-NA-MÃO acima (blocos existem mas
+// em posição girada). RotationsNeeded determina quantas CW alinham a forma.
+
++step(N)
+    : can_score_role
+      & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
+      & not needs_clear_blocks(_) & not collecting(_, _, _)
+      & not trying_rotate(_, _)
+      & known_task(TaskName, Deadline, _, NBlocks) & NBlocks > 1 & Deadline > N
+      & .count(attached(_, _), NumAtt) & NumAtt >= NBlocks
+    <- hive.RotationsNeeded(TaskName, R);
+       +trying_rotate(TaskName, R);
+       .print("[ROTATE] Step ", N, ": Blocos desalinhados p/ ", TaskName, " — ", R, " rotação(ões) CW necessária(s).");
        action("skip").
 
 // --- BLOCO-NA-MÃO → SUBMIT (gate de score, issue #14) --------------
