@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 20,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 1 },
+      "clusterBounds": [1, 1],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 10,
+        "width": 12,
+        "instructions": [],
+        "goals": { "number": 0, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 0, "size": [1, 1] }
+      },
+      "blockTypes": [1, 1],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 0, "iterations": [0, 0], "maxDuration": [0, 0] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": false,
+      "setup": "../../conf/scenarios/setup/03-obstacle-avoid.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "failed_path_total", "max": 1 },
+  "//": "Cenário 03-obstacle-avoid (issue #15 — A* ciente de obstáculos percebidos). ISOLA percepção→A*: agente vê parede em x=3 (y=4,5,6) E role_zone em (5,5) no step 1. Com fix #15: obstacles populados antes de compute_next_move, A* roteia em volta, zero ou 1 failed_path (threshold max:1 acomoda possível lag de timing Jason +thing vs +step). Sem fix: agente caminha direto para parede → 2+ failed_paths. absolutePosition:false elimina ambiguidade de wrap toroidal (A* sem wrapping, grid 12x10). entities:1, randomFail:0, seed:17 — determinístico.",
+  "//setup": "agentA1 em (1,5); parede vertical terreno em (3,4),(3,5),(3,6); role_zone em (5,5). Frame dr_pos: agente (0,0), obstáculos (2,-1),(2,0),(2,1), role_zone (4,0). Todos visíveis no step 1 (Chebyshev ≤ 5). Rota de detour: ~7 passos via norte ou sul + 2 adopts ≤ 20 steps totais."
+}

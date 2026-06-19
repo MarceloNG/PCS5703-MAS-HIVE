@@ -64,11 +64,18 @@ def m_max_stuck(results):
     return worst, f"pior corrida de failed_path = {worst} steps"
 
 
+def m_failed_path_total(results):
+    """Total de eventos failed_path no time (MENOR é melhor — issue #15)."""
+    total = sum(d.get("results", {}).get("failed_path", 0) for d in results.values())
+    return total, f"{total} failed_path total no time"
+
+
 METRICS = {
     "role_adoption": m_role_adoption,
     "final_workers": m_final_workers,
     "submits_ok": m_submits_ok,
     "max_stuck": m_max_stuck,
+    "failed_path_total": m_failed_path_total,
 }
 
 

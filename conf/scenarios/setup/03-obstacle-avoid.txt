@@ -1,0 +1,30 @@
+# =====================================================================
+# Setup do cenário 03-obstacle-avoid (issue #15 — A* ciente de obstáculos).
+#
+# OBJETIVO: provar que o agente ENXERGA obstáculos (os marca em obstacles
+# via update_cell antes de colidir) e DESVIA (A* roteia em volta, zero
+# failed_path de terreno).
+#
+# Layout (coordenadas absolutas do servidor):
+#   agentA1 em (1,5)
+#   Parede vertical em x=3, y={4,5,6} — bloqueia rota direta leste
+#   role_zone em (5,5) — Chebyshev=4 do spawn, dentro de visão=5
+#
+# Frame dr_pos equivalente (origin=(0,0), absolutePosition:false):
+#   Agente:    (0,0)
+#   Obstáculos: (2,-1),(2,0),(2,1) — todos a Chebyshev ≤ 2, percebidos no step 1
+#   Role_zone:  (4,0) — percebida no step 1 (Chebyshev=4)
+#
+# Com o fix (#15): A* vê obstáculos no step 1 e roteia via norte ou sul
+# em ~7 passos. Zero failed_path.
+#
+# Sem o fix: A* cego → agente tenta cruzar (2,0) → failed_path → aprende.
+#
+# grid 12x10: células (0..11, 0..9). absolutePosition:false → sem wrapping.
+# =====================================================================
+
+terrain 3 4 obstacle
+terrain 3 5 obstacle
+terrain 3 6 obstacle
+terrain 5 5 role
+move 1 5 agentA1

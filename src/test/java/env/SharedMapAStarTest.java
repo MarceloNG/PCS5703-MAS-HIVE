@@ -121,4 +121,49 @@ class SharedMapAStarTest {
         assertEquals(3, rz[0]);        // ainda acha a (unica) role-zone, via desvio
         assertEquals(0, rz[1]);
     }
+
+    // ===== Issue #15: A* ciente de obstáculos percebidos =====
+
+    private SharedMap mapWithInit() {
+        SharedMap sm = new SharedMap();
+        sm.init();          // popula cells, obstacles, knownDispensers, etc.
+        sm.gridWidth = 0;   // sem wrapping toroidal (replica absolutePosition:false)
+        sm.gridHeight = 0;
+        sm.occupancyStep = 0;
+        return sm;
+    }
+
+    @Test
+    void percebidoMarcaObstacle() {
+        SharedMap sm = mapWithInit();
+        sm.update_cell(1, 0, "obstacle", "");
+        assertTrue(sm.obstacles.containsKey("1,0"), "obstáculo percebido deve entrar em obstacles");
+        String dir = sm.astar(0, 0, 5, 0);
+        assertTrue(dir.equals("n") || dir.equals("s"),
+            "A* deve desviar de obstacle percebido em (1,0), veio: " + dir);
+    }
+
+    @Test
+    void percebidoNaoDecai() {
+        SharedMap sm = mapWithInit();
+        sm.update_cell(1, 0, "obstacle", "");
+        sm.decay_obstacles(1000);   // step=1000; MAX_VALUE não satisfaz < 970
+        assertTrue(sm.obstacles.containsKey("1,0"), "sentinela MAX_VALUE não deve decair");
+    }
+
+    @Test
+    void colisaoAposPercebidoIdempotente() {
+        SharedMap sm = mapWithInit();
+        sm.update_cell(1, 0, "obstacle", "");
+        sm.mark_obstacle(1, 0, 42); // guard containsKey → não sobrescreve sentinela
+        assertEquals(Integer.MAX_VALUE, sm.obstacles.get("1,0"),
+            "mark_obstacle não deve sobrescrever sentinela MAX_VALUE");
+    }
+
+    @Test
+    void tipoNaoObstacleNaoMarcaObstacles() {
+        SharedMap sm = mapWithInit();
+        // obstacles começa vazio — outros tipos não populam obstacles
+        assertTrue(sm.obstacles.isEmpty(), "obstacles deve estar vazio em mapWithInit() sem update_cell");
+    }
 }

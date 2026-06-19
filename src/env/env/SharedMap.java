@@ -100,6 +100,8 @@ public class SharedMap extends Artifact {
                 defineObsProperty("known_role_zone", x, y);
                 signal("new_role_zone", x, y);
             }
+        } else if (type.equals("obstacle")) {
+            obstacles.put(k, Integer.MAX_VALUE);
         }
     }
 
