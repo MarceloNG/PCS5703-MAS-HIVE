@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 40,
+      "randomSeed": 23,
+      "randomFail": 0,
+      "entities": { "standard": 15 },
+      "clusterBounds": [1, 3],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 12,
+        "width": 12,
+        "instructions": [],
+        "goals": { "number": 1, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 1, "size": [1, 2] }
+      },
+      "blockTypes": [2, 2],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/07a-prime-wrong.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "submits_ok", "equals": 0 },
+  "//": "Cenário 07a-prime-wrong (Eixo 7a' / issue #18) — CASO NEGATIVO. agentA4 com 2 blocos em L-shape (1,0)+(0,1). Task t1 exige cadeia LESTE (1,0)+(2,0). Nenhuma das 4 rotações da L-shape produz a cadeia leste: RotationsNeeded falha, AllReqsSatisfied falha → sem submit. Verifica que o agente não submete quando a forma é incompatível. Grid 12x12, 40 steps, randomFail:0, seed 23.",
+  "//prova": "Rotações de (1,0)+(0,1): 0→(1,0)+(0,1) ✗; 1CW→(0,1)+(-1,0) ✗; 2CW→(-1,0)+(0,-1) ✗; 3CW→(0,-1)+(1,0) ✗. Nenhuma é (1,0)+(2,0)."
+}

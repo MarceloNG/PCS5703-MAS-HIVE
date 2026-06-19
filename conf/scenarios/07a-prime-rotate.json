@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 50,
+      "randomSeed": 19,
+      "randomFail": 0,
+      "entities": { "standard": 15 },
+      "clusterBounds": [1, 3],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 12,
+        "width": 12,
+        "instructions": [],
+        "goals": { "number": 1, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 1, "size": [1, 2] }
+      },
+      "blockTypes": [2, 2],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/07a-prime-rotate.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "submits_ok", "min": 1 },
+  "//": "Cenário 07a-prime-rotate (Eixo 7a' / issue #18) — CASO POSITIVO. agentA4 com 2 blocos em cadeia NORTE pré-anexados (0,-1)+(0,-2). Task t1 exige cadeia LESTE (1,0)+(2,0). 1 rotate(cw) alinha: (0,-1)→(1,0), (0,-2)→(2,0). Verifica que o agente rotaciona e submete. Grid 12x12, 50 steps, randomFail:0, seed 19, absolutePosition:true.",
+  "//setup": "agentA4 em (3,3)/role-zone. bloco₁ em (3,2) → attach(3,3,3,2) → attached(0,-1). bloco₂ em (3,1) → attach(3,2,3,1) → cadeia → attached(0,-2). goal em (3,7). task t1 = b1@(1,0)+b1@(2,0)."
+}
