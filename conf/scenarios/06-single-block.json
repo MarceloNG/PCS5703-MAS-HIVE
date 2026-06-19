@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 40,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 15 },
+      "clusterBounds": [1, 3],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 12,
+        "width": 12,
+        "instructions": [],
+        "goals": { "number": 1, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 1, "size": [1, 2] }
+      },
+      "blockTypes": [2, 2],
+      "dispensers": [1, 1],
+      "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/06-single-block.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "submits_ok", "min": 1 },
+  "//": "Cenario 06-single-block (Eixo 6 / issue #14) — GATE DE SCORE. Isola a ULTIMA MILHA do pipeline de pontuacao: worker com o bloco da task NA MAO, sobre a goal-zone, SUBMETE. Grid 12x12 vazio, randomFail:0, seed fixa, eventos/normas OFF, absolutePosition:true, 40 steps. A fixture (setup/06-single-block.txt) pre-anexa o bloco b1 ao agentA1 e cria a task t1 (1 bloco), tirando a coleta (request/attach/navegacao) da equacao. METRICA: submits_ok >= 1 (>=1 submit bem-sucedido no replay). NAO mede coleta (isso e um cenario irmao).",
+  "//setup": "O setup TELEPORTA agentA1 p/ (5,5), poe role-zone + goal-zone na mesma celula (adota worker no step ~2, e ja esta na goal-zone), cria o bloco b1 a leste (6,5), ANEXA agente<->bloco (attach 5 5 6 5), e cria task t1 = b1 em (1,0). PATH relativo ao cwd do servidor (massim_2022/server/), por isso '../../conf/...'. Depende da regra .asl 'bloco-na-mao -> submit' (connect_protocol.asl)."
+}

@@ -1,0 +1,30 @@
+# =====================================================================
+# Setup determinístico do cenário 06-single-block (Eixo 6 / issue #14).
+# GATE DE SCORE: isola a ÚLTIMA MILHA — worker com o bloco da task NA MÃO,
+# sobre a goal-zone, SUBMETE. Tira a coleta (request/attach/navegação) da equação.
+#
+# Gramática (massim GameState.handleCommand): roda DEPOIS de criar as entidades.
+#   move X Y agentN              -> teleporta o agente NOMEADO p/ (X,Y) absoluto
+#   terrain X Y role|goal        -> cria zona de 1 célula em (X,Y)
+#   add X Y block <tipo>         -> cria um bloco do <tipo> em (X,Y)
+#   attach X1 Y1 X2 Y2           -> anexa os dois attachables adjacentes (agente<->bloco)
+#   create task <n> <dl> bx,by,t -> task <n>, deadline <dl>, requisito bloco t em (bx,by) relativo
+#
+# Convenção de eixos MASSim: x = leste(+), y = sul(+). Bloco a LESTE do agente = (1,0).
+# =====================================================================
+
+# agentA1 no centro (5,5)
+move 5 5 agentA1
+
+# role-zone + goal-zone na MESMA célula do agente:
+#   - role-zone: adota worker no step ~2 (path default->explorer->worker, provado em #12)
+#   - goal-zone: já está sobre ela -> submit dispara sem navegação
+terrain 5 5 role
+terrain 5 5 goal
+
+# bloco b1 a leste do agente (6,5) e anexa agente(5,5) <-> bloco(6,5)
+add 6 5 block b1
+attach 5 5 6 5
+
+# task t1: 1 bloco b1 no offset relativo (1,0) = leste = exatamente onde o bloco está anexado
+create task t1 100 1,0,b1
