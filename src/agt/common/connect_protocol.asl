@@ -68,6 +68,35 @@
       & attached(AX, AY) & (math.abs(AX) + math.abs(AY) > 1)
     <- action("rotate(cw)").
 
+// --- BLOCO-NA-MÃO → SUBMIT (gate de score, issue #14) --------------
+// Se já tenho o bloco que a task exige ANEXADO na posição exigida (pré-anexado pela
+// fixture, herdado, ou sobra de coleta), NÃO recoletar nem descartar: ir direto pro
+// submit. Realiza o steer do dono — "se tem os blocos da task na mão, tem que submeter".
+// PRIORIDADE acima do SELF-ASSIGN abaixo (que descartaria o bloco via needs_clear_blocks).
++step(N)
+    : can_score_role
+      & not my_active_task(_, _) & not pending_submit(_) & not submitted_task(_)
+      & not needs_clear_blocks(_) & not collecting(_, _, _)
+      & attached(DX, DY) & thing(DX, DY, block, BlockType)
+      & known_task(TaskName, Deadline, _, 1) & Deadline > N
+      & task_req(TaskName, DX, DY, BlockType)
+      & my_pos(MX, MY)
+    <- .my_name(Me);
+       .print("[SUBMIT] Step ", N, ": Bloco ", BlockType, " já na mão (", DX, ",", DY, ") p/ task ", TaskName, " → submit direto (sem coletar).");
+       mark_busy(Me);
+       +my_active_task(TaskName, "solo");
+       +solo_mode(TaskName);
+       +solo_block_type(BlockType);
+       +task_accepted_step(TaskName, N);
+       +my_task_deadline(TaskName, Deadline);
+       +pending_submit(TaskName);
+       get_nearest_goal_zone(MX, MY, GX, GY);
+       if (GX \== -1) {
+           .abolish(has_destination(_, _));
+           +has_destination(GX, GY)
+       };
+       action("skip").
+
 // --- SELF-ASSIGN: idle agents pick up tasks autonomously ---
 
 +step(N)
