@@ -134,7 +134,7 @@ def analyze(replay_dir, goal, role_zone, stuck_n, agent_filter):
             "max_stuck_run": max_stuck,
             "stuck_at_step": stuck_at_step if max_stuck >= stuck_n else None,
             "final_role": rows[-1][7] if rows else "?",
-            "submits_ok": agent_results[name].get("success", 0) if "submit" in agent_actions[name] else 0,
+            "submits_ok": sum(1 for r in rows if r[5] == "submit" and r[6] == "success"),
         }
     return results
 
