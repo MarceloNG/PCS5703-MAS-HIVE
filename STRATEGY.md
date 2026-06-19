@@ -68,6 +68,19 @@ _Por que serve à abordagem:_ é a própria abordagem — medir pra achar a alav
 isolamento, gate por evidência; habilita os demais tracks. A medição *no alvo real* depende do
 Track 3 (antes disso, mede-se no proxy 40×40).
 
+**Hierarquia de configs de teste:** antes de lançar o run lento, valide na config rápida.
+
+| Nível | Config | Tempo | Uso |
+|---|---|---|---|
+| 1 — isolação | `conf/IsolationRolesConfig.json` | ~3 min | 40×40, `absolutePosition:true`, seed=17 — isola variável de adoção/coleta; valida lógica ASL sem drift de dead-reckoning |
+| 2 — gate de score | `conf/OfficialRolesConfig.json` | ~30 min | 70×70, roles reais, 300 steps — gate final para score competitivo |
+
+**Princípio:** mudança na lógica de adoção ou coleta passa pelo nível 1 antes do nível 2. O nível 1
+não substitui o 2 (`absolutePosition:true` elimina o drift que existe no oficial), mas filtra
+regressões óbvias de ASL em ~10× menos tempo. Se o resultado no nível 2 não for bom, ajuste o
+nível 1 para isolar a variável testada — sem criar dificuldades extras, focando no que está sendo
+implementado.
+
 ### 2. Estratégia de tarefas (coleta → montagem → submit)
 
 Corrigir como o time **escolhe e completa** tarefas: viés single-block no scoring do líder,

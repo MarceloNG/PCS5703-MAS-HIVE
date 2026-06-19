@@ -18,8 +18,9 @@
 // +role(default) — o próprio ref avisa que ele compete com o step e pode submeter
 // DUAS ações no mesmo step.
 //
-// Incluído SÓ em collector/assembler (executores do pipeline). sentinel usa `clear`
-// (já no default) e squad_leader coordena → não precisam de worker.
+// Incluído em collector, assembler, sentinel e squad_leader (Prioridade 1 — flat workers).
+// squad_leader usa o gate & not my_role_type(squad_leader) no plano (c) para preservar a
+// coordenação; adota worker via !ensure_worker_role e coleta via SELF-ASSIGN/soloist_task.
 // ============================================================
 
 // ------------------------------------------------------------
@@ -39,6 +40,8 @@
 // mostrou que a derivação `+role(R)→my_role` não refletia o worker de forma confiável no gate.
 // worker/constructor SEMPRE pontuam; a 3ª cláusula cobre o DEV (default permissivo) cruzando
 // o role atual (role/1) com o catálogo (role/6) para ver se tem submit.
+// `explorer` é estado intermediário no path default→explorer→worker: NÃO pontua (sem submit)
+// mas está em trânsito → !ensure_worker_role continua gerenciando a transição step-a-step.
 can_score_role :- role(worker).
 can_score_role :- role(constructor).
 can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts).
@@ -70,6 +73,39 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
     : not can_score_role
     <- !ensure_worker_role.
 
+// (c) Worker idle sem task ativa — auto-iniciar coleta solo.
+// Sem absolutePosition, find_free_soloist compara frames DR cruzados (sem sentido) e
+// frequentemente atribui tarefas a não-workers. Este plano compensa: o worker adotado
+// busca autonomamente a primeira task de 1 bloco disponível com deadline suficiente.
+// Espelha o handler +soloist_task de collector/assembler.asl, mas disparado sem mensagem.
++step(N)
+    : can_score_role & N > 30
+      & not my_role_type(squad_leader)
+      & not my_active_task(_, _) & not collecting(_, _, _)
+      & not solo_mode(_) & not searching_dispenser(_)
+      & my_pos(MX, MY)
+      & known_task(TaskName, Deadline, _, 1)
+      & Deadline > N + 20
+      & task_req(TaskName, _, _, BlockType)
+    <- .print("[ROLE] Step ", N, ": Worker idle — auto-coleta solo task=", TaskName, " block=", BlockType);
+       .my_name(Me);
+       mark_busy(Me);
+       +my_active_task(TaskName, "solo");
+       +solo_mode(TaskName);
+       +solo_block_type(BlockType);
+       +task_accepted_step(TaskName, N);
+       get_nearest_dispenser(MX, MY, BlockType, DX, DY);
+       if (DX == -1) {
+           .print("[ROLE] Auto-coleta: sem dispenser ", BlockType, " — explorando");
+           +searching_dispenser(BlockType);
+           !do_explore(MX, MY)
+       } else {
+           .print("[ROLE] Auto-coleta: dispenser ", BlockType, " em (", DX, ",", DY, ")");
+           +collecting(BlockType, DX, DY);
+           +has_destination(DX, DY);
+           action("skip")
+       }.
+
 // ------------------------------------------------------------
 // Capacidade reutilizável (também acionada pelo elo MOISE+ em U4)
 // !ensure_worker_role: idempotente; emite exatamente UMA ação MASSim.
@@ -79,11 +115,21 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
 +!ensure_worker_role : can_score_role
     <- true.
 
-// sobre a role-zone (percept relativo roleZone(0,0)) → adotar (uma vez)
-+!ensure_worker_role : roleZone(0, 0)
-    <- .print("[ROLE] Sobre role-zone — adopt(worker).");
-       .abolish(has_destination(_, _));   // limpa o destino de busca antes do pipeline assumir
+// explorer sobre a role-zone → segundo passo do path default→explorer→worker
++!ensure_worker_role : role(explorer) & roleZone(0, 0)
+    <- .print("[ROLE] Explorer sobre role-zone — adopt(worker).");
+       .abolish(has_destination(_, _));
        action("adopt(worker)").
+
+// explorer fora da role-zone → buscar com speed=3 (herdado de default via merge aditivo)
++!ensure_worker_role : role(explorer) & my_pos(MX, MY)
+    <- !seek_role_zone(MX, MY).
+
+// default sobre a role-zone → primeiro passo: adopt explorer (speed=3 para chegar ao worker)
++!ensure_worker_role : roleZone(0, 0)
+    <- .print("[ROLE] Default sobre role-zone — adopt(explorer).");
+       .abolish(has_destination(_, _));
+       action("adopt(explorer)").
 
 // tem posição → buscar a role-zone (lembrada via A*, ou explorar p/ achá-la)
 +!ensure_worker_role : my_pos(MX, MY)

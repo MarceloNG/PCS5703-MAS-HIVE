@@ -17,12 +17,12 @@ do MAPC 2022 e os arquivos de config.
 - **Grid parametrizável** (Adaptação oficial, item 1 — `hive.GridConfig` + `-PgridW/-PgridH`).
 - **Harness JUnit** (Testes, item 1 — 44 testes verdes: A* toroidal/overlay, dead-reckoning, tradução de frame, grid, leilão).
 
-**✅ Concluído (cont.):**
-- **Track 3 Fase C — adoção de role (plano 001 ENCERRADO 2026-06-18).** U1–U4 ✅: o agente adota `worker`
-  (gate por percept `role/1`, anti-oscilação), coleta, submete, e a **org MOISE+ dirige/registra** a adoção
-  (loop normativo fecha). **Provado em isolamento** (40×40, `absolutePosition:true`): **score 0→10**.
-  Commits `4b6a2d8`/`b9aa684`/`5b3336f`. **U5 (score>0 NO OFICIAL) deferido** — bloqueio é navegação +
-  cross-frame (U9), fora do escopo da Fase C. Ver "Fase C — achados do boot" abaixo.
+**⚠️ Parcial — isolamento only (revisão 2026-06-18, pós-boot):**
+- **Track 3 Fase C — adoção de role (plano 001, PARCIAL).** U1–U4 provados em **isolamento**
+  (40×40, `absolutePosition:true`): **score 0→10**. Commits `4b6a2d8`/`b9aa684`/`5b3336f`.
+  **Boot no oficial (70×70, `absolutePosition:false`) revelou 3 sub-itens críticos ainda abertos**
+  → score no oficial = 0 submits. Critério de done revisado: **"≥1 submit confirmado em replay com
+  `conf/OfficialRolesConfig.json`"** (não "score em isolamento"). Ver "Fase C — achados do boot".
 
 **✅ Concluído (cont.):**
 - **Navegação: heading-balanceado + handedness (plano 002, 2026-06-18).** U1 (Java `get_nearest_frontier_biased`
@@ -31,42 +31,63 @@ do MAPC 2022 e os arquivos de config.
   = baseline) — gargalo confirmado como `failed_path` 40-60%, não dispersão.
   Branch: `feat/navegacao-heading-handedness`.
 
-**🚧 Em andamento (WIP) — Nível 2:**
-- **Explorer-first — adotar `explorer` antes de `worker` (próximo, 2026-06-18).** Todo agente parte como
-  `default`, acha uma role-zone, adota `explorer` (vision=7, speed=3) e cobre o mapa rapidamente antes
-  de transitar para `worker`. **Proven:** equipe Paula (quase vice, MAPC 2022) fez isso por ~100 steps.
-  Ataca diretamente o gargalo medido (12/15 agentes nunca chegam a role-zone em 300 steps).
-  Métrica: cobertura de mapa / time-to-find-role-zone, não score. Ver "Fases de capacidade" §1.
+**🚧 Prioridade 1 — ESTRUTURAL (próximo a fazer):**
+- **Abandonar squad_leader → flat workers (alinhado à competição).** Ver tabela de prioridades.
+  Ações concretas: (a) remover `squad_leader.asl`/`sentinel.asl` do `hive.jcm` ou converter para
+  um tipo único `hive_agent.asl` com `role_adoption.asl` incluído; (b) adicionar `can_score_role`
+  guard ao SELF-ASSIGN em `connect_protocol.asl:73`; (c) `hive_org.xml`: manter roles org
+  (quem coordena, quem coleta) mas desacoplar do tipo de agente JaCaMo — qualquer agente pode
+  ter qualquer role org. Cardinalidades: subir para ≥20 (Sim1). Referência: estrutura flat de
+  todos os 5 times da competição; LI(A)RA (~1100 linhas Jason) como caso mais próximo.
 
-- **Rever hive\_team e papéis MOISE+ (2026-06-18).** Cardinalidades atuais (`squad_leader:4,
-  collector:8, assembler:4, sentinel:3` → max=19) já não admitem os 20 agentes do Sim1 oficial.
-  Rever a composição da equipe para alinhar ao que o contest propõe: quem explora, quem coleta,
-  quem monta. Possivelmente simplificar papéis e subir cardinalidades para 20 (Sim1) e depois 40
-  (Sim3). Blocker concreto: `hive_org.xml`. Ver "Adaptação ao cenário oficial" §3.
+**🚧 Em andamento (WIP) — Prioridade 2:**
+- **Explorer-first — adotar `explorer` antes de `worker`.** ⚠️ **Premissa revisada (2026-06-18):**
+  o gargalo medido é `failed_path` 40-60%, não cobertura. Heading-balanceado testado → delta neutro.
+  **Contexto do livro (2026-06-19):** Blup (warm-up, 2º geral) adotava `explorer` primeiro para
+  speed=3 (cobertura/alcance de role-zone mais rápido), não para reduzir `failed_path`. **Gate
+  antes de implementar:** verificar se speed=3 (sem blocos) do explorer reduz time-to-role-zone
+  mecanisticamente mesmo com `failed_path` alto — é sobre quantos steps para chegar, não frequência
+  de colisão. Métrica: time-to-first-adoption em replay. Se delta positivo → promover; senão → parking lot.
 
-**Próximo, após a Fase C:** validar a adoção **em isolamento** (`conf/IsolationRolesConfig.json`) → medir →
-promover a **fusão de mapas (U9)**, agora **confirmada** como bloqueio de multi-bloco no oficial.
+**Próximo, após Prioridade 1:** Prioridade 2 (≥1 submit no oficial) → medir → Prioridade 3 (U9).
 
-## Prioridades (revisão vs spec, 2026-06-18)
+## Prioridades (revisão vs livro MAPC 2022, 2026-06-19)
 
-Cruzamento de `docs/backlog.md` contra o **livro oficial MAPC 2022** (`local/978-3-031-38712-8.pdf`,
-cap. "The MAPC 2022") + os arquivos de config bundled (`sim/sim1.json`, `sim/roles/standard.json`,
-`sim/norms/standard.json`) + o exercício da disciplina (`local/5703_ex02_26.pdf`). Ranking fundamentado:
+Cruzamento de `docs/backlog.md` contra o **livro oficial MAPC 2022** (`local/978-3-031-38712-8.pdf`)
+cap. "The MAPC 2022" (organizers) + papers dos 5 times + config bundled (`sim/roles/standard.json`,
+`sim/norms/standard.json`) + exercício PCS5703. **Numeração 1→4 por impacto em score.**
 
-| # | Item | Fundamento (fonte) |
-|---|------|--------------------|
-| **P0 ✅** | **Fase C — adoção de `worker`** (gate por percept `role/1`): **PROVADA em isolamento (score 0→10, submits 0→3)**. Resta **U4 (elo MOISE+)** + portar ao oficial | Adotar→coletar→submeter→pontuar **fecha** (commits `4b6a2d8`/`b9aa684`). O bloqueio de score restante é **navegação (livelock)**, não adoção. |
-| **P1 (score-growth)** | **Redesenho de navegação — artefato GPS + footprint + handedness** (→ **ideação/brainstorm**) | **Bloqueio de score MEDIDO pós-Fase-C** (pinning/livelock no isolamento). Substitui PENALTY=16/jitter; tradeoffs em aberto. Ver bullet "Artefato GPS" no parking lot. |
-| **P0** | **Corrigir cardinalidades MOISE+ p/ ≥20 (e plano p/ 40)** | `hive_org.xml` soma `max` = 19 (4+8+4+3) → já não admite os 20 do Sim1 oficial. Edição barata, desbloqueante. |
-| **P1** | **Viés single-block no scoring do líder (#1)** | Livro §2: single-block tem *"very small compensation"*; reward sobe com complexidade. Alta alavanca assim que a Fase C pontuar. |
-| **P1** | **Experimento de alavanca / harness de métricas** | O próprio backlog condiciona tudo a isso; antecede U9 e promoção do parking lot. |
-| **P2 ↑** | **U9 — fusão de mapas / cross-frame (#2)** | **Confirmado (boot 2026-06-18) como o bloqueio de multi-bloco no oficial:** dev que pontua é `absolutePosition:true`; oficial é `false` → `set_meeting_point`/`connect_request` sem origem comum falham. Continua gated atrás de provar a adoção, mas o gate agora tem **evidência dura**, não especulação. |
-| **P3 ↓** | **Normas — REBAIXADO** (ver sub-item 2, reescrito) | Livro §4: times de topo **ignoraram normas e comeram a multa**; MMD venceu assim. Trocar "tratar normas genéricas" por: (a) checar se o detach da norma Carry não custa score; (b) decisão deliberada de "comer a multa". |
-| **P3** | **Track adversário** | Downstream da Fase C + run 2-times oficial (correto). |
+### O que a competição mostrou — onde o HIVE destoa
 
-> **Prazo (exercício):** entrega de relatório+código consta como **20/06/2026**; competição vs. turma +
-> arguição "a anunciar". Se o relatório já foi entregue, a alavanca de nota restante é a **competição +
-> arguição** → reforça P0 (Fase C) como prioridade absoluta. Confirmar o estágio do prazo.
+| Time | Plataforma | Roles adotados | Padrão de agentes | Resultado |
+|------|------------|---------------|-------------------|-----------|
+| **MMD** | Python | worker + constructor | Flat, todos workers | **1º lugar** (30pts, 10/12 wins) |
+| **GOALdigger** | GOAL | worker + digger | Flat | 2º (22pts) |
+| **FIT BUT** | Java/JADE | worker + digger | Flat | 3º (19pts) |
+| **GOAL-DTU** | GOAL | default + worker | Flat | 4º (9pts) |
+| **LI(A)RA** | **Jason** | default + worker | Flat | 4º (9pts, ~1100 linhas) |
+| **Blup** (warm-up) | Kotlin/OR-Tools | explorer → worker | Flat + groups | 2º geral (11/15 warm-up) |
+| **HIVE** | JaCaMo/Jason | ? (score=0) | **Squad hierárquico** ← destoa |
+
+Observações do livro (organizers, cap. "The MAPC 2022"):
+- *"it is usually not helpful to come up with a centralized solution"* — citação direta.
+- Nenhum time usou `squad_leader` ou hierarquia de squads.
+- `survey` não foi usado por nenhum time.
+- Single-block tem *"very small compensation"* — multi-block é onde o score cresce.
+- MMD **ignorou normas** e venceu. Times de topo pagaram a multa sem resistir.
+
+### Tabela de prioridades
+
+| # | Item | Fundamento | DoD |
+|---|------|------------|-----|
+| **1 — ESTRUTURAL** | **Abandonar squad_leader → flat workers.** Remover `squad_leader.asl` e `sentinel.asl` como tipos de agente JaCaMo. Todos os 15 agentes (ou mais) partem de um único tipo capaz de adotar `worker`. MOISE+ mantém roles organizacionais (quem coordena) mas sem bloquear adoção de role MAPC. | Nenhum time competitivo usou squad_leader. O HIVE com squad_leader tem: (a) SELF-ASSIGN sem `can_score_role` → squad_leaders fazem `request` → `failed_role` ×21 no último run; (b) sentinels (A13-A15) nunca podem adotar worker; (c) apenas 9/15 agentes são candidatos a worker. | Todos os 15 agentes no `hive.jcm` incluem `role_adoption.asl`. Zero `failed_role` de agentes squad_leader/sentinel em replay. |
+| **2 — PIPELINE** | **≥1 submit confirmado no oficial** (`OfficialRolesConfig.json`). Engloba sub-itens da Fase C: (a) gate de re-adoção sem adopt-spam; (b) ≥10/15 alcançam role-zone em 300 steps; (c) worker adotado executa `request`/`attach`/`submit`; (d) elo MOISE+ U4 fecha. | Prerequisito de tudo — sem score não há nada para multiplicar. Heading-balanceado testado → delta neutro → fix de navegação (handedness no escape, `failed_path`) ainda necessário para chegar à role-zone. | ≥1 `submit` confirmado no replay com `OfficialRolesConfig.json`. |
+| **3 — MAPA** | **U9 — fusão de mapas cross-agente (mutual sighting).** Quando dois agentes se veem no mesmo step, calcular o offset entre frames e mesclar SharedMaps. | Teto sem U9: single-block solo (um agente coleta e submete sozinho — workers não sabem onde estão dispensers/goal-zones de colegas). Com U9: multi-block coordenado (`connect`) viável → muito mais score. LI(A)RA (Jason, 4th) fez isso como diferencial. `SharedMap.translateCells(dX,dY)` já implementa a álgebra — falta o handshake. | ≥2 agentes fundem mapas após avistamento mútuo em replay. Workers encontram dispensers/goal-zones de colegas via SharedMap fundido. |
+| **4 — OTIMIZAÇÃO** | **Constructor + decisão deliberada de ignorar normas (MMD-style).** Alguns agentes adotam `constructor` (speed=2 vazio, speed=1 com ≤2 blocos) para coverage rápida e multi-block delivery. Normas: eat-the-penalty deliberadamente (não conformidade automática). | MMD venceu com worker+constructor+ignorar normas. Single-block tem "very small compensation". Constructor move rápido vazio → encontra role-zones, dispensers, goal-zones mais rápido. Normas são raras (chance:15) e baratas (multas 1-10 energia) — conformidade pode custar mais que a multa. | Score cresce vs baseline de Priority 2. Constructor adotado e movendo. |
+
+> **Prazo (exercício):** entrega de relatório+código **20/06/2026**; competição vs. turma + arguição "a
+> anunciar". **⚡ AÇÃO IMEDIATA:** confirmar se relatório entregue — (a) entregue → 100% código/score
+> competitivo; (b) pendente → dividir esforço explicitamente.
 
 ## Fase C — achados do boot (2026-06-18): o que falta
 
@@ -93,13 +114,26 @@ está degradado por motivos **independentes da adoção**.
   **`conf/IsolationRolesConfig.json`** (FastTest 40×40 + `absolutePosition:true` + roles restritos; **só a
   variável adoção muda** vs o config que já pontua). Se pontua → adoção provada; se não → bug da camada de adoção.
 
-**Sub-itens concretos da Fase C (a fazer):**
-1. **Gate de re-adoção robusto** — parar o adopt-spam (verificar o update de `my_role(worker)`; talvez gatear por
-   resultado de ação/percept, não só por crença).
-2. **Alcance de role-zone** — 4/15 é pouco; melhorar exploração/navegação até a role-zone (liga ao livelock de
-   navegação no grid grande; `survey`/landmark são opções, mas o livro diz que `survey` quase não foi usado).
-3. **Transição pós-adoção → coleta** — garantir que a atribuição do líder vira `request` no worker (a fase longa
-   de adoção pode estar *starving* a task).
+**Sub-itens concretos da Fase C (Prioridade 2 — todos bloqueiam ≥1 submit no oficial):**
+
+> **⚠️ Causa raiz estrutural (Prioridade 1, revisão 2026-06-19):** parte dos bloqueios abaixo são
+> **sintoma** de squad_leader/sentinel nunca adotarem worker. A Prioridade 1 (flat workers) resolve os
+> sub-itens (a) e parcialmente (b) antes de qualquer mudança de lógica de adoção.
+
+1. **Gate de re-adoção robusto** — parar o adopt-spam (verificar o update de `my_role(worker)`; gatear por
+   resultado de ação/percept, não só por crença). DoD: 0 re-adoções em replay de 300 steps.
+2. **Alcance de role-zone** — 4/15 é pouco; melhorar navegação até a role-zone (livelock `failed_path`
+   40-60% no grid grande). Após Prioridade 1: ≥15/15 tentam adotar (agora só 9/15 tentam). DoD: ≥10/15
+   alcançam role-zone em 300 steps (config isolamento).
+3. **Transição pós-adoção → coleta** — garantir que worker adotado executa `request`/`submit`. **✅ Parcial
+   (2026-06-18):** plano (c) em `role_adoption.asl` auto-inicia coleta solo + guard `& N > 30` adicionados
+   (commits `ecc97df`/`8fbc7cc`). **Bloqueio remanescente:** workers em `pending_submit` com bloco em mãos
+   reportam `"Nenhuma goal zone conhecida"` — SharedMap é per-agente, worker só conhece goal zones que
+   pessoalmente viu. Fix (2026-06-18, commit `8f9d9c4`): explore com bloco ao invés de skip. DoD: ≥1
+   `submit` confirmado em replay.
+4. **U4 — elo MOISE+ completo** — verificar que `assign` do líder chega ao worker adotado como obrigação
+   (`m_collect`) e worker executa (não apenas MOISE+ vivo/logando). DoD: replay mostra scheme `m_collect`
+   comprometido **e** worker executando `request`.
 
 ## Fases de capacidade — construir antes de pontuar (dono, 2026-06-18)
 
@@ -110,15 +144,19 @@ controlados** (grid pequeno, `randomSeed` fixo, feature isolada), **sem rodar a 
 **variância** vem dos **AGENTES** (escalonamento Jason, `.random`, timing), então testes de capacidade
 isolam a lógica do ruído de score.
 
-**Ideias factíveis a sequenciar (uma por vez):**
-1. **Explorer-first (mapear rápido).** Início: `default` explora até achar role-zone → adota **`explorer`**
-   (vision 7, speed 3) → cobre o mapa rápido → troca p/ `worker` para coletar. **Permitido** (adopt livre; a
-   norma de role-count só entra ~step 40-50). **Proven:** a Paula (warm-up, quase vice) fez isso (~100 steps
-   explorer). Métrica: **cobertura / time-to-find dispenser+goal+role-zone**, não score.
-2. **Merge de mapas rápido no início (U9).** Conhecer o mapa coletivo cedo (menos re-exploração; habilita
-   rendezvous multi-bloco — o diferencial do livro). Nuance: **só necessário no OFICIAL**
-   (`absolutePosition:false`); no dev/isolamento (`absolutePosition:true`) já há frame comum.
-3. **Navegação sem livelock (GPS/footprint/handedness).** O bloqueio de score **medido** (ver parking lot).
+**Ideias factíveis a sequenciar (uma por vez, em ordem das prioridades):**
+1. **Flat workers (Prioridade 1 — estrutural).** Ver tabela de prioridades. Metrics: zero `failed_role`
+   de squad_leader/sentinel, ≥15/15 tentando adotar.
+2. **Pipeline básico: ≥1 submit (Prioridade 2).** Sub-itens Fase C acima. Metric: ≥1 submit em replay oficial.
+3. **Explorer-first (Blup/Paula, warm-up, quase vice).** `default` → acha role-zone → adota `explorer`
+   (speed=3 sem blocos, vision=7) → cobre o mapa rápido → troca p/ `worker` para coletar. **Distinção do
+   livro (2026-06-19):** Blup usava `explorer` para **speed=3** (alcança role-zones, dispensers, goal-zones
+   em menos steps), não para vision=7 especificamente. Gate: verificar se speed=3 reduz
+   time-to-first-adoption mesmo com `failed_path` alto. Metric: time-to-first-adoption em replay.
+4. **Merge de mapas (U9, Prioridade 3).** Mapa coletivo cedo → habilita multi-bloco (`connect`). Só
+   necessário no oficial (`absolutePosition:false`).
+5. **Navegação sem livelock (GPS/footprint/handedness).** O `failed_path` 40-60% é o gargalo medido.
+   Handedness no escape: não testado isolado ainda — gate antes de promover (ver parking lot).
 
 **Por que serve à abordagem:** "mudar em isolamento, promover por evidência" — mas com a **métrica certa
 para a fase** (capacidade, não score). Uma por vez evita empilhar heurística no escuro.
@@ -208,6 +246,9 @@ A config **bundled** (`massim_2022/server/conf/SampleConfig.json` → `sim/sim1.
    `src/org/hive_org.xml` somam `max` = **19** (`squad_leader 4 + collector 8 + assembler 4 + sentinel 3`)
    → o time **já não admite os 20 do Sim1**, e está longe dos **40 do Sim3**. Subir o squad p/ 20 exige
    editar essas cardinalidades; competir no Sim3 exige repensar a composição p/ 40.
+   > **Decisão Sim3 (20/06):** Sim3 (100×100, 40 agentes) está **fora de escopo** para a entrega de
+   > 20/06 — aceitamos score 0 se a competição incluir Sim3. Focar Sim1 (70×70, 20 ag.) como
+   > cenário-alvo. Reavaliar pós-entrega.
 
 > **Atualização (2026-06-18, pós-Fase D):** o oficial **já roda** (a Fase D destravou navegação sem
 > `absolutePosition` — boot confirmou agentes convergindo a alvos). O que falta para **pontuar** é só a
@@ -313,6 +354,14 @@ incerto** — a solução é conhecida (ver Arquitetura acima; é SLAM, problema
 gate é de **prioridade/medição**: a fusão só vira score se houver score para multiplicar, e isso depende
 da **Fase C** (adoção de role → pontuar no oficial). Promover quando a Fase C estiver de pé e a medição
 mostrar que partilha/montagem move o score.
+
+> ⚠️ **Dependência circular identificada (2026-06-18):** (1) U9 está gated atrás da Fase C provar score
+> no oficial. (2) Fase C com `absolutePosition:false` requer que os agentes encontrem role-zones, mas
+> sem mapa compartilhado (U9) a busca de role-zone por dead-reckoning individual é muito menos eficaz
+> (12/15 agentes não alcançam em 300 steps). **Teto sem U9:** competir apenas com single-block (um
+> agente coleta, submete sozinho); multi-bloco coordenado (`connect`) é inviável sem frame compartilhado.
+> **Decisão de escopo:** aceitar o teto single-block como **ceiling de competição sem U9** — priorizar
+> Fase C oficial primeiro, tratar o U9 como multiplicador de score pós-entrega se o prazo não comportar.
 Origem: [`docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md`](brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md)
 (Scope Boundaries / U9), que cita o **LI(A)RA** (time Jason, MAPC 2022 — `github.com/Liga-IA/liara-agents`,
 `src/asl/synchronism.asl`) como referência *proven* da técnica.
@@ -385,16 +434,15 @@ movimento, não em submit) e os próprios docs as condicionam a evidência. Prom
   parcial, re-attach); B4 detach por custo (ou barato: baixar o limiar fixo de 50→~20); B6/B7 yield
   por carga. **Gate:** só se os **detaches forçados de carregador** seguirem altos depois do #2
   (= movimento ainda custando submits).
-- **Navegação — dispersão + handedness consistente (ideia do dono, 2026-06-18; ELEVADO).** O boot da Fase C
-  em isolamento mostrou **pinning severo** (agentes presos em 1-3 células por 300 steps; `failed_path` ~50%)
-  — a exploração por *frontier* não dispersa sob congestão. Ideia do dono, duas técnicas comprovadas:
-  (a) **heading balanceado** — cada agente recebe um setor/direção (n/s/l/o) e segue nela desviando, em vez
-  de todos convergirem → ataca direto o "ficam na mesma área / não exploram";
-  (b) **desvio com handedness consistente (sentido horário / regra da mão-direita)** — quebra a simetria do
-  "dois agentes se encarando e dançando" (ambos giram pro mesmo lado → passam) e serve de
-  **footprint-avoidance leve** (sem a infra de reserva de célula do #5/B8). Hoje o escape usa *jitter
-  aleatório*, que não quebra simetria de forma estável. **Elevado** porque é o **bloqueio de score medido**
-  (não mais alavanca indireta especulativa) — promover junto com a depuração de navegação/submit pós-Fase-C.
+- **Navegação — dispersão + handedness consistente (ideia do dono, 2026-06-18).** O boot da Fase C
+  em isolamento mostrou **pinning severo** (agentes presos em 1-3 células por 300 steps; `failed_path` ~50%).
+  Duas técnicas, com **resultado divergente após testes**:
+  (a) **heading balanceado** (setor por agente) — **testado, delta neutro** (2026-06-18). Não reduz
+  `failed_path`. Dispersão geográfica **não é** a causa do livelock → **descartada** como fix primário.
+  (b) **handedness consistente no escape (sentido horário)** — **não testado isoladamente**. Pode ainda
+  contribuir para quebra de simetria em colisões 2-a-2 sem depender de dispersão geográfica. Gate:
+  testar handedness-only no escape e medir `failed_path` antes de promover. Se delta positivo →
+  promover ao P1 de navegação. Se neutro → parking lot permanente.
 - **Artefato GPS — roteamento sobre qualquer mapa (ideia do dono, 2026-06-18; → ideação/brainstorm).**
   Um artefato CArtAgO **GPS** que **cria e recalcula rotas** sobre QUALQUER mapa (o `map_<nome>` individual,
   o de um agente específico, ou o fundido da U9), **minimizando o nº de steps até o destino considerando

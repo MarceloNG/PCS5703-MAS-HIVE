@@ -5,6 +5,7 @@
 { include("common/organization.asl") }
 { include("common/dashboard_hooks.asl") }
 { include("common/connect_protocol.asl") }
+{ include("common/role_adoption.asl") }
 { include("common/collection.asl") }
 { include("common/navigation.asl") }
 
@@ -151,6 +152,7 @@ my_role_type(squad_leader).
     : not my_active_task(_, _) & step(CurStep)
     <- .print("[LEADER] Soloist task ", TaskName, ": coletar ", BlockType, " deadline=", Deadline);
        .my_name(Me);
+       mark_busy(Me);
        .abolish(collecting(_, _, _));
        .abolish(has_destination(_, _));
        .abolish(waiting_request(_, _));

@@ -83,13 +83,15 @@
       </mission>
     </scheme>
 
-    <!-- Fase C / U4: a org DIRIGE a adoção do role MAPC `worker`. Scheme SEPARADO
-         (não toca o task_execution_scheme). collector/assembler comprometem m_adopt;
+    <!-- Fase C / U4 + Prioridade-1: a org DIRIGE a adoção do role MAPC `worker`. Scheme SEPARADO
+         (não toca o task_execution_scheme). Todos os 4 roles org (collector, assembler,
+         squad_leader, sentinel) comprometem m_adopt via n_adopt_* na normativa.
          a obrigação de ATINGIR worker_role_adopted é satisfeita pela adoção (o +step de
-         role_adoption.asl adota; a org só registra e descarrega — sem 2ª ação MASSim). -->
+         role_adoption.asl adota; a org só registra e descarrega — sem 2ª ação MASSim).
+         ttf=400: cobre navegação longa em mapa 70x70 + exploração até encontrar role-zone. -->
     <scheme id="adoption_scheme">
-      <goal id="worker_role_adopted" ttf="100"/>
-      <mission id="m_adopt" min="1" max="12">
+      <goal id="worker_role_adopted" ttf="400"/>
+      <mission id="m_adopt" min="1" max="15">
         <goal id="worker_role_adopted"/>
       </mission>
     </scheme>
@@ -116,9 +118,11 @@
     <norm id="n_assemble" type="obligation" role="assembler"    mission="m_assemble"/>
     <norm id="n_submit"   type="obligation" role="assembler"    mission="m_submit"/>
     <norm id="n_guard"    type="obligation" role="sentinel"     mission="m_guard"/>
-    <!-- U4: collector e assembler são obrigados a adotar worker (gate de score) -->
-    <norm id="n_adopt_col" type="obligation" role="collector" mission="m_adopt"/>
-    <norm id="n_adopt_asm" type="obligation" role="assembler" mission="m_adopt"/>
+    <!-- U4 + Prioridade-1: todos os roles são obrigados a adotar worker (gate de score) -->
+    <norm id="n_adopt_col" type="obligation" role="collector"    mission="m_adopt"/>
+    <norm id="n_adopt_asm" type="obligation" role="assembler"    mission="m_adopt"/>
+    <norm id="n_adopt_sq"  type="obligation" role="squad_leader" mission="m_adopt"/>
+    <norm id="n_adopt_snt" type="obligation" role="sentinel"     mission="m_adopt"/>
   </normative-specification>
 
 </organisational-specification>

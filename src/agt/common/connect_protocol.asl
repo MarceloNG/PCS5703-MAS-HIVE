@@ -71,7 +71,9 @@
 // --- SELF-ASSIGN: idle agents pick up tasks autonomously ---
 
 +step(N)
-    : (N mod 7) == 4
+    : can_score_role
+      & (N mod 7) == 4
+      & N > 30
       & not my_active_task(_, _) & not collecting(_, _, _)
       & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not searching_dispenser(_)
@@ -363,7 +365,11 @@
            .abolish(last_attempted_dir(_));
            +last_attempted_dir(Dir);
            .concat("move(", Dir, ")", Act); action(Act)
-       } else { action("skip") }.
+       } else {
+           // sem goal zone no mapa: explorar com o bloco até achar uma visualmente
+           if ((N mod 20) == 0) { .print("[SUBMIT] Step ", N, ": sem goal zone no mapa, explorando") };
+           !do_explore(MX, MY)
+       }.
 
 // --- CONNECT RESULT: assembler (sucesso) → ir a goal zone ---
 
