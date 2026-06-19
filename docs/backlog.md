@@ -51,6 +51,12 @@ do MAPC 2022 e os arquivos de config.
 
 **Próximo, após Prioridade 1:** Prioridade 2 (≥1 submit no oficial) → medir → Prioridade 3 (U9).
 
+> **Decisão do dono (2026-06-19, via revisão da espinha #30):** a U9 **não é mais "pós-entrega"** — é
+> **escopo comprometido** da frente Mover & Mapear (issue #17), a ser **entregue antes do delivery** e
+> **validada em `absolutePosition:false`** (a condição da competição; `true` só serve ao 1º isolamento). A
+> ordenação por score abaixo (single-block primeiro, por ser o gate inicial) continua, mas o **teto
+> single-block deixa de ser aceito como ceiling** — vamos entregar a fusão de mapa. Ver espinha #30 e #17.
+
 ## Prioridades (revisão vs livro MAPC 2022, 2026-06-19)
 
 Cruzamento de `docs/backlog.md` contra o **livro oficial MAPC 2022** (`local/978-3-031-38712-8.pdf`)
@@ -352,16 +358,22 @@ brute-force, e risco de **ambiguidade** quando vários pares se veem no mesmo st
 **Gate (sequenciamento, NÃO incógnita de viabilidade):** isto **não está deferido por ser arriscado ou
 incerto** — a solução é conhecida (ver Arquitetura acima; é SLAM, problema resolvido na literatura). O
 gate é de **prioridade/medição**: a fusão só vira score se houver score para multiplicar, e isso depende
-da **Fase C** (adoção de role → pontuar no oficial). Promover quando a Fase C estiver de pé e a medição
-mostrar que partilha/montagem move o score.
+da **Fase C** (adoção de role → pontuar no oficial).
+
+> **Atualização (dono, 2026-06-19):** gate de prioridade **resolvido** — a U9 é **escopo comprometido**
+> (não mais condicionada a "se o prazo comportar") e **validada em `absolutePosition:false`**. Single-block
+> continua sendo o gate de score **inicial**, mas não bloqueia o desenvolvimento paralelo da fusão de mapa.
 
 > ⚠️ **Dependência circular identificada (2026-06-18):** (1) U9 está gated atrás da Fase C provar score
 > no oficial. (2) Fase C com `absolutePosition:false` requer que os agentes encontrem role-zones, mas
 > sem mapa compartilhado (U9) a busca de role-zone por dead-reckoning individual é muito menos eficaz
 > (12/15 agentes não alcançam em 300 steps). **Teto sem U9:** competir apenas com single-block (um
 > agente coleta, submete sozinho); multi-bloco coordenado (`connect`) é inviável sem frame compartilhado.
-> **Decisão de escopo:** aceitar o teto single-block como **ceiling de competição sem U9** — priorizar
-> Fase C oficial primeiro, tratar o U9 como multiplicador de score pós-entrega se o prazo não comportar.
+> **Decisão de escopo (REVISTA — dono, 2026-06-19):** ~~aceitar o teto single-block como ceiling sem U9,
+> tratando-a como multiplicador pós-entrega~~ → **a U9 é escopo comprometido da frente Mover & Mapear
+> (#17), entregue antes do delivery e validada em `absolutePosition:false`.** A dependência circular acima
+> é, na verdade, um **argumento PARA fazer a U9** (ela destrava a busca de role-zone no oficial), não para
+> deferi-la. Single-block continua como gate de score inicial, mas **não é mais o teto aceito**. Ver espinha #30.
 Origem: [`docs/brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md`](brainstorms/2026-06-17-fase-d-posicionamento-relativo-requirements.md)
 (Scope Boundaries / U9), que cita o **LI(A)RA** (time Jason, MAPC 2022 — `github.com/Liga-IA/liara-agents`,
 `src/asl/synchronism.asl`) como referência *proven* da técnica.
