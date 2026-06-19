@@ -150,16 +150,19 @@ dr_pos(0, 0).
 
 // --- Tasks ---
 
+// Guard `not known_task`: processa cada task UMA vez. Sem o guard, o percept `task`
+// re-sincroniza todo step e o `.abolish(task_req)` seguido do subgoal `!try_register_task`
+// (que SUSPENDE a intenção) deixa `task_req` VAZIO numa janela observável por outras
+// intenções — flicker que quebra toda regra posicional (submit/connect) que casa task_req.
 +task(Name, Deadline, Reward, Reqs)
+    : not known_task(Name, _, _, _)
     <- .length(Reqs, NBlocks);
-       -known_task(Name, _, _, _);
        +known_task(Name, Deadline, Reward, NBlocks);
-       .abolish(task_req(Name, _, _, _));
-       !try_register_task(Name, Deadline, Reward, NBlocks);
        for (.member(req(RX, RY, RT), Reqs)) {
            +task_req(Name, RX, RY, RT);
            register_task_block(Name, RT)
        };
+       !try_register_task(Name, Deadline, Reward, NBlocks);
        signal_task_ready(Name).
 
 +!try_register_task(Name, Deadline, Reward, NBlocks)
