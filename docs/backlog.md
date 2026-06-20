@@ -4,7 +4,7 @@ Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prior
 tabela em "Prioridades (revisão vs spec, 2026-06-18)" abaixo, fruto do cruzamento com o livro oficial
 do MAPC 2022 e os arquivos de config.
 
-## Status — o que já landou vs WIP (2026-06-18)
+## Status — o que já landou vs WIP (2026-06-19)
 
 **✅ Concluído:**
 - **Track 3 Fase D — posicionamento relativo (incremento 1).** Dead-reckoning por-agente, `SharedMap`
@@ -16,46 +16,66 @@ do MAPC 2022 e os arquivos de config.
   U4 (inferência de dimensão toroidal) e U9 (fusão de mapas — seção própria abaixo).
 - **Grid parametrizável** (Adaptação oficial, item 1 — `hive.GridConfig` + `-PgridW/-PgridH`).
 - **Harness JUnit** (Testes, item 1 — 44 testes verdes: A* toroidal/overlay, dead-reckoning, tradução de frame, grid, leilão).
-
-**⚠️ Parcial — isolamento only (revisão 2026-06-18, pós-boot):**
-- **Track 3 Fase C — adoção de role (plano 001, PARCIAL).** U1–U4 provados em **isolamento**
-  (40×40, `absolutePosition:true`): **score 0→10**. Commits `4b6a2d8`/`b9aa684`/`5b3336f`.
-  **Boot no oficial (70×70, `absolutePosition:false`) revelou 3 sub-itens críticos ainda abertos**
-  → score no oficial = 0 submits. Critério de done revisado: **"≥1 submit confirmado em replay com
-  `conf/OfficialRolesConfig.json`"** (não "score em isolamento"). Ver "Fase C — achados do boot".
-
-**✅ Concluído (cont.):**
 - **Navegação: heading-balanceado + handedness (plano 002, 2026-06-18).** U1 (Java `get_nearest_frontier_biased`
   + 9 testes JUnit), U2 (ASL `!do_explore` usa heading), U3 (tiebreak horário em `pick_escape`).
   Validado visualmente pelo monitor (agentes mantêm direção preferida). Delta de score: neutro (3/15 adoptions
   = baseline) — gargalo confirmado como `failed_path` 40-60%, não dispersão.
-  Branch: `feat/navegacao-heading-handedness`.
+- **#38 Flat workers + #40 Allocator descentralizado (squash merged main, commit `d0f63a9`, 2026-06-19).**
+  - #38: todos os 15 agentes partem de `hive_agent.asl`, `role_adoption.asl` incluso, sem `squad_leader`/`sentinel`.
+  - #40: `TaskBoard.select_task` com `putIfAbsent` (1 agente/task atômico), guard de pré-rotação ótima
+    em `connect_protocol.asl` (`RotationsNeeded.java`).
+  - **Validado 3/3 PASS** no cenário `06c-single-collect` (submits_ok ≥ 1).
+  - **IsolationRolesConfig (40×40): 15/15 adotaram worker, 10 submits emitidos, 0 bem-sucedidos**
+    → revelou 2 bugs de loop (issues #47/#48) + gap de navegação (#49).
+  - **OfficialRolesConfig (70×70): 6/15 adotaram worker, 0 submits** → gap de navegação/exploração.
 
-**🚧 Prioridade 1 — ESTRUTURAL (próximo a fazer):**
-- **Abandonar squad_leader → flat workers (alinhado à competição).** Ver tabela de prioridades.
-  Ações concretas: (a) remover `squad_leader.asl`/`sentinel.asl` do `hive.jcm` ou converter para
-  um tipo único `hive_agent.asl` com `role_adoption.asl` incluído; (b) adicionar `can_score_role`
-  guard ao SELF-ASSIGN em `connect_protocol.asl:73`; (c) `hive_org.xml`: manter roles org
-  (quem coordena, quem coleta) mas desacoplar do tipo de agente JaCaMo — qualquer agente pode
-  ter qualquer role org. Cardinalidades: subir para ≥20 (Sim1). Referência: estrutura flat de
-  todos os 5 times da competição; LI(A)RA (~1100 linhas Jason) como caso mais próximo.
+**⚠️ Regressões em aberto (frente:pontuar — alta prioridade):**
+- **#47 — Loop de pré-rotação** quando `rotate(cw/ccw)` falha: ação falha silenciosamente,
+  `RotationsNeeded` re-retorna R>0, guard re-dispara, task expira (A5: 131/135 rotações falhadas).
+- **#48 — Loop de detach no STUCK recovery**: detach emitido na direção errada → `failed_target`
+  em loop (A7: 106/107, A13: 99/102, A2: 32/33 failed_target).
 
-**🚧 Em andamento (WIP) — Prioridade 2:**
-- **Explorer-first — adotar `explorer` antes de `worker`.** ⚠️ **Premissa revisada (2026-06-18):**
-  o gargalo medido é `failed_path` 40-60%, não cobertura. Heading-balanceado testado → delta neutro.
-  **Contexto do livro (2026-06-19):** Blup (warm-up, 2º geral) adotava `explorer` primeiro para
-  speed=3 (cobertura/alcance de role-zone mais rápido), não para reduzir `failed_path`. **Gate
-  antes de implementar:** verificar se speed=3 (sem blocos) do explorer reduz time-to-role-zone
-  mecanisticamente mesmo com `failed_path` alto — é sobre quantos steps para chegar, não frequência
-  de colisão. Métrica: time-to-first-adoption em replay. Se delta positivo → promover; senão → parking lot.
+**🚧 Gaps de navegação em aberto (frente:mover-mapear):**
+- **#49 — Navegação robusta (Eixo N):** SharedMap vazio → A* falha → agentes em skip 257-282/300 steps.
+  Exploração não dirigida → 6/15 alcançam role-zone no oficial. Sub-itens: N1 (fallback A*), N2 (setor de exploração), N3 (approach com clearance).
 
-**Próximo, após Prioridade 1:** Prioridade 2 (≥1 submit no oficial) → medir → Prioridade 3 (U9).
+**Próximo, após fixes de regressão:** #49 N1 (fallback A*) → #49 N2 (exploração por setor) → validar
+≥10/15 role-zone no oficial → #32 (capstone Eixo M) → Prioridade 3 (U9 mapa merge).
 
 > **Decisão do dono (2026-06-19, via revisão da espinha #30):** a U9 **não é mais "pós-entrega"** — é
 > **escopo comprometido** da frente Mover & Mapear (issue #17), a ser **entregue antes do delivery** e
 > **validada em `absolutePosition:false`** (a condição da competição; `true` só serve ao 1º isolamento). A
 > ordenação por score abaixo (single-block primeiro, por ser o gate inicial) continua, mas o **teto
 > single-block deixa de ser aceito como ceiling** — vamos entregar a fusão de mapa. Ver espinha #30 e #17.
+
+## Prioridades ordenadas — visão atual (2026-06-19)
+
+Lista única de issues por prioridade de execução, derivada do diagnóstico dos runs IsolationRolesConfig + OfficialRolesConfig de 2026-06-19. Substitui a intuição pela evidência dos histogramas de ação.
+
+| P | Issue | Categoria | Evidência / Justificativa | DoD |
+|---|-------|-----------|---------------------------|-----|
+| **P0** | **#47** — Loop pré-rotação sem limite | fix · frente:pontuar | A5: 131/135 rotações falhadas, task expira. Regressão do #40. | `failed:rotate < 10/agente` no IsolationRolesConfig |
+| **P0** | **#48** — Loop detach no STUCK recovery | fix · frente:mover-mapear | A7: 106/107 detach failed_target. Bug simétrico ao #47. | `failed_target:detach < 5/agente` |
+| **P1** | **#49 N1** — Fallback A* quando mapa vazio | feat · frente:mover-mapear | A1/A4/A11/A12: 257-282 skips com bloco em mãos. SharedMap vazio → skip-loop. | `skip < 50/300` para agentes com bloco |
+| **P1** | **#49 N2** — Exploração dirigida por setor | feat · frente:mover-mapear | 6/15 alcançam role-zone no oficial. Exploração aleatória não cobre o grid a tempo. | ≥10/15 adotam worker no OfficialRolesConfig |
+| **P2** | **#32** — Eixo M: capstone navegação oficial | validação · frente:mover-mapear | Capstone que integra #47+#48+#49 na escala real (70×70, 15 ag). | ≥10/15 role-zone + `failed_path < 20%` |
+| **P3** | **#17** — U9 fusão de mapas (map-merge) | feat · frente:mover-mapear | Com mapa fundido: dispensers/goal-zones compartilhados → menos re-exploração; habilita multi-bloco. | ≥2 agentes fundem mapas no replay oficial |
+| **P3** | **#42** — Cenário de contenção multi-agente | harness · frente:infra | Gate do allocator (#40) em escala real. Confirma que 06c não é suficiente como gate. | PASS cenário contenção multi-task |
+| **P4** | **#46** — ZoneQueue (fila de zona com capacidade) | feat · frente:pontuar | Evita aglomeração na goal-zone. Capacidade 1 ou 2 por posição. | Fila funcional com simulação controlada |
+| **P4** | **#43** — Allocator multi-block (coalizão) | feat · frente:pontuar | Pós-U9: multi-bloco coordenado. Alta recompensa, bloqueado por frame compartilhado. | ≥1 submit multi-block no oficial |
+| **P5** | **#41** — Harness de flakiness (N× runs) | feat · frente:infra | Gatea P4+ — não otimizar alocador sem medição estável. | ≥K PASS em N runs automáticos |
+| **P5** | **#44** — Contract-Net descentralizado | feat · frente:pontuar | CNP para recrutar providers. Bloqueado por multi-block. | CFP→propose→accept no replay |
+| **P5** | **#45** — Calibrar pesos do allocator | feat · frente:pontuar | Refinamento pós-medição. Bloqueado por harness #41. | Score melhora vs baseline |
+| **bloq** | **#16** — Eixo 4a: frente-a-frente | cenário · frente:mover-mapear | Bloqueado — aguarda navegação base (#49). | — |
+| **bloq** | **#28** — Eixo 4b: exploração sem zigzag | cenário · frente:mover-mapear | Parcialmente coberto por #49 N2. | — |
+| **bloq** | **#29** — Eixo 4c: desviar com bloco/footprint | cenário · frente:mover-mapear | Bloqueado — aguarda #49. | — |
+| **bloq** | **#31** — Eixo 2b: dead-reckoning | cenário · frente:mover-mapear | Bloqueado — aguarda base de navegação. | — |
+| **bloq** | **#21** — Eixo 8: connect 2 agentes | cenário · frente:pontuar | Bloqueado por frame compartilhado (U9). | — |
+| **pós** | **#22, #23, #35, #36, #39, #20** | org/adversário/normas | Pós-delivery ou pós-U9. | — |
+
+> Critério de ordenação: (1) bugs de regressão antes de features; (2) menor granularidade primeiro (N1 antes N2); (3) evidência medida prevalece sobre intuição.
+
+---
 
 ## Prioridades (revisão vs livro MAPC 2022, 2026-06-19)
 
