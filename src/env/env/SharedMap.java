@@ -578,7 +578,7 @@ public class SharedMap extends Artifact {
         fx = normX(fx); fy = normY(fy);
         tx = normX(tx); ty = normY(ty);
         int mDist = wrappedManhattan(fx, fy, tx, ty);
-        if (mDist > 60) return greedy(fx, fy, tx, ty);
+        if (mDist > 60) return greedyAware(fx, fy, tx, ty);
 
         Set<String> blocked = new HashSet<>(obstacles.keySet());
         blocked.remove(tx + "," + ty);
@@ -631,7 +631,7 @@ public class SharedMap extends Artifact {
                 if (ddx == 0 && ddy == 1)  return "s";
                 if (ddx == -1 && ddy == 0) return "w";
                 if (ddx == 1 && ddy == 0)  return "e";
-                return greedy(fx, fy, tx, ty);
+                return greedyAware(fx, fy, tx, ty);
             }
 
             int cg = gScore.get(ck);
@@ -649,7 +649,7 @@ public class SharedMap extends Artifact {
                 }
             }
         }
-        return greedy(fx, fy, tx, ty);
+        return greedyAware(fx, fy, tx, ty);
     }
 
     private String greedy(int fx, int fy, int tx, int ty) {
@@ -674,6 +674,58 @@ public class SharedMap extends Artifact {
             return dx > 0 ? "e" : "w";
         }
         return dy > 0 ? "s" : "n";
+    }
+
+    // N1 (#49): greedy ciente de obstáculo — fallback do cliff mDist>60 e do A* exausto.
+    // Tenta a direção greedy preferencial; se bloqueada por obstáculo percebido, tenta
+    // as 3 rotações CW (n→e→s→w). Todas bloqueadas: retorna a preferencial (degradação graciosa).
+    // package-private para teste (espelha astar).
+    String greedyAware(int fx, int fy, int tx, int ty) {
+        fx = normX(fx); fy = normY(fy);
+        tx = normX(tx); ty = normY(ty);
+        int dx, dy;
+        if (gridWidth > 0) {
+            int rawDx = tx - fx;
+            int absDx = Math.abs(rawDx);
+            dx = (absDx <= gridWidth - absDx) ? rawDx : (rawDx > 0 ? rawDx - gridWidth : rawDx + gridWidth);
+        } else {
+            dx = tx - fx;
+        }
+        if (gridHeight > 0) {
+            int rawDy = ty - fy;
+            int absDy = Math.abs(rawDy);
+            dy = (absDy <= gridHeight - absDy) ? rawDy : (rawDy > 0 ? rawDy - gridHeight : rawDy + gridHeight);
+        } else {
+            dy = ty - fy;
+        }
+        String prefDir = (Math.abs(dx) >= Math.abs(dy)) ? (dx > 0 ? "e" : "w") : (dy > 0 ? "s" : "n");
+
+        String[] cwDirs   = {"n", "e", "s", "w"};
+        int[][]  cwOffsets = {{0,-1}, {1,0}, {0,1}, {-1,0}};
+        int startIdx = 0;
+        for (int i = 0; i < cwDirs.length; i++) {
+            if (cwDirs[i].equals(prefDir)) { startIdx = i; break; }
+        }
+        for (int k = 0; k < 4; k++) {
+            int i = (startIdx + k) % 4;
+            String nk = normX(fx + cwOffsets[i][0]) + "," + normY(fy + cwOffsets[i][1]);
+            if (!obstacles.containsKey(nk)) return cwDirs[i];
+        }
+        return prefDir;
+    }
+
+    // N2 (#49): retorna a direção primária de exploração do agente — n/e/s/w baseado
+    // em agentIndex % 4. Usado pelo ASL para inicializar explore_primary_dir uma vez.
+    // package-private para teste.
+    String exploreDir(String name) {
+        int idx = extractAgentIndex(name);
+        String[] dirs = {"n", "e", "s", "w"};
+        return idx >= 0 ? dirs[idx % 4] : "n";
+    }
+
+    @OPERATION
+    void get_explore_dir(Object oName, OpFeedbackParam<String> dir) {
+        dir.set(exploreDir(oName.toString()));
     }
 
     // ===== Fase D / R7: costura de traducao de frame =====

@@ -261,4 +261,102 @@ class SharedMapAStarTest {
         assertTrue(t[0] < 8, "escape deve mirar a abertura (oeste), veio x=" + t[0]);
         assertEquals(5, t[1]);
     }
+
+    // ===== N1 (#49): greedyAware — cliff ciente de obstáculo =====
+
+    @Test
+    void greedyAware_semObstaculo_mesmoQueGreedy() {
+        // Alvo a leste, sem obstáculos: deve retornar "e" (igual ao greedy original)
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("e", sm.greedyAware(0, 0, 20, 0));
+    }
+
+    @Test
+    void greedyAware_bloqueioNaDirecaoPref_tentaCW() {
+        // Alvo a leste, obstacle em (1,0): deve desviar para n ou s (próximo CW livre)
+        SharedMap sm = mapWith(70, 70);
+        sm.obstacles.put("1,0", 1);
+        String dir = sm.greedyAware(0, 0, 20, 0);
+        assertTrue(dir.equals("n") || dir.equals("s"),
+                "com E bloqueado deve desviar CW para n ou s, veio: " + dir);
+    }
+
+    @Test
+    void greedyAware_bloqueioNorteLeste_retornaSul() {
+        // Agente em (5,5), alvo ao norte (5,0). N(5,4) e E(6,5) bloqueados; S e W livres.
+        // CW de N: n(bloq) → e(bloq) → s(livre) → deve retornar "s"
+        SharedMap sm = mapWith(70, 70);
+        sm.obstacles.put("5,4", 1);  // N bloqueado
+        sm.obstacles.put("6,5", 1);  // E bloqueado
+        assertEquals("s", sm.greedyAware(5, 5, 5, 0));
+    }
+
+    @Test
+    void greedyAware_todasDirecoesBloqueadas_retornaPreferida() {
+        // Agente em (5,5), alvo a leste (25,5). Todos os 4 vizinhos bloqueados.
+        // Degradação graciosa: retorna prefDir "e"
+        SharedMap sm = mapWith(70, 70);
+        sm.obstacles.put("5,4", 1);  // N
+        sm.obstacles.put("6,5", 1);  // E
+        sm.obstacles.put("5,6", 1);  // S
+        sm.obstacles.put("4,5", 1);  // W
+        assertEquals("e", sm.greedyAware(5, 5, 25, 5));
+    }
+
+    @Test
+    void greedyAware_astar_cliff_naoRetornaDirecaoObstaculo() {
+        // Destino a 65 células (> threshold 60), obstacle direto no caminho leste
+        SharedMap sm = mapWith(70, 70);
+        sm.obstacles.put("1,0", 1);
+        // astar deve cair no cliff e usar greedyAware → não retorna "e" (bloqueado)
+        String dir = sm.astar(0, 0, 65, 0);
+        assertNotEquals("e", dir, "cliff não deve retornar direção com obstacle, veio: " + dir);
+    }
+
+    // ===== N2 (#49): get_explore_dir — direção primária de exploração =====
+
+    @Test
+    void exploreDir_agentA0_norte() {
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("n", sm.exploreDir("agentA0"));
+    }
+
+    @Test
+    void exploreDir_agentA1_leste() {
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("e", sm.exploreDir("agentA1"));
+    }
+
+    @Test
+    void exploreDir_agentA2_sul() {
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("s", sm.exploreDir("agentA2"));
+    }
+
+    @Test
+    void exploreDir_agentA3_oeste() {
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("w", sm.exploreDir("agentA3"));
+    }
+
+    @Test
+    void exploreDir_agentA4_norte() {
+        // idx=4, 4%4=0 → norte
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("n", sm.exploreDir("agentA4"));
+    }
+
+    @Test
+    void exploreDir_agentA14_sul() {
+        // idx=14, 14%4=2 → sul
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("s", sm.exploreDir("agentA14"));
+    }
+
+    @Test
+    void exploreDir_semDigitos_norte() {
+        // nome sem dígitos → fallback "n"
+        SharedMap sm = mapWith(70, 70);
+        assertEquals("n", sm.exploreDir("hive_agent"));
+    }
 }

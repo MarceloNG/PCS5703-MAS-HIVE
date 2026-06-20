@@ -118,41 +118,93 @@
     <- .print("[NAV] Step ", N, ": Sem posicao, skip");
        action("skip").
 
-// --- Exploracao: buscar fronteira e mover ---
+// --- Exploracao: Bug0 (#49 N2) ou escape quando preso (#27) ---
 
 +!do_explore(MX, MY)
     <- .my_name(Me);
        is_stuck(Stuck);
        if (Stuck == 1) {
-           // #27: preso (oscilando) → acha a ABERTURA (ray-cast) e mira fundo nela; o A*
-           // roteia p/ fora do pocket pela boca
+           // #27: preso → ray-cast p/ abertura; A* roteia p/ fora do pocket
            get_escape_target(MX, MY, FX, FY);
-           .print("[NAV] PRESO em (", MX, ",", MY, ") — escape p/ abertura (", FX, ",", FY, ")")
+           .print("[NAV] PRESO em (", MX, ",", MY, ") — escape p/ (", FX, ",", FY, ")");
+           if (FX \== MX | FY \== MY) {
+               .abolish(has_destination(_, _));
+               +has_destination(FX, FY);
+               compute_next_move(MX, MY, FX, FY, Dir);
+               .abolish(last_attempted_dir(_));
+               +last_attempted_dir(Dir);
+               .concat("move(", Dir, ")", Act);
+               action(Act)
+           } else {
+               !bug0_move(n)
+           }
        } else {
-           get_nearest_frontier_biased(MX, MY, Me, FX, FY)
-       };
-       if (FX == MX & FY == MY) {
-           if (last_attempted_dir(PrevDir)) {
-               if (PrevDir == n) { Dir = e }
-               elif (PrevDir == e) { Dir = s }
-               elif (PrevDir == s) { Dir = w }
-               else { Dir = n }
-           } else { Dir = n };
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(Dir);
-           .concat("move(", Dir, ")", Act);
-           action(Act)
-       } else {
-           +has_destination(FX, FY);
-           compute_next_move(MX, MY, FX, FY, Dir);
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(Dir);
-           .concat("move(", Dir, ")", Act);
-           action(Act)
+           // N2 Bug0 (#49): direção primária por índice; contorno CW sem A*
+           get_explore_dir(Me, PDir);
+           !bug0_move(PDir)
        }.
 
 -!do_explore(_, _)
     <- action("move(n)").
+
+// Bug0: move em PDir ou primeiro dir livre em rotação CW (n→e→s→w).
++!bug0_move(PDir)
+    <- !bug0_pick_dir(PDir, Dir);
+       .abolish(last_attempted_dir(_));
+       +last_attempted_dir(Dir);
+       .concat("move(", Dir, ")", Act);
+       action(Act).
+-!bug0_move(PDir)
+    <- .abolish(last_attempted_dir(_));
+       +last_attempted_dir(PDir);
+       .concat("move(", PDir, ")", Act);
+       action(Act).
+
+// Primeiro dir não-bloqueado em CW a partir de PDir.
+// Bloqueio primário: célula adjacente (obs+entity) OU look-ahead 2-3 (só obstacle).
+// Look-ahead simula "vê a parede antes de chegar" → inicia CW contour mais cedo.
++!bug0_pick_dir(PDir, Dir)
+    <- if (PDir == n) {
+           D1 = n; O1X = 0;  O1Y = -1;
+           D2 = e; O2X = 1;  O2Y = 0;
+           D3 = s; O3X = 0;  O3Y = 1;
+           D4 = w; O4X = -1; O4Y = 0;
+           LA1X = 0; LA1Y = -2;
+           LA2X = 0; LA2Y = -3
+       } elif (PDir == e) {
+           D1 = e; O1X = 1;  O1Y = 0;
+           D2 = s; O2X = 0;  O2Y = 1;
+           D3 = w; O3X = -1; O3Y = 0;
+           D4 = n; O4X = 0;  O4Y = -1;
+           LA1X = 2; LA1Y = 0;
+           LA2X = 3; LA2Y = 0
+       } elif (PDir == s) {
+           D1 = s; O1X = 0;  O1Y = 1;
+           D2 = w; O2X = -1; O2Y = 0;
+           D3 = n; O3X = 0;  O3Y = -1;
+           D4 = e; O4X = 1;  O4Y = 0;
+           LA1X = 0; LA1Y = 2;
+           LA2X = 0; LA2Y = 3
+       } else {
+           D1 = w; O1X = -1; O1Y = 0;
+           D2 = n; O2X = 0;  O2Y = -1;
+           D3 = e; O3X = 1;  O3Y = 0;
+           D4 = s; O4X = 0;  O4Y = 1;
+           LA1X = -2; LA1Y = 0;
+           LA2X = -3; LA2Y = 0
+       };
+       // Primária bloqueada: adjacente (obs/entity) OU obstacle visível a 2-3 células
+       if (cell_blocked(O1X, O1Y) |
+           thing(LA1X, LA1Y, obstacle, _) |
+           thing(LA2X, LA2Y, obstacle, _)) {
+           if (not cell_blocked(O2X, O2Y)) { Dir = D2 }
+           elif (not cell_blocked(O3X, O3Y)) { Dir = D3 }
+           elif (not cell_blocked(O4X, O4Y)) { Dir = D4 }
+           else { Dir = D1 }
+       } else {
+           Dir = D1
+       }.
+-!bug0_pick_dir(_, Dir) <- Dir = n.
 
 // ============================================================
 // Escape reativo (#3 + #4 agindo) — camada 100% .asl
