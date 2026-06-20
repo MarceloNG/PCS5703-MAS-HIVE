@@ -4,7 +4,7 @@ Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prior
 tabela em "Prioridades (revisão vs spec, 2026-06-18)" abaixo, fruto do cruzamento com o livro oficial
 do MAPC 2022 e os arquivos de config.
 
-## Status — o que já landou vs WIP (2026-06-19)
+## Status — o que já landou vs WIP (2026-06-20)
 
 **✅ Concluído:**
 - **Track 3 Fase D — posicionamento relativo (incremento 1).** Dead-reckoning por-agente, `SharedMap`
@@ -29,9 +29,12 @@ do MAPC 2022 e os arquivos de config.
     → revelou 2 bugs de loop (issues #47/#48) + gap de navegação (#49).
   - **OfficialRolesConfig (70×70): 6/15 adotaram worker, 0 submits** → gap de navegação/exploração.
 
-**⚠️ Regressões em aberto (frente:pontuar — alta prioridade):**
-- **#47 — Loop de pré-rotação** quando `rotate(cw/ccw)` falha: ação falha silenciosamente,
-  `RotationsNeeded` re-retorna R>0, guard re-dispara, task expira (A5: 131/135 rotações falhadas).
+**✅ #47 — Loop de pré-rotação (squash merged main, commit `4b50e15`, 2026-06-20).**
+  Contador `rotate_pre_submit_fails(TaskName,F)` + guard P2 NAF-safe. Abort em F≥3 via
+  `!finalize_task`. Antes: A5 rotate:135 failed:131 (97%). Depois: rotate:30 failed:1.
+  06c PASS: submits_ok=1, score=10.
+
+**⚠️ Regressão em aberto (frente:pontuar — P0):**
 - **#48 — Loop de detach no STUCK recovery**: detach emitido na direção errada → `failed_target`
   em loop (A7: 106/107, A13: 99/102, A2: 32/33 failed_target).
 
@@ -54,7 +57,7 @@ Lista única de issues por prioridade de execução, derivada do diagnóstico do
 
 | P | Issue | Categoria | Evidência / Justificativa | DoD |
 |---|-------|-----------|---------------------------|-----|
-| **P0** | **#47** — Loop pré-rotação sem limite | fix · frente:pontuar | A5: 131/135 rotações falhadas, task expira. Regressão do #40. | `failed:rotate < 10/agente` no IsolationRolesConfig |
+| ~~**P0**~~ | ~~**#47** — Loop pré-rotação~~ | ~~fix · frente:pontuar~~ | ✅ landed `4b50e15` | ✅ |
 | **P0** | **#48** — Loop detach no STUCK recovery | fix · frente:mover-mapear | A7: 106/107 detach failed_target. Bug simétrico ao #47. | `failed_target:detach < 5/agente` |
 | **P1** | **#49 N1** — Fallback A* quando mapa vazio | feat · frente:mover-mapear | A1/A4/A11/A12: 257-282 skips com bloco em mãos. SharedMap vazio → skip-loop. | `skip < 50/300` para agentes com bloco |
 | **P1** | **#49 N2** — Exploração dirigida por setor | feat · frente:mover-mapear | 6/15 alcançam role-zone no oficial. Exploração aleatória não cobre o grid a tempo. | ≥10/15 adotam worker no OfficialRolesConfig |
