@@ -53,6 +53,7 @@
   "teams": {
     "A": { "prefix": "agent", "password": "1" }
   },
+  "skip": "#55 — 14 agentes competem no mesmo dispenser (time flat); fix no #55",
   "assert": { "metric": "submits_ok", "min": 1 },
   "//": "Cenario 06c-single-collect (Eixo 6c / issue #26) — single-block COMPLETO. Diferente do 06 (que pre-anexa), aqui o worker COLETA: vai ao dispenser b1, request->attach, navega a goal-zone, submit. Grid 12x12 vazio, randomFail:0, seed fixa, eventos/normas off, absolutePosition:true, 60 steps. dispensers:[0,0] (o dispenser b1 vem do setup, em posicao conhecida). METRICA: submits_ok >= 1 de um bloco COLETADO. Prova a metade de coleta do pipeline de score (a do #14 era pre-anexada).",
   "//setup": "O setup move os 15 agentes a celulas distintas (evita colisao de spawn), poe o COLLECTOR alvo numa role-zone (adota worker), cria 1 dispenser b1 e 1 goal-zone a poucas celulas, e a task t1=b1 em (1,0). PATH relativo ao cwd do servidor, por isso '../../conf/...'. RISCO: o SELF-ASSIGN de coleta e gated em N>30 — com 60 steps pode caber (self-assign ~step31 + nav/coleta/submit); se nao couber, abrir o gate p/ cenario curto (ver plano 004, U3)."

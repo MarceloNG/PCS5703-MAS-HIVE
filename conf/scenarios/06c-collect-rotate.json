@@ -53,6 +53,7 @@
   "teams": {
     "A": { "prefix": "agent", "password": "1" }
   },
+  "skip": "#55 — 14 agentes competem no mesmo dispenser (time flat); fix no #55",
   "assert": { "metric": "submits_ok", "min": 1 },
   "//": "Cenario 06c-collect-rotate (U3 / objetividade do submit #50/#52) — variante de 06c-single-collect que EXIGE rotacao. O bloco anexa em (1,0) mas a task pede (0,1) → 1 rotate(cw) alinha NO DISPENSER (pre-alinhamento U3), antes de navegar a goal-zone. Diferente de 06c-single-collect (rotacao-livre por construcao, que passaria mesmo com o codigo antigo), este cenario FALSEIA o pre-alinhamento: se U3 falhar, o bloco chega desalinhado e ou nao submete ou rotaciona NA ZONA (o analyzer submit_strategy.py detecta rotacoes-na-zona > 0). Grid 12x12, randomFail:0, seed 17, absolutePosition:true, 80 steps. METRICA: submits_ok >= 1.",
   "//setup": "Identico a 06c-single-collect (mesmas posicoes/seed), so muda a task t1 de (1,0) p/ (0,1) para exigir 1 rotacao. Validar com: submit_strategy.py --check (rotacoes-na-zona ≈ 0, rotacao no dispenser >= 1)."

@@ -65,9 +65,15 @@ echo "════════════════════════�
 echo "REGRESSÃO de cenários (série): ${names[*]}"
 echo "═══════════════════════════════════════════════════"
 
-pass=0; fail=0; failed=()
+pass=0; fail=0; skip=0; failed=(); skipped=()
 for n in "${names[@]}"; do
   echo ""; echo "──── cenário: $n ────"
+  conf_file="$SCEN_DIR/${n}.json"
+  skip_reason="$(python3 -c "import json,sys; d=json.load(open('$conf_file')); print(d.get('skip',''))" 2>/dev/null)"
+  if [ -n "$skip_reason" ]; then
+    echo "  ⊘ [$n] SKIP — $skip_reason"; skip=$((skip+1)); skipped+=("$n")
+    continue
+  fi
   if "$DRIVER" run --scenario "$n" --assert "${extra_flags[@]+"${extra_flags[@]}"}"; then
     echo "  ✓ [$n] PASS"; pass=$((pass+1))
   else
@@ -76,5 +82,6 @@ for n in "${names[@]}"; do
 done
 
 echo ""; echo "═══════════════════════════════════════════════════"
-echo "RESULTADO: $pass PASS · $fail FAIL  (de $((pass+fail)) cenários)"
+echo "RESULTADO: $pass PASS · $fail FAIL · $skip SKIP  (de $((pass+fail+skip)) cenários)"
+[ "${#skipped[@]}" -gt 0 ] && echo "  ⊘ Skipped: ${skipped[*]}"
 [ "$fail" -eq 0 ] && { echo "✓ Sem regressão."; exit 0; } || { echo "✗ Falharam: ${failed[*]}"; exit 1; }
