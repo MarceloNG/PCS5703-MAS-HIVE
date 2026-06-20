@@ -4,42 +4,27 @@
     xmlns="http://moise.sourceforge.net/os">
 
   <!-- =================== STRUCTURAL SPECIFICATION =================== -->
+  <!-- Estrutura FLAT (issue #38): um ÚNICO papel funcional que TODOS os agentes jogam.
+       A hierarquia squad_leader→collector/assembler foi REMOVIDA — nenhum time do contest
+       usou liderança centralizada (organizers, MAPC 2022: "it is usually not helpful to come
+       up with a centralized solution"). A diferenciação funcional (explorar/coletar/montar) é
+       por missão/crença dinâmica, não por papel fixo (jeito LI(A)RA: agentes homogêneos).
+       max=20 admite o time do Sim1 — a soma das cardinalidades antigas era 19 < 20, e a org
+       NEM ADMITIA os 20 agentes do Sim1. -->
   <structural-specification>
 
     <role-definitions>
-      <role id="squad_leader">
-        <extends role="soc"/>
-      </role>
-      <role id="collector">
-        <extends role="soc"/>
-      </role>
-      <role id="assembler">
-        <extends role="soc"/>
-      </role>
-      <role id="sentinel">
+      <role id="field_agent">
         <extends role="soc"/>
       </role>
     </role-definitions>
 
-    <!-- Estrutura achatada (U1): os subgrupos squad_group/sentinel_group foram
-         removidos para instanciação simples e robusta no hive.jcm. O conceito de
-         "squad" é realizado no Java (SquadCoordinator), não pela hierarquia MOISE+.
-         Os links de autoridade/comunicação foram elevados para hive_team. -->
     <group-specification id="hive_team">
       <roles>
-        <role id="squad_leader" min="3" max="4"/>
-        <role id="collector"    min="6" max="8"/>
-        <role id="assembler"    min="3" max="4"/>
-        <role id="sentinel"     min="1" max="3"/>
+        <role id="field_agent" min="1" max="20"/>
       </roles>
-      <links>
-        <link from="squad_leader" to="collector"
-              type="authority" scope="intra-group"/>
-        <link from="squad_leader" to="assembler"
-              type="authority" scope="intra-group"/>
-        <link from="collector" to="assembler"
-              type="communication" scope="intra-group"/>
-      </links>
+      <!-- Sem links de autoridade: time flat/descentralizado. A alocação multi-bloco
+           será Contract-Net DESCENTRALIZADO (issues #22/#21), não um líder central. -->
     </group-specification>
 
   </structural-specification>
@@ -70,9 +55,11 @@
           <goal id="pattern_submitted" ttf="30"/>
         </plan>
       </goal>
-      <!-- Max cardinalities alinhadas ao time achatado (U1): 6 collectors podem
-           comprometer m_collect; 3 assemblers comprometem m_assemble e m_submit. -->
-      <mission id="m_collect" min="1" max="8">
+      <!-- FLAT (issue #38): m_collect max=15 — todos os 15 field_agents podem comprometer
+           m_collect sem falha de cardinalidade. m_assemble/m_submit permanecem ESPECIFICADAS
+           (o ciclo coletar→montar→submeter), mas sem norma — a alocação fina de montagem/submit
+           volta como Contract-Net descentralizado (#22). -->
+      <mission id="m_collect" min="1" max="15">
         <goal id="blocks_collected"/>
       </mission>
       <mission id="m_assemble" min="1" max="4">
@@ -83,12 +70,10 @@
       </mission>
     </scheme>
 
-    <!-- Fase C / U4 + Prioridade-1: a org DIRIGE a adoção do role MAPC `worker`. Scheme SEPARADO
-         (não toca o task_execution_scheme). Todos os 4 roles org (collector, assembler,
-         squad_leader, sentinel) comprometem m_adopt via n_adopt_* na normativa.
-         a obrigação de ATINGIR worker_role_adopted é satisfeita pela adoção (o +step de
-         role_adoption.asl adota; a org só registra e descarrega — sem 2ª ação MASSim).
-         ttf=400: cobre navegação longa em mapa 70x70 + exploração até encontrar role-zone. -->
+    <!-- Fase C / U4 + issue #38: a org DIRIGE a adoção do role MAPC `worker` — é o elo VIVO
+         (a única coisa que a org genuinamente dirige e mede). Todos os field_agents comprometem
+         m_adopt via n_adopt. O +step de role_adoption.asl adota; a org registra e descarrega
+         (sem 2ª ação MASSim). ttf=400: cobre navegação 70x70 + exploração até a role-zone. -->
     <scheme id="adoption_scheme">
       <goal id="worker_role_adopted" ttf="400"/>
       <mission id="m_adopt" min="1" max="15">
@@ -112,17 +97,15 @@
   </functional-specification>
 
   <!-- =================== NORMATIVE SPECIFICATION =================== -->
+  <!-- FLAT (issue #38): o papel field_agent é obrigado a (a) ADOTAR worker — elo U4, o driver
+       VIVO da org — e (b) COLETAR. As normas de montagem/submit/exploração/defesa saem: a
+       alocação fina volta como Contract-Net descentralizado (#22), e exploração/coleta solo já
+       são dirigidas pelo comportamento reativo (role_adoption.asl/navigation.asl), não pela org
+       (KTD1). Garante R2 (todo role declarado compromete m_adopt) e R3 (toda norma referencia
+       field_agent, que existe em role-definitions). -->
   <normative-specification>
-    <norm id="n_scout"    type="obligation" role="squad_leader" mission="m_scout"/>
-    <norm id="n_collect"  type="obligation" role="collector"    mission="m_collect"/>
-    <norm id="n_assemble" type="obligation" role="assembler"    mission="m_assemble"/>
-    <norm id="n_submit"   type="obligation" role="assembler"    mission="m_submit"/>
-    <norm id="n_guard"    type="obligation" role="sentinel"     mission="m_guard"/>
-    <!-- U4 + Prioridade-1: todos os roles são obrigados a adotar worker (gate de score) -->
-    <norm id="n_adopt_col" type="obligation" role="collector"    mission="m_adopt"/>
-    <norm id="n_adopt_asm" type="obligation" role="assembler"    mission="m_adopt"/>
-    <norm id="n_adopt_sq"  type="obligation" role="squad_leader" mission="m_adopt"/>
-    <norm id="n_adopt_snt" type="obligation" role="sentinel"     mission="m_adopt"/>
+    <norm id="n_adopt"   type="obligation" role="field_agent" mission="m_adopt"/>
+    <norm id="n_collect" type="obligation" role="field_agent" mission="m_collect"/>
   </normative-specification>
 
 </organisational-specification>

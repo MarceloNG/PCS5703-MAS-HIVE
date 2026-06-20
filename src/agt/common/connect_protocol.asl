@@ -254,6 +254,18 @@
            !collect_block(BType)
        }.
 
+// --- SUBMIT: pré-rotação ótima antes do submit (Eixo 7a' — estendido para single-block) ---
+// Se o bloco não está alinhado com os requisitos da task, rotaciona com direção ótima
+// ANTES de submeter — sem tentativa-e-erro. RotationsNeeded é chamado por step (lê os
+// percepts `attached` atuais) e recalcula quantas rotações ainda faltam após cada giro.
+// Cai no plano de submit abaixo quando alinhado (RotationsNeeded retorna false).
+// Mesma mecânica do Eixo 7a' (#18) para multi-bloco; aqui estendido para single-block solo.
++step(N)
+    : pending_submit(TaskName) & goalZone(0, 0) & not submitted_task(_)
+      & hive.RotationsNeeded(TaskName, R, Dir)
+    <- .print("[SUBMIT] Step ", N, ": Pre-rotacao pre-submit: ", Dir, " (", R, " restantes) p/ ", TaskName, " (Eixo 7a').");
+       .concat("rotate(", Dir, ")", Act); action(Act).
+
 // --- SUBMIT: pending_submit e na goal zone ---
 
 +step(N)

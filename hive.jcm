@@ -1,50 +1,48 @@
 mas hive {
 
-    // Squad Leaders (1 por squad = 3)
-    agent connectionA1  : squad_leader.asl
-    agent connectionA2  : squad_leader.asl
-    agent connectionA3  : squad_leader.asl
+    // Time FLAT (issue #38): os 15 agentes são do MESMO tipo (hive_agent.asl), todos capazes
+    // de adotar o role MAPC `worker`. A hierarquia squad_leader/collector/assembler/sentinel
+    // foi APOSENTADA — nenhum time do contest usou liderança centralizada (organizers:
+    // "it is usually not helpful to come up with a centralized solution"). A diferenciação
+    // funcional é por missão/crença dinâmica, não por tipo fixo.
+    agent connectionA1  : hive_agent.asl
+    agent connectionA2  : hive_agent.asl
+    agent connectionA3  : hive_agent.asl
+    agent connectionA4  : hive_agent.asl
+    agent connectionA5  : hive_agent.asl
+    agent connectionA6  : hive_agent.asl
+    agent connectionA7  : hive_agent.asl
+    agent connectionA8  : hive_agent.asl
+    agent connectionA9  : hive_agent.asl
+    agent connectionA10 : hive_agent.asl
+    agent connectionA11 : hive_agent.asl
+    agent connectionA12 : hive_agent.asl
+    agent connectionA13 : hive_agent.asl
+    agent connectionA14 : hive_agent.asl
+    agent connectionA15 : hive_agent.asl
 
-    // Collectors (2 por squad = 6)
-    agent connectionA4  : collector.asl
-    agent connectionA5  : collector.asl
-    agent connectionA6  : collector.asl
-    agent connectionA7  : collector.asl
-    agent connectionA8  : collector.asl
-    agent connectionA9  : collector.asl
-
-    // Assemblers (1 por squad = 3)
-    agent connectionA10 : assembler.asl
-    agent connectionA11 : assembler.asl
-    agent connectionA12 : assembler.asl
-
-    // Sentinels (3)
-    agent connectionA13 : sentinel.asl
-    agent connectionA14 : sentinel.asl
-    agent connectionA15 : sentinel.asl
-
-    // Organização MOISE+ (U1): carrega hive_org.xml e instancia o time.
-    // Os agentes adotam seus roles organizacionais via a lista 'players'.
-    // Scheme ativo = task_execution_scheme (ciclo coletar->montar->submeter);
-    // exploration/defense ficam especificados no XML, ainda não instanciados.
+    // Organização MOISE+ (issue #38): grupo flat — todos os 15 jogam o papel `field_agent`
+    // (sem hierarquia de autoridade). Schemes ativos: sch_adopt (elo de adoção U4, o driver
+    // VIVO da org) + sch_task (ciclo coletar→montar→submeter). A alocação multi-bloco volta
+    // como Contract-Net descentralizado (#22/#21), não por um líder.
     organisation hive_org : src/org/hive_org.xml {
         group ht : hive_team {
             responsible-for: sch_task, sch_adopt
-            players: connectionA1  squad_leader
-                     connectionA2  squad_leader
-                     connectionA3  squad_leader
-                     connectionA4  collector
-                     connectionA5  collector
-                     connectionA6  collector
-                     connectionA7  collector
-                     connectionA8  collector
-                     connectionA9  collector
-                     connectionA10 assembler
-                     connectionA11 assembler
-                     connectionA12 assembler
-                     connectionA13 sentinel
-                     connectionA14 sentinel
-                     connectionA15 sentinel
+            players: connectionA1  field_agent
+                     connectionA2  field_agent
+                     connectionA3  field_agent
+                     connectionA4  field_agent
+                     connectionA5  field_agent
+                     connectionA6  field_agent
+                     connectionA7  field_agent
+                     connectionA8  field_agent
+                     connectionA9  field_agent
+                     connectionA10 field_agent
+                     connectionA11 field_agent
+                     connectionA12 field_agent
+                     connectionA13 field_agent
+                     connectionA14 field_agent
+                     connectionA15 field_agent
         }
         scheme sch_task : task_execution_scheme
         scheme sch_adopt : adoption_scheme

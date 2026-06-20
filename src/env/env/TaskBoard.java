@@ -10,6 +10,8 @@ public class TaskBoard extends Artifact {
     private ConcurrentHashMap<String, List<Bid>> bids;
     private ConcurrentHashMap<String, String> assignedTasks;
     private ConcurrentHashMap<String, List<int[]>> taskRequirements;
+    // #40: reserva de footprint na goal-zone — "gzX,gzY" → "taskName:agentName"
+    ConcurrentHashMap<String, String> goalReservations;
 
     static class TaskInfo {
         String name;
@@ -32,6 +34,7 @@ public class TaskBoard extends Artifact {
         bids = new ConcurrentHashMap<>();
         assignedTasks = new ConcurrentHashMap<>();
         taskRequirements = new ConcurrentHashMap<>();
+        goalReservations = new ConcurrentHashMap<>();
     }
 
     private ConcurrentHashMap<String, Long> signaledTasks = new ConcurrentHashMap<>();
@@ -112,6 +115,9 @@ public class TaskBoard extends Artifact {
         String taskName = otaskName.toString();
         assignedTasks.remove(taskName);
         signaledTasks.remove(taskName);
+        // #40: libera também reservas de goal-zone para esta task
+        String prefix = taskName + ":";
+        goalReservations.entrySet().removeIf(e -> e.getValue().startsWith(prefix));
     }
 
     @OPERATION
@@ -128,12 +134,78 @@ public class TaskBoard extends Artifact {
             assignedTasks.remove(name);
             bids.remove(name);
             signaledTasks.remove(name);
+            // #40: libera reservas de goal-zone para tasks expiradas
+            final String prefix = name + ":";
+            goalReservations.entrySet().removeIf(e -> e.getValue().startsWith(prefix));
         }
     }
 
     @OPERATION
     void is_task_assigned(Object otaskName, OpFeedbackParam<Boolean> result) {
         result.set(assignedTasks.containsKey(otaskName.toString()));
+    }
+
+    /**
+     * Claim ATÔMICO de uma task por um agente (deconfliction descentralizada — issue #38).
+     * Re-homa o papel que o líder central fazia (find_free_soloist): garantir UM agente por
+     * task. `putIfAbsent` é atômico e os @OPERATIONs do artefato são serializados pelo CArtAgO
+     * → sem corrida entre agentes. `won=true` só para quem reivindicou primeiro; os demais veem
+     * a task tomada e não empilham (evita o enxame que zerava o submit no time flat).
+     * `complete_task`/`remove_expired` liberam o claim (já removem de assignedTasks).
+     */
+    @OPERATION
+    void claim_task(Object otaskName, Object oagent, OpFeedbackParam<Boolean> won) {
+        String prev = assignedTasks.putIfAbsent(otaskName.toString(), oagent.toString());
+        won.set(prev == null);
+    }
+
+    /**
+     * Seleção de task por valor + reserva atômica de footprint na goal-zone (#40).
+     *
+     * Substitui o claim exclusivo de task pelo modelo correto: a task MASSim é não-exclusiva
+     * (multi-submit); o recurso disputado é o ESPAÇO FÍSICO da goal-zone. Cada agente:
+     *   1. Tenta reservar a célula da goal-zone que pretende usar para o submit.
+     *   2. Se sucesso → procede à coleta/entrega; se falha → dispersa.
+     *
+     * O valor (bid) que o agente passa é pré-calculado via TaskAllocator.computeValue no .asl
+     * (reward / max(1, dist_disp + dist_goal), escalado ×1000). Por enquanto o valor é
+     * informativo (loggado, base para follow-up #45 de calibração); a deconfliction real é
+     * pelo putIfAbsent da goal-zone.
+     *
+     * @param oAgent   nome do agente
+     * @param oTask    nome da task MASSim
+     * @param oBid     lance de valor (int ×1000, maior = melhor)
+     * @param oGZX     coordenada X da goal-zone pretendida
+     * @param oGZY     coordenada Y da goal-zone pretendida
+     * @param won      true se a goal-zone foi reservada com sucesso
+     */
+    @OPERATION
+    void select_task(Object oAgent, Object oTask, Object oBid,
+                     Object oGZX, Object oGZY, OpFeedbackParam<Boolean> won) {
+        String agent = oAgent.toString();
+        String task  = oTask.toString();
+
+        // Reserva atômica pelo NOME DA TASK (chave primária): somente 1 agente por task.
+        // O gzKey é apenas informativo p/ cleanup via release_task_reservation.
+        // Bug original: usava gzKey como chave → cada goal-zone diferente gerava uma chave
+        // distinta → múltiplos agentes ganhavam a mesma task apuntando cells diferentes.
+        String prev = assignedTasks.putIfAbsent(task, agent);
+        boolean taskWon = (prev == null);
+        if (taskWon) {
+            String gzKey = toInt(oGZX) + "," + toInt(oGZY);
+            goalReservations.put(gzKey, task + ":" + agent);
+        }
+        won.set(taskWon);
+    }
+
+    /**
+     * Libera a reserva de goal-zone associada a uma task (#40).
+     * Chamado em finalize_task e check_expired_task do hive_agent.asl.
+     */
+    @OPERATION
+    void release_task_reservation(Object oTask) {
+        String prefix = oTask.toString() + ":";
+        goalReservations.entrySet().removeIf(e -> e.getValue().startsWith(prefix));
     }
 
     @OPERATION

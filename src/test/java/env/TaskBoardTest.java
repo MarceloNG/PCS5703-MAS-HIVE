@@ -1,8 +1,11 @@
 package env;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cartago.OpFeedbackParam;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -38,5 +41,34 @@ class TaskBoardTest {
     void empate_escolheLanceDeMesmoValor() {
         TaskBoard.Bid best = TaskBoard.bestBid(bids("sqA", 10.0, "sqB", 10.0));
         assertEquals(10.0, best.value, 1e-9);
+    }
+
+    // --- claim_task: deconfliction descentralizada (issue #38) — só UM agente por task ---
+    // Re-homa o papel de deconfliction que o líder fazia (find_free_soloist), agora sem chefe:
+    // o 1º a reivindicar uma task vence; os demais veem reivindicada e não empilham.
+
+    @Test
+    void claimTask_apenasOPrimeiroVence() {
+        TaskBoard tb = new TaskBoard();
+        tb.init();
+        OpFeedbackParam<Boolean> w1 = new OpFeedbackParam<>();
+        OpFeedbackParam<Boolean> w2 = new OpFeedbackParam<>();
+        tb.claim_task("t1", "agentA4", w1);
+        tb.claim_task("t1", "agentA7", w2);
+        assertTrue(w1.get(), "1º agente deve vencer o claim");
+        assertFalse(w2.get(), "2º agente deve perder (task já reivindicada)");
+    }
+
+    @Test
+    void claimTask_aposComplete_liberaParaNovoClaim() {
+        TaskBoard tb = new TaskBoard();
+        tb.init();
+        OpFeedbackParam<Boolean> w1 = new OpFeedbackParam<>();
+        OpFeedbackParam<Boolean> w2 = new OpFeedbackParam<>();
+        tb.claim_task("t1", "agentA4", w1);
+        tb.complete_task("t1");
+        tb.claim_task("t1", "agentA7", w2);
+        assertTrue(w1.get(), "1º claim vence");
+        assertTrue(w2.get(), "após complete_task, t1 fica livre para novo claim");
     }
 }

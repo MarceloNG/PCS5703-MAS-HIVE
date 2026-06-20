@@ -18,9 +18,8 @@
 // +role(default) — o próprio ref avisa que ele compete com o step e pode submeter
 // DUAS ações no mesmo step.
 //
-// Incluído em collector, assembler, sentinel e squad_leader (Prioridade 1 — flat workers).
-// squad_leader usa o gate & not my_role_type(squad_leader) no plano (c) para preservar a
-// coordenação; adota worker via !ensure_worker_role e coleta via SELF-ASSIGN/soloist_task.
+// Incluído pelo tipo único hive_agent (time flat — issue #38). Todos os agentes adotam
+// worker via !ensure_worker_role e auto-iniciam coleta solo via SELF-ASSIGN (plano (c)).
 // ============================================================
 
 // ------------------------------------------------------------
@@ -73,37 +72,63 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
     : not can_score_role
     <- !ensure_worker_role.
 
-// (c) Worker idle sem task ativa — auto-iniciar coleta solo.
-// Sem absolutePosition, find_free_soloist compara frames DR cruzados (sem sentido) e
-// frequentemente atribui tarefas a não-workers. Este plano compensa: o worker adotado
-// busca autonomamente a primeira task de 1 bloco disponível com deadline suficiente.
-// Espelha o handler +soloist_task de collector/assembler.asl, mas disparado sem mensagem.
+// (c) Worker idle — selecionar task por valor + reservar footprint na goal-zone (#40 allocator).
+// Substitui claim_task (lock exclusivo de TASK) pela reserva atômica de ESPAÇO FÍSICO na
+// GOAL-ZONE: tasks MASSim são não-exclusivas (multi-submit, perduram até deadline). O recurso
+// disputado é a célula de entrega, não a task em si. Fluxo:
+//   1. Obter goal-zone mais próxima (footprint alvo — R2).
+//   2. Obter dispenser do bloco necessário; explorar se desconhecido.
+//   3. select_task (TaskBoard, atômico via CArtAgO): tenta reservar a célula da goal-zone.
+//      · Won=true → prossegue à coleta solo (R3/R5).
+//      · Won=false → DISPERSA em vez de empilhar na goal-zone (R4).
+// O bid (Reward) é proporcional à task; calibração de pesos por evidência → follow-up #45.
 +step(N)
     : can_score_role & N > 30
-      & not my_role_type(squad_leader)
       & not my_active_task(_, _) & not collecting(_, _, _)
       & not solo_mode(_) & not searching_dispenser(_)
       & my_pos(MX, MY)
-      & known_task(TaskName, Deadline, _, 1)
+      & known_task(TaskName, Deadline, Reward, 1)
       & Deadline > N + 20
       & task_req(TaskName, _, _, BlockType)
-    <- .print("[ROLE] Step ", N, ": Worker idle — auto-coleta solo task=", TaskName, " block=", BlockType);
-       .my_name(Me);
-       mark_busy(Me);
-       +my_active_task(TaskName, "solo");
-       +solo_mode(TaskName);
-       +solo_block_type(BlockType);
-       +task_accepted_step(TaskName, N);
-       get_nearest_dispenser(MX, MY, BlockType, DX, DY);
-       if (DX == -1) {
-           .print("[ROLE] Auto-coleta: sem dispenser ", BlockType, " — explorando");
-           +searching_dispenser(BlockType);
+    <- .my_name(Me);
+       // R2: goal-zone mais próxima é o footprint a reservar
+       get_nearest_goal_zone(MX, MY, GZX, GZY);
+       if (GZX == -1) {
+           // Nenhuma goal-zone conhecida — explorar primeiro
+           .print("[ROLE] Step ", N, ": sem goal-zone conhecida — explorando.");
            !do_explore(MX, MY)
        } else {
-           .print("[ROLE] Auto-coleta: dispenser ", BlockType, " em (", DX, ",", DY, ")");
-           +collecting(BlockType, DX, DY);
-           +has_destination(DX, DY);
-           action("skip")
+           get_nearest_dispenser(MX, MY, BlockType, DX, DY);
+           if (DX == -1) {
+               // Dispenser não descoberto ainda — explorar para encontrá-lo
+               .print("[ROLE] Step ", N, ": sem dispenser ", BlockType, " — explorando.");
+               +searching_dispenser(BlockType);
+               !do_explore(MX, MY)
+           } else {
+               // R2/R3: reserva atômica de footprint (goal-zone cell) via TaskBoard
+               select_task(Me, TaskName, Reward, GZX, GZY, Won);
+               if (Won) {
+                   // Ganhou: limpa dispersal e procede à coleta solo (R5)
+                   .abolish(dispersal_step(_));
+                   .print("[ROLE] Step ", N, ": allocated task=", TaskName, " gz=(", GZX, ",", GZY, ") — solo (#40)");
+                   mark_busy(Me);
+                   +my_active_task(TaskName, "solo");
+                   +solo_mode(TaskName);
+                   +solo_block_type(BlockType);
+                   +task_accepted_step(TaskName, N);
+                   +collecting(BlockType, DX, DY);
+                   +has_destination(DX, DY);
+                   action("skip")
+               } else {
+                   // R4: goal-zone reservada — DISPERSAR e bloquear coleta oportunista.
+                   // dispersal_step(N) impede +new_dispenser de coletar "por conta própria"
+                   // enquanto outro agente tem a reserva ativa (limpa ao ganhar ou finalizar).
+                   .print("[ROLE] Step ", N, ": goal-zone (", GZX, ",", GZY, ") ocupada — dispersando (#40).");
+                   .abolish(dispersal_step(_));
+                   +dispersal_step(N);
+                   !do_explore(MX, MY)
+               }
+           }
        }.
 
 // ------------------------------------------------------------
