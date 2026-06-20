@@ -34,16 +34,28 @@ do MAPC 2022 e os arquivos de config.
   `!finalize_task`. Antes: A5 rotate:135 failed:131 (97%). Depois: rotate:30 failed:1.
   06c PASS: submits_ok=1, score=10.
 
-**⚠️ Regressão em aberto (frente:pontuar — P0):**
-- **#48 — Loop de detach no STUCK recovery**: detach emitido na direção errada → `failed_target`
-  em loop (A7: 106/107, A13: 99/102, A2: 32/33 failed_target).
+**✅ #48 — Loop de detach no STUCK recovery (squash merged main, commit `192b014`, 2026-06-20).**
+  `DetachGuard.java` (MAX_CONSECUTIVE_FAILS=2) + contador `detach_stuck_fails(TaskName,F)` em
+  `perception.asl` + reset em `finalize_task`. Guard aborta após 2 falhas consecutivas de detach.
+  IsolationRolesConfig 300 steps: `[STUCK] Detach ABORT` 2× confirmado (exatamente 4 failed_target
+  de detach vs 107 antes). Score $20 (2 submits). Revelou 2 novos bugs: #50 e #51.
+
+**⚠️ Regressões em aberto (frente:pontuar):**
+- **#50 — NORM detach com direção errada:** handler de norma usa `detach(w)` hardcoded quando bloco
+  está a leste → `failed_target` × 62 (agentA12, run #48). Direção deve ser derivada de `attached(AX,AY)`.
+- **#51 — NORM handler dispara antes do submit:** `+step(N)` de norma precede o de submit; agente
+  em goal zone com `pending_submit` tenta detach (falha) em vez de submeter.
+- **#52 — Loop de rotação pós-submit não detecta posição correta:** após `failed` no submit, código
+  rotaciona cw × 4 (= identidade: bloco volta ao mesmo lugar). Se `att(X,Y)` já bate `treq(X,Y,T)`,
+  o problema NÃO é rotação — deve pular o loop e tratar como "goal zone errada" ou "task expirada".
 
 **🚧 Gaps de navegação em aberto (frente:mover-mapear):**
 - **#49 — Navegação robusta (Eixo N):** SharedMap vazio → A* falha → agentes em skip 257-282/300 steps.
   Exploração não dirigida → 6/15 alcançam role-zone no oficial. Sub-itens: N1 (fallback A*), N2 (setor de exploração), N3 (approach com clearance).
 
-**Próximo, após fixes de regressão:** #49 N1 (fallback A*) → #49 N2 (exploração por setor) → validar
-≥10/15 role-zone no oficial → #32 (capstone Eixo M) → Prioridade 3 (U9 mapa merge).
+**Próximo:** #50 (NORM dir errada) + #52 (submit ignora posição já correta) → #51 (NORM prioridade) →
+#49 N1 (fallback A*) → #49 N2 (exploração por setor) → ≥10/15 role-zone no oficial → #32 (capstone) →
+U9 (mapa merge).
 
 > **Decisão do dono (2026-06-19, via revisão da espinha #30):** a U9 **não é mais "pós-entrega"** — é
 > **escopo comprometido** da frente Mover & Mapear (issue #17), a ser **entregue antes do delivery** e
@@ -58,7 +70,10 @@ Lista única de issues por prioridade de execução, derivada do diagnóstico do
 | P | Issue | Categoria | Evidência / Justificativa | DoD |
 |---|-------|-----------|---------------------------|-----|
 | ~~**P0**~~ | ~~**#47** — Loop pré-rotação~~ | ~~fix · frente:pontuar~~ | ✅ landed `4b50e15` | ✅ |
-| **P0** | **#48** — Loop detach no STUCK recovery | fix · frente:mover-mapear | A7: 106/107 detach failed_target. Bug simétrico ao #47. | `failed_target:detach < 5/agente` |
+| ~~**P0**~~ | ~~**#48** — Loop detach no STUCK recovery~~ | ~~fix · frente:mover-mapear~~ | ✅ landed `192b014` | ✅ |
+| **P0** | **#50** — NORM detach direção errada (`w` vs leste) | fix · frente:pontuar | agentA12: 62 failed_target de detach no run #48. Dir hardcoded `w`; bloco estava a leste. | `failed_target:detach(norm) < 5/agente` |
+| **P0** | **#52** — Loop rotação pós-submit ignora posição já correta | fix · frente:pontuar | `att(0,1)` bate `treq(0,1,b1)` → submit falha → gira cw×4 = identidade → falha de novo × loop. Evidência: 34/36 submits falharam. Diagnóstico: verificar se `att` já bate `treq` antes de girar. | rotação só quando `att≠treq`; submit sucede quando já alinhado |
+| **P1** | **#51** — NORM handler prioridade: bloqueia submit na goal zone | fix · frente:pontuar | `+step(N)` de norma precede submit; agente com `pending_submit + goalZone` faz detach em vez de submeter. Agrava #50 (detach falha e consume step). | sem norma-detach quando `pending_submit & goalZone(0,0)` |
 | **P1** | **#49 N1** — Fallback A* quando mapa vazio | feat · frente:mover-mapear | A1/A4/A11/A12: 257-282 skips com bloco em mãos. SharedMap vazio → skip-loop. | `skip < 50/300` para agentes com bloco |
 | **P1** | **#49 N2** — Exploração dirigida por setor | feat · frente:mover-mapear | 6/15 alcançam role-zone no oficial. Exploração aleatória não cobre o grid a tempo. | ≥10/15 adotam worker no OfficialRolesConfig |
 | **P2** | **#32** — Eixo M: capstone navegação oficial | validação · frente:mover-mapear | Capstone que integra #47+#48+#49 na escala real (70×70, 15 ag). | ≥10/15 role-zone + `failed_path < 20%` |
