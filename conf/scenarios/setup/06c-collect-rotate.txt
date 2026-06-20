@@ -1,0 +1,47 @@
+# =====================================================================
+# Setup determinístico do cenário 06c-collect-rotate (U3 / objetividade do submit).
+# Variante de 06c-single-collect que EXIGE rotação: o bloco anexa em (1,0) mas a
+# task pede (0,1) → 1 rotate(cw) alinha. Isola COLETA + PRÉ-ALINHAMENTO NO DISPENSER.
+# (06c-single-collect puro NÃO exige rotação — por isso não falseia o pré-alinhamento;
+#  ver review ce-doc-review #50/#52: 06c sozinho passaria mesmo com o código antigo.)
+#
+# Geometria:
+#   - worker (collector agentA4) em (3,3), com role-zone lá → adota worker.
+#   - dispenser b1 a LESTE em (6,3): o worker se aproxima pelo oeste → request(e)
+#     → bloco anexa em (1,0) [leste].
+#   - task t1 pede b1 em (0,1) [sul] → 1 rotate(cw): (1,0)→(0,1) alinha NO DISPENSER.
+#   - goal-zone em (3,7): navega carregando o bloco JÁ alinhado → submit (sem spin na zona).
+#
+# Move TODOS os 15 a células distintas (evita colisão de spawn — lição do #14).
+# Rotação CW (massim X=leste, Y=sul): (dx,dy)→(−dy,dx). (1,0)→(0,1) sul. ✓
+# Gramática: move X Y agentN | terrain X Y role|goal | add X Y dispenser <tipo> | create task <n> <dl> bx,by,t
+# =====================================================================
+
+# 1) Estacionar os 14 não-alvo na borda inferior (longe de (3,3)/(6,3)/(3,7))
+move 0 11 agentA1
+move 1 11 agentA2
+move 2 11 agentA3
+move 3 11 agentA5
+move 4 11 agentA6
+move 5 11 agentA7
+move 6 11 agentA8
+move 7 11 agentA9
+move 8 11 agentA10
+move 9 11 agentA11
+move 10 11 agentA12
+move 11 11 agentA13
+move 0 10 agentA14
+move 1 10 agentA15
+
+# 2) Worker-alvo (collector) em (3,3), sobre a role-zone (adota worker)
+move 3 3 agentA4
+terrain 3 3 role
+
+# 3) Dispenser b1 a leste (worker se aproxima pelo oeste → bloco anexa em (1,0))
+add 6 3 dispenser b1
+
+# 4) Goal-zone a poucas células (navega carregando o bloco alinhado → submit)
+terrain 3 7 goal
+
+# 5) Task t1: 1 bloco b1 no offset (0,1) = SUL = exige 1 rotate(cw) a partir de (1,0)
+create task t1 100 0,1,b1

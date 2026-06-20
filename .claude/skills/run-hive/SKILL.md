@@ -74,7 +74,13 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
   .claude/skills/run-hive/analyzers/adoption.py <replay_dir> --json
   .claude/skills/run-hive/analyzers/adoption.py <replay_dir> --check --min-workers 10 --max-readopts 0
   ```
-- **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/submit_strategy.py` (rotate-loop de submit, coleta-solo vs montagem), `analyzers/norms.py` (multas vs reward). Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
+- `analyzers/submit_strategy.py` — **foco: ESTRATÉGIA DE SUBMIT** (#50/#52). Classifica rotações por localização: na zone (in-zone), no dispenser (U3 pré-alinhamento), em rota (on-route). Tem `--check` (gate: sai !=0 se rotações-na-zone > `--max-zone-rotations`) e `--json`. Teste sim-free: `python3 .claude/skills/run-hive/analyzers/test_submit_strategy.py`. **Não** roda via `gradle test` — invocação direta.
+
+  ```bash
+  .claude/skills/run-hive/analyzers/submit_strategy.py <replay_dir> --json
+  .claude/skills/run-hive/analyzers/submit_strategy.py <replay_dir> --check --max-zone-rotations 0
+  ```
+- **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/norms.py` (multas vs reward). (`submit_strategy.py` feito: #50/#52.) Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
 
 ## Run (human path) — assistir ao vivo
 
@@ -102,7 +108,7 @@ Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/sco
 - ✅ **`--monitor`** — assistir ao vivo (feito).
 - ✅ **Harness de cenários (`--scenario` + `--assert`)** — `conf/scenarios/NN-nome.json` + `setup/NN-nome.txt`, asserção de capacidade plugável (`assert_metric.py`). Feito (#11).
 - ✅ **Sims em paralelo (`--port`)** — isola porta + eismassimconfig por-porta (via `-PeisConf` → `-Dhive.eis.conf` em `EISAccess`, sem mexer nos `.asl`) + `results/`/`replays/`/`logs/` por run. Feito (#11).
-- ⏳ **Analyzers por foco** — criar irmãos em `analyzers/` conforme o track: `navigation.py` (livelock/stuck/oscilação), `submit_strategy.py` (rotate-loop de submit, solo vs montagem), `norms.py` (multa vs reward). A view geral já existe.
+- ⏳ **Analyzers por foco** — criar irmãos em `analyzers/` conforme o track: `navigation.py` (livelock/stuck/oscilação), `norms.py` (multa vs reward). (`submit_strategy.py` feito: #50/#52.) A view geral já existe.
 - ⏳ **HIVE vs HIVE (self-play, 2 times — "Brasil x Brasil")** — o MASSim **suporta nativamente** (é o formato do torneio: times A+B). Falta o nosso lado: (a) config 2-times (adaptar `massim_2022/server/conf/SampleConfig.json`, que já tem A+B/`teamsPerMatch:2`); (b) 2º set de agentes do time B — entidades eismassim `agentB*` + um launch JaCaMo do time B (o backlog planeja via worktree "time B: `agentB*`"). Habilita medir adversário/contenção real (track adversário, hoje deferido).
 
 ## Troubleshooting

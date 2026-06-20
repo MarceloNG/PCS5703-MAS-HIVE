@@ -66,6 +66,15 @@ class RotationsNeededTest {
     }
 
     @Test
+    void umBloco_jaAlinhado_retornaMenosUm() {
+        // single-block já no offset correto (1,0)==(1,0) → R=0 → fail (U3: não rotaciona)
+        assertEquals(-1, RotationsNeeded.needed(
+            pos(p(1, 0)),
+            pos(p(1, 0))
+        ));
+    }
+
+    @Test
     void lShape_incompativel_retornaMenosUm() {
         // (1,0)+(0,1) — nenhuma das 4 rotações produz (1,0)+(2,0)
         assertEquals(-1, RotationsNeeded.needed(

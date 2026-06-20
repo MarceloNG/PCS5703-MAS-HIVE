@@ -268,6 +268,16 @@ norm_allows_carry :- carry_limit(Limit) & .count(attached(_, _), N) & N < Limit.
        -last_attempted_dir(_);
        !offline_cascade.
 
+// NORM DETACH GUARD: reset do contador/bloqueio após sucesso de detach fora de task (#50).
++lastActionResult(success)
+    : lastAction(detach) & not solo_mode(_) & (norm_detach_fails(_) | norm_detach_blocked)
+    <- .abolish(norm_detach_fails(_));
+       -norm_detach_blocked;
+       -last_move_blocked;
+       !dead_reckon_move;
+       -last_attempted_dir(_);
+       !offline_cascade.
+
 +lastActionResult(success)
     <- -last_move_blocked;
        !dead_reckon_move;
@@ -289,6 +299,25 @@ norm_allows_carry :- carry_limit(Limit) & .count(attached(_, _), N) & N < Limit.
            .print("[STUCK] Detach ABORT: ", FF, " falhas consecutivas em ", TaskName, " — liberando task.");
            .abolish(detach_stuck_fails(TaskName, _));
            !finalize_task(TaskName)
+       };
+       !offline_cascade.
+
+// NORM DETACH GUARD: contador de falhas + bloqueio após 2 falhas (#50, espelha #48).
+// NORM-detach roda FORA de solo_mode (excesso de blocos sem task ativa); o guard #48
+// acima (keyed em solo_mode) não o cobre. Sincronizar limiar 2 com DetachGuard.MAX_CONSECUTIVE_FAILS.
++lastActionResult(failed_target)
+    : lastAction(detach) & not solo_mode(_)
+    <- if (norm_detach_fails(F)) {
+           .abolish(norm_detach_fails(_));
+           NF = F + 1;
+           +norm_detach_fails(NF)
+       } else {
+           +norm_detach_fails(1)
+       };
+       if (norm_detach_fails(FF) & FF >= 2) {
+           .print("[NORM] Detach ABORT: ", FF, " falhas consecutivas — parando de tentar (excesso mantido).");
+           .abolish(norm_detach_fails(_));
+           +norm_detach_blocked
        };
        !offline_cascade.
 

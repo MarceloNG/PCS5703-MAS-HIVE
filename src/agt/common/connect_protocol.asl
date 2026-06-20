@@ -38,7 +38,8 @@
     : carry_limit(Limit) & .count(attached(_, _), NumAtt) & NumAtt > Limit
       & not pending_submit(_) & not submitted_task(_) & not collecting(_, _, _)
       & not collected_block(_) & not trying_rotate(_, _, _)
-      & attached(AX, AY)
+      & not norm_detach_blocked
+      & attached(AX, AY) & (math.abs(AX) + math.abs(AY) == 1)
     <- if (AY == -1) { DDir = n }
        elif (AY == 1) { DDir = s }
        elif (AX == 1) { DDir = e }
@@ -134,6 +135,67 @@
     <- .abolish(trying_rotate(TaskName, _, _));
        .print("[ROTATE] Step ", N, ": Cleanup trying_rotate (task desconhecida): ", TaskName, ".");
        action("skip").
+
+// --- PRÉ-ALINHAMENTO NO DISPENSER (U3 — resolve OQ-2, #50/#52) --------------------
+// Rotaciona o bloco recém-coletado p/ alinhar ao treq AINDA NO DISPENSER (descongestionado,
+// `not goalZone`), ANTES de navegar à zona. Distinto do trying_rotate (Eixo 7a', blocks-in-
+// hand, gated `not my_active_task`): aqui a task JÁ é ativa (solo_mode + collected_block), então
+// a completion RC=0 de l95-114 NÃO serve (review S1+F4). Reusa RotationsNeeded (recomputa por
+// step, como a pré-rotação in-zone l283-295); guard próprio prealign_fails (limiar 3 = RotationGuard).
+
+// Alinhado OU já na goal zone → navegar p/ submit (a pré-rotação in-zone cobre o resto). Limpa guard.
++step(N)
+    : collected_block(_) & solo_mode(TaskName) & not pending_submit(_) & not submitted_task(_)
+      & (hive.AllReqsSatisfied(TaskName) | goalZone(0, 0))
+    <- .abolish(prealign_fails(TaskName, _));
+       .print("[PREALIGN] Step ", N, ": Pronto p/ submit ", TaskName, " (alinhado/zona) → nav goal zone.");
+       !start_submit_nav(TaskName);
+       action("skip").
+
+// Guard esgotado (3 falhas de rotate no dispenser) → abortar a task p/ este bloco.
++step(N)
+    : collected_block(_) & solo_mode(TaskName) & not pending_submit(_) & not submitted_task(_)
+      & not goalZone(0, 0)
+      & prealign_fails(TaskName, F) & F >= 3
+    <- .print("[PREALIGN] Step ", N, ": Abort pre-alinhamento apos ", F, " falhas em ", TaskName, ".");
+       .abolish(prealign_fails(TaskName, _));
+       action("skip");
+       !finalize_task(TaskName).
+
+// Falha de rotate no pré-alinhamento → incrementar guard (limiar 3, RotationGuard #47).
++step(N)
+    : collected_block(_) & solo_mode(TaskName) & not pending_submit(_) & not submitted_task(_)
+      & not goalZone(0, 0)
+      & lastAction(rotate) & lastActionResult(failed)
+    <- if (prealign_fails(TaskName, F)) {
+           .abolish(prealign_fails(TaskName, _));
+           NF = F + 1;
+           +prealign_fails(TaskName, NF)
+       } else {
+           +prealign_fails(TaskName, 1)
+       };
+       action("skip").
+
+// Desalinhado, rotacionável e guard ok → rotaciona 1 passo NO DISPENSER.
++step(N)
+    : collected_block(_) & solo_mode(TaskName) & not pending_submit(_) & not submitted_task(_)
+      & not goalZone(0, 0)
+      & hive.RotationsNeeded(TaskName, R, Dir)
+      & (not prealign_fails(TaskName, _) | (prealign_fails(TaskName, F) & F < 3))
+    <- .print("[PREALIGN] Step ", N, ": Pre-rotacao no dispenser ", Dir, " (", R, " restantes) p/ ", TaskName, ".");
+       .concat("rotate(", Dir, ")", Act); action(Act).
+
+// Desalinhado e INCOMPATÍVEL (nenhuma rotação alinha) → abortar a task p/ este bloco.
+// known_task gatea o disparo: sem task_req ainda percebido, AllReqsSatisfied e
+// RotationsNeeded falham por ausência de dados, não por incompatibilidade real.
++step(N)
+    : collected_block(_) & solo_mode(TaskName) & not pending_submit(_) & not submitted_task(_)
+      & not goalZone(0, 0)
+      & known_task(TaskName, _, _, _)
+      & not hive.AllReqsSatisfied(TaskName) & not hive.RotationsNeeded(TaskName, _, _)
+    <- .print("[PREALIGN] Step ", N, ": Bloco incompativel c/ ", TaskName, " (nenhuma rotacao alinha) → abortando.");
+       action("skip");
+       !finalize_task(TaskName).
 
 // --- BLOCOS-NA-MÃO → SUBMIT multi-bloco (gate #18 / Eixo 7a) --------------------
 // Se já tenho TODOS os N blocos da task pré-anexados nas posições exigidas, ir direto
@@ -300,9 +362,6 @@
     : pending_submit(TaskName) & goalZone(0, 0) & not submitted_task(_)
     <- -pending_submit(TaskName);
        +submitted_task(TaskName);
-       if (not submit_rotate_count(TaskName, _)) {
-           +submit_rotate_count(TaskName, 0)
-       };
        .findall(att(AX,AY), attached(AX,AY), AttList);
        .findall(treq(RX,RY,RT), task_req(TaskName, RX, RY, RT), ReqList);
        .print("[SUBMIT] Step ", N, ": submit(", TaskName, ") attached=", AttList, " reqs=", ReqList);
@@ -330,8 +389,6 @@
        .concat("{\"task\":\"", TaskName, "\",\"result\":\"success\"}", SSJson);
        !dash_log("submit_success", SSJson);
        -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       .abolish(submit_reposition_count(TaskName, _));
        .abolish(collected_block(_));
        .abolish(pending_submit(_));
        .abolish(has_destination(_, _));
@@ -353,56 +410,43 @@
        .concat("{\"task\":\"", TaskName, "\",\"result\":\"success\"}", SSJson);
        !dash_log("submit_success", SSJson);
        -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       .abolish(submit_reposition_count(TaskName, _));
        !finalize_task(TaskName);
        action("skip").
 
-// --- SUBMIT RESULT: falha → rotacionar e re-tentar (até 3x) ---
+// --- SUBMIT RESULT: falha → DECISÃO OBJETIVA (R3/R4, #52) ---
+// Substitui o loop cego rotate(cw)×4 + reposição×3. A causa da falha é diagnosticada
+// por hive.AllReqsSatisfied / hive.RotationsNeeded — sem tentativa-e-erro.
 
+// R3: falha COM blocos alinhados → a causa NAO e rotacao (zona errada / task expirada
+// / ja submetida) → finalizar, nao rotacionar.
 +step(N)
     : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
-      & submit_rotate_count(TaskName, RC) & RC < 4
-    <- NewRC = RC + 1;
-       .print("[SUBMIT] Step ", N, ": Submit FALHOU (rotacao ", NewRC, "/4). Rotacionando cw.");
-       -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       +submit_rotate_count(TaskName, NewRC);
-       +pending_submit(TaskName);
-       action("rotate(cw)").
-
-+step(N)
-    : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
-      & not submit_reposition_count(TaskName, _)
-    <- .print("[SUBMIT] Step ", N, ": Submit FALHOU apos 4 rotacoes. Reposicionando (1/3).");
-       -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       +submit_reposition_count(TaskName, 1);
-       +pending_submit(TaskName);
-       action("move(n)").
-
-+step(N)
-    : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
-      & submit_reposition_count(TaskName, RPC) & RPC < 3
-    <- NewRPC = RPC + 1;
-       .print("[SUBMIT] Step ", N, ": Submit FALHOU apos 4 rotacoes. Reposicionando (", NewRPC, "/3).");
-       -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       .abolish(submit_reposition_count(TaskName, _));
-       +submit_reposition_count(TaskName, NewRPC);
-       +pending_submit(TaskName);
-       if ((NewRPC mod 3) == 1) { action("move(e)") }
-       elif ((NewRPC mod 3) == 2) { action("move(s)") }
-       else { action("move(w)") }.
-
-+step(N)
-    : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
-    <- .print("[SUBMIT] Step ", N, ": Submit FALHOU apos todas tentativas. Desistindo.");
+      & hive.AllReqsSatisfied(TaskName)
+    <- .print("[SUBMIT] Step ", N, ": Submit FALHOU com blocos alinhados (AllReqsSatisfied) — causa nao e rotacao. Finalizando ", TaskName, ".");
        .concat("{\"task\":\"", TaskName, "\",\"result\":\"failed\"}", SFJson);
        !dash_log("submit_fail", SFJson);
        -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
-       .abolish(submit_reposition_count(TaskName, _));
+       !finalize_task(TaskName);
+       action("skip").
+
+// R4: falha DESALINHADO mas rotacionavel → voltar ao fallback bounded de pre-rotacao
+// (l283-295, dirigido por RotationsNeeded e limitado por rotate_pre_submit_fails / #47).
++step(N)
+    : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
+      & not hive.AllReqsSatisfied(TaskName) & hive.RotationsNeeded(TaskName, _, _)
+    <- .print("[SUBMIT] Step ", N, ": Submit FALHOU desalinhado — re-tentando pre-rotacao bounded (R4).");
+       -submitted_task(TaskName);
+       .abolish(rotate_pre_submit_fails(TaskName, _));
+       +pending_submit(TaskName);
+       action("skip").
+
+// R4: falha DESALINHADO e INCOMPATIVEL (nenhuma rotacao alinha) → finalizar.
++step(N)
+    : submitted_task(TaskName) & lastAction(submit) & lastActionResult(failed)
+    <- .print("[SUBMIT] Step ", N, ": Submit FALHOU com forma incompativel — finalizando ", TaskName, ".");
+       .concat("{\"task\":\"", TaskName, "\",\"result\":\"failed\"}", SFJson);
+       !dash_log("submit_fail", SFJson);
+       -submitted_task(TaskName);
        !finalize_task(TaskName);
        action("skip").
 
@@ -412,7 +456,6 @@
     : submitted_task(TaskName) & lastAction(submit) & lastActionResult(R) & R \== success
     <- .print("[SUBMIT] Step ", N, ": Submit falhou com ", R, ". Task ", TaskName, " provavelmente expirou.");
        -submitted_task(TaskName);
-       .abolish(submit_rotate_count(TaskName, _));
        !finalize_task(TaskName);
        action("skip").
 

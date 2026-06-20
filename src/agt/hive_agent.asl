@@ -124,6 +124,8 @@ my_role_type(hive_agent).
        .abolish(my_task_deadline(_, _));
        .abolish(searching_dispenser(_));
        .abolish(needs_clear_blocks(_));
+       -norm_detach_blocked;
+       .abolish(norm_detach_fails(_));
        +my_task_deadline(TaskName, Deadline);
        +my_active_task(TaskName, "solo");
        +solo_mode(TaskName);
@@ -145,9 +147,15 @@ my_role_type(hive_agent).
 
 +collected_block(Type)
     : solo_mode(TaskName) & my_role_type(hive_agent) & my_pos(MX, MY)
-    <- .print("[AGENT] Bloco ", Type, " coletado para submit ", TaskName);
+    <- .print("[AGENT] Bloco ", Type, " coletado p/ ", TaskName, " — pre-alinhamento no dispenser (U3).");
+       !dash_task_phase(TaskName, "prealign", 40).
+
+// Inicia a navegação à goal zone p/ submit — pós pré-alinhamento no dispenser (ou bloco já
+// alinhado). Disparado pelos handlers de PRÉ-ALINHAMENTO em connect_protocol.asl (U3).
++!start_submit_nav(TaskName)
+    : my_pos(MX, MY)
+    <- +pending_submit(TaskName);
        !dash_task_phase(TaskName, "submit_nav", 50);
-       +pending_submit(TaskName);
        get_nearest_goal_zone(MX, MY, GX, GY);
        if (GX \== -1) {
            .abolish(has_destination(_, _));
@@ -156,6 +164,7 @@ my_role_type(hive_agent).
        } else {
            .print("[AGENT] Nenhuma goal zone conhecida. pending_submit ativo.")
        }.
++!start_submit_nav(_) <- true.
 
 // --- Finalizar soloist task e liberar no pool ---
 
@@ -168,8 +177,6 @@ my_role_type(hive_agent).
        .abolish(my_active_task(_, _));
        .abolish(pending_submit(_));
        .abolish(submitted_task(_));
-       .abolish(submit_rotate_count(_, _));
-       .abolish(submit_reposition_count(_, _));
        .abolish(task_accepted_step(_, _));
        .abolish(solo_mode(_));
        .abolish(solo_block_type(_));
@@ -186,7 +193,10 @@ my_role_type(hive_agent).
        .abolish(needs_clear_blocks(_));
        .abolish(trying_rotate(_, _, _));
        .abolish(rotate_pre_submit_fails(_, _));
+       .abolish(prealign_fails(_, _));
        .abolish(detach_stuck_fails(_, _));
+       .abolish(norm_detach_fails(_));
+       -norm_detach_blocked;
        .concat("{\"task\":\"", TaskName, "\"}", FJson);
        !dash_log("task_finalized", FJson);
        !dash_task_phase(TaskName, "done", 100);

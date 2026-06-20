@@ -70,7 +70,8 @@ Rastreamento ao origin doc (R1-R7):
 - **R6** — Teste de objetividade: JUnit (`AllReqsSatisfied`/`RotationsNeeded`) + analyzer de
   rotações-na-zona + cenários. → U2, U3, U4.
 - **R7** — Sem regressão em `01-adopt`, `06-single-block`, `06c-single-collect`, `07a-multi-req`,
-  `07a-wrong-blocks`. → Validação.
+  `07a-wrong-blocks`, `07a-prime-rotate` (assert `submits_ok≥1`) e `07a-prime-wrong`
+  (assert `submits_ok=0`). → Validação.
 
 ---
 
@@ -90,7 +91,9 @@ dentro da congestão.
 `RotationsNeeded.needed()` é agnóstico ao nº de blocos (delega a `AllReqsSatisfied.check`). Para 1
 bloco a leste `(1,0)` e `treq` sul `(0,1)`: `rotateCW (1,0)→(0,1)` ⇒ R=1. Um bloco único é sempre
 alinhável (o ciclo de rotação cobre os 4 cardinais). Nenhuma mudança em `RotationsNeeded.java`;
-apenas cobertura de teste single-block (U3).
+apenas a cobertura faltante single-block-já-alinhado→-1 (U3) — o caso single-block R=1
+(`umBloco_norte_vsTaskLeste_retorna1`) e o L-shape incompatível (`lShape_incompativel`) já
+existem em `RotationsNeededTest` (0f7699f6).
 
 ### KTD-3 — Fallback de zona bounded por `RotationGuard` (resolve Q3)
 
@@ -144,7 +147,7 @@ rotação remanescente na zona, agora bounded.
 
 ## Implementation Units
 
-Ordem recomendada: U1 → U2 → U4 (analyzer, para baseline) → U3 (pré-alinhamento, medido por U4).
+Ordem recomendada: U1 → U4 (analyzer, baseline) → U2 → U3 (pré-alinhamento, medido por U4).
 U-IDs estáveis; dependências citadas por U-ID.
 
 ### U1. NORM/detach cardinal + bounded (#50)
@@ -181,20 +184,31 @@ U-IDs estáveis; dependências citadas por U-ID.
 - **Dependencies** — nenhuma (pode landa antes do pré-alinhamento; U3 reduz a frequência do
   fallback, não o habilita).
 - **Files** — `src/agt/common/connect_protocol.asl` (bloco SUBMIT l297-417: **deletar** os planos
-  `submit_rotate_count` l363-372 e `submit_reposition_count` l374-396),
-  `src/test/java/hive/AllReqsSatisfiedTest.java` (já tem `att(0,1)==treq(0,1)` — o teste de
-  objetividade), `src/test/java/hive/RotationGuardTest.java`.
+  `submit_rotate_count` l363-372 e `submit_reposition_count` l374-396; **adicionar** o plano de
+  diagnóstico R3 — `hive.AllReqsSatisfied` → `.abolish` contadores + `!finalize_task` — **antes**
+  do handler sobrevivente l398-407; **remover/mesclar** l398-407 ("Desistindo") para deixar **um
+  único** caminho de finalize pós-falha, eliminando a redundância l398-407↔l411-417),
+  `src/test/java/hive/AllReqsSatisfiedTest.java` (já tem `att(1,0)==treq(1,0)` —
+  `umBlocoSatisfeito_retornaTrue`, o teste de objetividade; **atenção:** `(0,1)` é o caso *false*
+  `posicaoErrada`), `src/test/java/hive/RotationGuardTest.java`.
 - **Approach** — Na falha de submit: (a) se `hive.AllReqsSatisfied(TaskName)` → a causa não é
   rotação → `.abolish` contadores + `!finalize_task` (R3); (b) se **não** `AllReqsSatisfied` →
   fallback bounded: `hive.RotationsNeeded(TaskName,R,Dir)` dirige a rotação, limitada por
   `RotationGuard` (#47); guard esgotado ou `RotationsNeeded` falha → `!finalize_task` (R4).
-  Remover por completo o `rotate(cw)×4` cego e o `reposição n/e/s/w ×3`. O caminho feliz (l299-313,
-  `pending_submit & goalZone(0,0) & AllReqsSatisfied` → submit) permanece.
+  **Nota (R4 já existe):** o fallback bounded de rotação-na-zona **já está implementado** em
+  `connect_protocol.asl` l283-295 (`goalZone(0,0)` + `hive.RotationsNeeded` +
+  `rotate_pre_submit_fails`↔`RotationGuard`=3, via #47) — o escopo real de U2 é **deletar o loop
+  pós-falha redundante** (l363-396) e reconciliar os handlers de finalize, **não** escrever um novo
+  fallback. Remover por completo o `rotate(cw)×4` cego e o `reposição n/e/s/w ×3`. O caminho feliz
+  (l299-313) permanece, **exceto** a inicialização órfã `+submit_rotate_count` (l303-305) e os
+  `.abolish(submit_rotate_count)`/`.abolish(submit_reposition_count)` nos handlers de sucesso
+  (l333-334, l356-357), que **também são removidos** (viram código morto sem o loop).
 - **Patterns to follow** — guard de pré-rotação `RotationGuard`/`rotate_pre_submit_fails` (#47,
   connect_protocol.asl l258-293); `AllReqsSatisfied` no contexto (l98, l121).
-- **Test scenarios** — JUnit (`AllReqsSatisfiedTest`): `att(0,1)==treq(0,1)` ⇒ true (já existe —
-  prova "não rotacionar"); `att` em posição errada ⇒ false (fallback). `RotationGuardTest`: aborta
-  no threshold. Comportamento `.asl` validado no sim (U4/validação).
+- **Test scenarios** — JUnit (`AllReqsSatisfiedTest`): `att(1,0)==treq(1,0)` ⇒ true (já existe —
+  `umBlocoSatisfeito_retornaTrue`, prova "não rotacionar"; **`(0,1)` é o caso *false*
+  `posicaoErrada`, não o positivo**); `att` em posição errada ⇒ false (fallback).
+  `RotationGuardTest`: aborta no threshold. Comportamento `.asl` validado no sim (U4/validação).
 - **Verification** — IsolationRoles: nenhum agente entra em ciclo de 4 rotações com `att==treq`;
   submits bem-sucedidos sobem vs #48; `submit_fail` por rotação some.
 
@@ -207,20 +221,30 @@ U-IDs estáveis; dependências citadas por U-ID.
 - **Files** — `src/agt/common/collection.asl` (após `+collected_block(Type)` l14: gate de
   pré-alinhamento), `src/agt/common/connect_protocol.asl` (o loop `trying_rotate`/`RotationsNeeded`
   l76-122 passa a ser disparado **no dispenser**, não na zona),
-  `src/test/java/hive/RotationsNeededTest.java` (caso single-block).
+  `src/test/java/hive/RotationsNeededTest.java` (caso single-block já-alinhado→-1),
+  `conf/scenarios/06c-collect-rotate.json` + `setup/` (novo: dispenser ao **norte** → bloco anexa
+  desalinhado em `(0,-1)` vs treq `(1,0)`, forçando o pré-alinhamento — 06c puro não exige rotação).
 - **Approach** — Após `collected_block`, se a task é conhecida e `not AllReqsSatisfied`:
   `RotationsNeeded(Task,R,Dir)` → disparar a rotação **ali** (reusando o loop `trying_rotate`),
   e só então navegar à goal zone. Se `AllReqsSatisfied` já é true (bloco nasceu no offset certo)
   → navega direto. Se `RotationsNeeded` falha (forma incompatível) → abortar a task para este
   bloco. Resolve a corrida perceptual (KTD-1): se a task não é conhecida no `attach`, adiar o
-  gate até conhecê-la, antes da zona.
+  gate até conhecê-la, antes da zona. **Decisão de reuso do loop (resolve OQ-2 — pré-requisito,
+  não detalhe):** **não** reusar o completion RC=0 de l93-114 como está (ele seta `pending_submit`
+  + navega à goal zone — semântica blocks-in-hand). Adicionar (a) um completion separado gated por
+  `collected_block` que, alinhado, abole `trying_rotate` e **retoma a navegação pós-coleta** (não
+  `pending_submit`); e (b) um guard posicional (`not goalZone`/at-dispenser) no braço RC>0 (l79-82)
+  para o loop **não re-disparar na zona** (espelha o gate `goalZone(0,0)` de l283-295, invertido).
 - **Patterns to follow** — loop `trying_rotate` + `AllReqsSatisfied` no contexto
   (connect_protocol.asl l76-122); fluxo de coleta `collected_block` (collection.asl l10-14).
 - **Test scenarios** — `RotationsNeededTest`: single-block leste `(1,0)` + treq sul `(0,1)` ⇒
   R=1,cw; single-block já no offset ⇒ `needed` retorna -1 (não rotaciona); forma incompatível ⇒
   -1 (aborta). `.asl` validado no sim via analyzer (U4): rotações **na zona** ≈ 0.
-- **Verification** — 06c-single-collect: o agente coleta, alinha no dispenser, chega na zona e
-  submete sem rotacionar lá; analyzer reporta rotações-na-zona ≈ 0.
+- **Verification** — cenário **collect-and-rotate** (`06c-collect-rotate`: dispenser ao norte →
+  bloco anexa desalinhado, forçando pré-alinhamento): o agente coleta, alinha **no dispenser**,
+  chega na zona e submete sem rotacionar lá; analyzer reporta rotação **no dispenser** e
+  rotações-na-zona ≈ 0. `06c-single-collect` (rotação-livre por construção) permanece só como
+  **controle negativo** — não falseia o pré-alinhamento (passaria mesmo com o código antigo).
 
 ### U4. Analyzer de rotações-na-zona (métrica de DoD)
 
@@ -290,13 +314,15 @@ regressão (R7).
 - **JUnit (rápido, sem sim):** `~/tools/gradle-8.10/bin/gradle test` — `AllReqsSatisfiedTest`
   (objetividade, `att==treq`), `RotationsNeededTest` (single-block + incompatível),
   `DetachGuardTest`/`NormDetachGuardTest`, `test_submit_strategy.py`.
-- **Cenário isolado:** `06c-single-collect` — coleta→submit de 1 bloco; analyzer
-  `submit_strategy.py` reporta rotações-na-zona ≈ 0 e submit na entrada. Sim isolada
-  `--port 12350 --monitor 8050`.
+- **Cenário isolado:** `06c-collect-rotate` (06c + dispenser ao norte → bloco anexa desalinhado) —
+  coleta→pré-alinha **no dispenser**→submit; analyzer `submit_strategy.py` mostra rotação no
+  dispenser e rotações-na-zona ≈ 0. `06c-single-collect` é o **controle rotação-livre** (não
+  falseia o pré-alinhamento). Sim isolada `--port 12350 --monitor 8050`.
 - **IsolationRoles 300 steps:** `failed_target` de detach < 5/agente (vs 61 no #48); submits ok
   sobem; nenhum loop de rotação identidade.
 - **Sem regressão:** `regression.sh` cobrindo `01-adopt`, `06-single-block`, `06c`,
-  `07a-multi-req`, `07a-wrong-blocks` antes de mesclar (mexe em core).
+  `07a-multi-req`, `07a-wrong-blocks`, `07a-prime-rotate` e `07a-prime-wrong` (os dois últimos
+  isolam rotate→submit / incompatível→não-submit, com asserts) antes de mesclar (mexe em core).
 
 ---
 
@@ -304,9 +330,9 @@ regressão (R7).
 
 - **OQ-1** — Nomes exatos das crenças/contadores novos (`norm_detach_fails`, gate de
   pré-alinhamento) — definir ao tocar o código.
-- **OQ-2** — Se o disparo de `trying_rotate` no dispenser deve **reusar** o plano l76-122 como
-  está ou exigir um gate de contexto novo (ex.: `at_dispenser`/`not goalZone`) para não rodar na
-  zona no caminho feliz — resolver na implementação de U3, validando em 06c.
+- **OQ-2** — *(resolvido — ver U3 Approach: completion separado gated por `collected_block` +
+  guard posicional `not goalZone` no braço RC>0; não reusar o completion RC=0 de l93-114).*
+  Validar no cenário collect-and-rotate.
 - **OQ-3** — Threshold do `NormDetachGuard`: reusar `DetachGuard.MAX_CONSECUTIVE_FAILS` (=2) ou
   valor próprio — calibrar por evidência (IsolationRoles).
 
