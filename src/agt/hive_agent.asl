@@ -186,6 +186,7 @@ my_role_type(hive_agent).
        .abolish(needs_clear_blocks(_));
        .abolish(trying_rotate(_, _, _));
        .abolish(rotate_pre_submit_fails(_, _));
+       .abolish(detach_stuck_fails(_, _));
        .concat("{\"task\":\"", TaskName, "\"}", FJson);
        !dash_log("task_finalized", FJson);
        !dash_task_phase(TaskName, "done", 100);

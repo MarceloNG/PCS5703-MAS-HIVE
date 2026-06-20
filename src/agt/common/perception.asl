@@ -258,10 +258,38 @@ norm_allows_carry :- carry_limit(Limit) & .count(attached(_, _), N) & N < Limit.
     <- +last_move_blocked;
        !offline_cascade.
 
+// DETACH GUARD: reset do contador de falhas após sucesso de detach (#48).
+// Precede o handler genérico para remover detach_stuck_fails antes da cascata.
++lastActionResult(success)
+    : lastAction(detach) & solo_mode(TaskName) & detach_stuck_fails(TaskName, _)
+    <- .abolish(detach_stuck_fails(TaskName, _));
+       -last_move_blocked;
+       !dead_reckon_move;
+       -last_attempted_dir(_);
+       !offline_cascade.
+
 +lastActionResult(success)
     <- -last_move_blocked;
        !dead_reckon_move;
        -last_attempted_dir(_);
+       !offline_cascade.
+
+// DETACH GUARD: contador de falhas + abort após 2 falhas consecutivas (#48).
+// Sincronizar limiar 2 com DetachGuard.MAX_CONSECUTIVE_FAILS (src/java/hive/DetachGuard.java).
++lastActionResult(failed_target)
+    : lastAction(detach) & solo_mode(TaskName)
+    <- if (detach_stuck_fails(TaskName, F)) {
+           .abolish(detach_stuck_fails(TaskName, _));
+           NF = F + 1;
+           +detach_stuck_fails(TaskName, NF)
+       } else {
+           +detach_stuck_fails(TaskName, 1)
+       };
+       if (detach_stuck_fails(TaskName, FF) & FF >= 2) {
+           .print("[STUCK] Detach ABORT: ", FF, " falhas consecutivas em ", TaskName, " — liberando task.");
+           .abolish(detach_stuck_fails(TaskName, _));
+           !finalize_task(TaskName)
+       };
        !offline_cascade.
 
 // outros codigos de resultado (sem handler especifico): ainda rodam a cascata 1x/step no oficial.
