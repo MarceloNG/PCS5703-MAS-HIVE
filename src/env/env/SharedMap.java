@@ -885,4 +885,52 @@ public class SharedMap extends Artifact {
         cachedFrontiers = new ArrayList<>();
         lastFrontierVisitedSize = -1;
     }
+
+    // ===== U9 / #17: import_* @OPERATIONs — fusao cross-agente =====
+    // Ingere celulas do frame de outro agente, ja traduzidas para o frame deste
+    // artefato (o agente aplica o offset antes de chamar). Idem a update_cell mas
+    // sem visitedCells nem signal — puro registro observavel, idempotente via Sets.
+
+    @OPERATION
+    void import_dispenser(Object ox, Object oy, Object otype) {
+        int x = normX(toInt(ox)), y = normY(toInt(oy));
+        String type = otype.toString();
+        String k = x + "," + y;
+        String dispKey = k + ":" + type;
+        if (knownDispensers.add(dispKey)) {
+            cells.put(k, "dispenser:" + type);
+            defineObsProperty("known_dispenser", x, y, type);
+        }
+    }
+
+    @OPERATION
+    void import_goal_zone(Object ox, Object oy) {
+        int x = normX(toInt(ox)), y = normY(toInt(oy));
+        String k = x + "," + y;
+        if (knownGoalZones.add(k)) {
+            cells.put(k, "goal_zone:");
+            defineObsProperty("known_goal_zone", x, y);
+        }
+    }
+
+    @OPERATION
+    void import_role_zone(Object ox, Object oy) {
+        int x = normX(toInt(ox)), y = normY(toInt(oy));
+        String k = x + "," + y;
+        if (knownRoleZones.add(k)) {
+            cells.put(k, "role_zone:");
+            defineObsProperty("known_role_zone", x, y);
+        }
+    }
+
+    // Calcula o offset para converter coordenadas do frame do emissor para o frame
+    // do receptor. O receptor em (receiverX,receiverY) ve o emissor em (relX,relY)
+    // relativo a si; o emissor declarou estar em (senderX,senderY) no seu frame.
+    // Para converter celula (px,py) do frame-emissor: TX = px + dX.
+    static int[] computeSightingOffset(
+            int receiverX, int receiverY,
+            int relX,      int relY,
+            int senderX,   int senderY) {
+        return new int[]{receiverX - relX - senderX, receiverY - relY - senderY};
+    }
 }
