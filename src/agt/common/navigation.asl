@@ -71,12 +71,16 @@
 +step(N)
     : has_destination(DX, DY) & my_pos(MX, MY) & pending_submit(TN)
     <- compute_next_move(MX, MY, DX, DY, Dir);
-       .abolish(last_attempted_dir(_));
-       +last_attempted_dir(Dir);
-       .concat("move(", Dir, ")", Act);
-       action(Act);
-       if ((N mod 20) == 0) {
-           .print("[NAV] Step ", N, ": nav to goal zone (", DX, ",", DY, ") for submit ", TN, " from (", MX, ",", MY, ")")
+       if (Dir == "skip") {
+           action("skip")
+       } else {
+           .abolish(last_attempted_dir(_));
+           +last_attempted_dir(Dir);
+           .concat("move(", Dir, ")", Act);
+           action(Act);
+           if ((N mod 20) == 0) {
+               .print("[NAV] Step ", N, ": nav to goal zone (", DX, ",", DY, ") for submit ", TN, " from (", MX, ",", MY, ")")
+           }
        }.
 
 // Issue #27 (Cap A+B unificada): a CADA step re-avalia se o destino virou um
@@ -93,10 +97,16 @@
            !do_explore(MX, MY)
        } else {
            compute_next_move(MX, MY, DX, DY, Dir);
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(Dir);
-           .concat("move(", Dir, ")", Act);
-           action(Act)
+           if (Dir == "skip") {
+               // já chegou ao destino mas nenhum plano consumiu — limpa e re-explora
+               .abolish(has_destination(_, _));
+               action("skip")
+           } else {
+               .abolish(last_attempted_dir(_));
+               +last_attempted_dir(Dir);
+               .concat("move(", Dir, ")", Act);
+               action(Act)
+           }
        }.
 
 // --- Exploracao (sem destino) ---
@@ -174,10 +184,14 @@
                !bug0_pick_dir(PDir, Dir)
            }
        };
-       .abolish(last_attempted_dir(_));
-       +last_attempted_dir(Dir);
-       .concat("move(", Dir, ")", Act);
-       action(Act).
+       if (Dir == "skip") {
+           action("skip")
+       } else {
+           .abolish(last_attempted_dir(_));
+           +last_attempted_dir(Dir);
+           .concat("move(", Dir, ")", Act);
+           action(Act)
+       }.
 -!bug0_move(PDir)
     <- .abolish(last_attempted_dir(_));
        +last_attempted_dir(PDir);

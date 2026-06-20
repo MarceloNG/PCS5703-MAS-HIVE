@@ -193,10 +193,14 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
            .abolish(has_destination(_, _));
            +has_destination(RX, RY);
            compute_next_move(MX, MY, RX, RY, Dir);
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(Dir);
-           .concat("move(", Dir, ")", Act);
-           action(Act)
+           if (Dir == "skip") {
+               action("skip")
+           } else {
+               .abolish(last_attempted_dir(_));
+               +last_attempted_dir(Dir);
+               .concat("move(", Dir, ")", Act);
+               action(Act)
+           }
        }.
 
 -!seek_role_zone(_, _)

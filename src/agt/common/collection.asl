@@ -88,10 +88,14 @@
            +waiting_request(Dir, Type)
        } else {
            compute_next_move(MX, MY, DX, DY, MoveDir);
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(MoveDir);
-           .concat("move(", MoveDir, ")", Act);
-           action(Act)
+           if (MoveDir == "skip") {
+               action("skip")
+           } else {
+               .abolish(last_attempted_dir(_));
+               +last_attempted_dir(MoveDir);
+               .concat("move(", MoveDir, ")", Act);
+               action(Act)
+           }
        }.
 
 // --- Goal: iniciar coleta ---

@@ -554,14 +554,18 @@
                .abolish(has_destination(_, _));
                +has_destination(NGX, NGY);
                compute_next_move(MX, MY, NGX, NGY, Dir);
-               .abolish(last_attempted_dir(_));
-               +last_attempted_dir(Dir);
-               .concat("move(", Dir, ")", Act); action(Act)
+               if (Dir == "skip") { action("skip") } else {
+                   .abolish(last_attempted_dir(_));
+                   +last_attempted_dir(Dir);
+                   .concat("move(", Dir, ")", Act); action(Act)
+               }
            } else {
                compute_next_move(MX, MY, DX, DY, Dir);
-               .abolish(last_attempted_dir(_));
-               +last_attempted_dir(Dir);
-               .concat("move(", Dir, ")", Act); action(Act)
+               if (Dir == "skip") { action("skip") } else {
+                   .abolish(last_attempted_dir(_));
+                   +last_attempted_dir(Dir);
+                   .concat("move(", Dir, ")", Act); action(Act)
+               }
            }
        } else {
            compute_next_move(MX, MY, DX, DY, Dir);
@@ -589,9 +593,11 @@
            .abolish(has_destination(_, _));
            +has_destination(GX, GY);
            compute_next_move(MX, MY, GX, GY, Dir);
-           .abolish(last_attempted_dir(_));
-           +last_attempted_dir(Dir);
-           .concat("move(", Dir, ")", Act); action(Act)
+           if (Dir == "skip") { action("skip") } else {
+               .abolish(last_attempted_dir(_));
+               +last_attempted_dir(Dir);
+               .concat("move(", Dir, ")", Act); action(Act)
+           }
        } else {
            // sem goal zone no mapa: explorar com o bloco até achar uma visualmente
            if ((N mod 20) == 0) { .print("[SUBMIT] Step ", N, ": sem goal zone no mapa, explorando") };
