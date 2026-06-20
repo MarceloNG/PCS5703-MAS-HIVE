@@ -67,7 +67,7 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
 ```
 
 - `analyzers/replay_analyze.py` — **geral**: o sinal da Fase C (quantos viraram `worker` e quando), `failed_role`/`failed_path`, submits, score casado pelo id do replay.
-- `analyzers/assert_metric.py` — **asserção de capacidade** (harness #11): PASS/FAIL de uma métrica plugável (`role_adoption`, `final_workers`, `submits_ok`, `max_stuck`) contra `min`/`max`/`equals`; lê o bloco `assert` do cenário ou flags diretas; reusa os loaders do geral. Honra `HIVE_REPLAY_ROOT`/`HIVE_RESULTS_ROOT` (sim isolada por porta).
+- `analyzers/assert_metric.py` — **asserção de capacidade** (harness #11): PASS/FAIL de uma métrica plugável (`role_adoption`, `final_workers`, `submits_ok`, `max_stuck`, `exited_region`, `entered_region`) contra `min`/`max`/`equals`; suporta `assert` como objeto único ou lista de checagens (gate dual — todas precisam passar); lê o bloco `assert` do cenário ou flags diretas; reusa os loaders do geral. Honra `HIVE_REPLAY_ROOT`/`HIVE_RESULTS_ROOT` (sim isolada por porta). Teste sim-free: `python3 .claude/skills/run-hive/analyzers/test_assert_metric.py`.
 - `analyzers/adoption.py` — **foco: ADOÇÃO DE ROLE** (Eixo 1 / issue #12). Detalha o sinal: quantos viram `worker`, quantos pelo path explorer-first (`default→explorer→worker`), **RE-adoções** (adopt-spam pós-sucesso; alvo 0), **adopts falhos por motivo** (`failed_location` fora da role-zone, `failed_parameter` role/path inválido) e time-to-first-adoption. Tem `--check` (gate: sai !=0 se < `--min-workers` ou > `--max-readopts`) p/ asseverar limiares. Validado sim-free pela fixture sintética `analyzers/fixtures/synthetic_adopt_A/` via `analyzers/test_adoption.py` (`python3 test_adoption.py`).
 
   ```bash
