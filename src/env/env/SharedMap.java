@@ -728,6 +728,72 @@ public class SharedMap extends Artifact {
         dir.set(exploreDir(oName.toString()));
     }
 
+    // N3: Tangent Bug simplificado — scan_forward + nearest_tangent.
+    // Usam o mapa de obstacles (estático). Entidades dinâmicas são tratadas pelo
+    // bug0_pick_dir adjacente no ASL.
+    static final int SCAN_RANGE = 5;   // alcance do scan (= visão role default)
+
+    int[] dirOffset(String dir) {
+        return switch (dir) {
+            case "n" -> new int[]{0, -1};
+            case "e" -> new int[]{1, 0};
+            case "s" -> new int[]{0, 1};
+            case "w" -> new int[]{-1, 0};
+            default  -> new int[]{0, 0};
+        };
+    }
+
+    String cwOf(String dir) {
+        return switch (dir) {
+            case "n" -> "e";
+            case "e" -> "s";
+            case "s" -> "w";
+            case "w" -> "n";
+            default  -> "e";
+        };
+    }
+
+    // Conta células livres na direção dir a partir de (fx,fy).
+    // Retorna 0 se a célula adjacente já é obstáculo; SCAN_RANGE se tudo livre.
+    int scanForward(int fx, int fy, String dir) {
+        int[] d = dirOffset(dir);
+        for (int i = 1; i <= SCAN_RANGE; i++) {
+            if (obstacles.containsKey(key(fx + d[0] * i, fy + d[1] * i))) return i - 1;
+        }
+        return SCAN_RANGE;
+    }
+
+    // Acha o ponto-tangente CW: primeira posição ao longo do eixo CW de primaryDir
+    // de onde a primária fica TOTALMENTE livre (scanForward >= SCAN_RANGE).
+    // Usar scanForward (e não só célula adjacente) corrige o falso-positivo em que
+    // o agente retornava a si mesmo como target quando o obstáculo não era adjacente
+    // (FR>0), causando compute_next_move(pos,pos)→"skip"→failed_parameter.
+    int[] nearestTangent(int fx, int fy, String primaryDir) {
+        int[] cwd = dirOffset(cwOf(primaryDir));
+        for (int i = 0; i <= SCAN_RANGE * 2; i++) {
+            int cx = normX(fx + cwd[0] * i);
+            int cy = normY(fy + cwd[1] * i);
+            if (scanForward(cx, cy, primaryDir) >= SCAN_RANGE) {
+                return new int[]{cx, cy};
+            }
+        }
+        return new int[]{normX(fx + cwd[0]), normY(fy + cwd[1])};
+    }
+
+    @OPERATION
+    void scan_forward(Object ofx, Object ofy, Object odir,
+                      OpFeedbackParam<Integer> freeRange) {
+        freeRange.set(scanForward(normX(toInt(ofx)), normY(toInt(ofy)), odir.toString()));
+    }
+
+    @OPERATION
+    void nearest_tangent(Object ofx, Object ofy, Object oprimaryDir,
+                         OpFeedbackParam<Integer> tx, OpFeedbackParam<Integer> ty) {
+        int[] t = nearestTangent(normX(toInt(ofx)), normY(toInt(ofy)), oprimaryDir.toString());
+        tx.set(t[0]);
+        ty.set(t[1]);
+    }
+
     // ===== Fase D / R7: costura de traducao de frame =====
     // Re-keia todo o estado por-celula deste mapa por um offset (dX,dY), traduzindo
     // este frame para outro (toroidalmente, com as dims correntes). Inerte no

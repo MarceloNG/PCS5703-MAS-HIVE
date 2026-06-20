@@ -147,9 +147,33 @@
 -!do_explore(_, _)
     <- action("move(n)").
 
-// Bug0: move em PDir ou primeiro dir livre em rotação CW (n→e→s→w).
+// N3: Bug0 com Tangent Bug simplificado.
+// scan_forward detecta obstáculo estático até SCAN_RANGE células na primária.
+// Quando bloqueado: nearest_tangent acha o ponto-tangente CW e persiste em
+// tangent_target até a primária reabrir (FR >= 4) ou o target ser alcançado.
+// bug0_pick_dir cobre entidades dinâmicas adjacentes (percepção step-a-step).
 +!bug0_move(PDir)
-    <- !bug0_pick_dir(PDir, Dir);
+    <- ?my_pos(MX, MY);
+       scan_forward(MX, MY, PDir, FR);
+       if (tangent_target(TGX, TGY, PDir) & FR < 4) {
+           if (MX == TGX & MY == TGY) {
+               nearest_tangent(MX, MY, PDir, NTX, NTY);
+               .abolish(tangent_target(_, _, _));
+               +tangent_target(NTX, NTY, PDir);
+               compute_next_move(MX, MY, NTX, NTY, Dir)
+           } else {
+               compute_next_move(MX, MY, TGX, TGY, Dir)
+           }
+       } else {
+           .abolish(tangent_target(_, _, _));
+           if (FR < 4) {
+               nearest_tangent(MX, MY, PDir, TGX, TGY);
+               +tangent_target(TGX, TGY, PDir);
+               compute_next_move(MX, MY, TGX, TGY, Dir)
+           } else {
+               !bug0_pick_dir(PDir, Dir)
+           }
+       };
        .abolish(last_attempted_dir(_));
        +last_attempted_dir(Dir);
        .concat("move(", Dir, ")", Act);
@@ -161,42 +185,31 @@
        action(Act).
 
 // Primeiro dir não-bloqueado em CW a partir de PDir.
-// Bloqueio primário: célula adjacente (obs+entity) OU look-ahead 2-3 (só obstacle).
-// Look-ahead simula "vê a parede antes de chegar" → inicia CW contour mais cedo.
+// Só trata entidade/bloco adjacente (dinâmico); obstáculo estático é coberto
+// pelo scan_forward em bug0_move antes desta chamada.
 +!bug0_pick_dir(PDir, Dir)
     <- if (PDir == n) {
            D1 = n; O1X = 0;  O1Y = -1;
            D2 = e; O2X = 1;  O2Y = 0;
            D3 = s; O3X = 0;  O3Y = 1;
-           D4 = w; O4X = -1; O4Y = 0;
-           LA1X = 0; LA1Y = -2;
-           LA2X = 0; LA2Y = -3
+           D4 = w; O4X = -1; O4Y = 0
        } elif (PDir == e) {
            D1 = e; O1X = 1;  O1Y = 0;
            D2 = s; O2X = 0;  O2Y = 1;
            D3 = w; O3X = -1; O3Y = 0;
-           D4 = n; O4X = 0;  O4Y = -1;
-           LA1X = 2; LA1Y = 0;
-           LA2X = 3; LA2Y = 0
+           D4 = n; O4X = 0;  O4Y = -1
        } elif (PDir == s) {
            D1 = s; O1X = 0;  O1Y = 1;
            D2 = w; O2X = -1; O2Y = 0;
            D3 = n; O3X = 0;  O3Y = -1;
-           D4 = e; O4X = 1;  O4Y = 0;
-           LA1X = 0; LA1Y = 2;
-           LA2X = 0; LA2Y = 3
+           D4 = e; O4X = 1;  O4Y = 0
        } else {
            D1 = w; O1X = -1; O1Y = 0;
            D2 = n; O2X = 0;  O2Y = -1;
            D3 = e; O3X = 1;  O3Y = 0;
-           D4 = s; O4X = 0;  O4Y = 1;
-           LA1X = -2; LA1Y = 0;
-           LA2X = -3; LA2Y = 0
+           D4 = s; O4X = 0;  O4Y = 1
        };
-       // Primária bloqueada: adjacente (obs/entity) OU obstacle visível a 2-3 células
-       if (cell_blocked(O1X, O1Y) |
-           thing(LA1X, LA1Y, obstacle, _) |
-           thing(LA2X, LA2Y, obstacle, _)) {
+       if (cell_blocked(O1X, O1Y)) {
            if (not cell_blocked(O2X, O2Y)) { Dir = D2 }
            elif (not cell_blocked(O3X, O3Y)) { Dir = D3 }
            elif (not cell_blocked(O4X, O4Y)) { Dir = D4 }
