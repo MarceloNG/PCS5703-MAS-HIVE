@@ -15,7 +15,7 @@
   },
   "match": [
     {
-      "steps": 60,
+      "steps": 25,
       "randomSeed": 17,
       "randomFail": 0,
       "entities": { "standard": 15 },
