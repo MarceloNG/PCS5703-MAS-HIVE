@@ -256,7 +256,7 @@ classDiagram
 |--------|--------|-----------|---------------------|
 | `SharedMap.java` | 395 | `shared_map` (1) | `update_cell`, `get_nearest_dispenser`, `get_nearest_goal_zone`, `get_nearest_frontier`, `compute_next_move`, `mark_obstacle`, `decay_obstacles`, `manhattan_dist` |
 | `TaskBoard.java` | 181 | `task_board` (1) | `register_task`, `signal_task_ready`, `place_bid`, `resolve_auction`, `complete_task`, `get_task_first_block`, `get_task_blocks` |
-| `SquadCoordinator.java` | 282 | `squad_coordinator` (1) | `get_my_squad`, `get_squad_collectors`, `get_squad_assembler`, `set_meeting_point`, `signal_ready`, `all_ready`, `find_free_soloist`, `mark_busy/free`, `update_agent_pos` |
+| `SquadCoordinator.java` | 51 | `squad_coordinator` (1) | `mark_busy`, `mark_free`, `update_agent_pos` — regime squad-era removido no #53 (registro leve; rename → `AgentRegistry` é follow-up) |
 | `HiveDashboard.java` | 280 | `hive_dashboard` (1) | `log_event`, `set_step`, `update_score`, `update_task_phase`, `update_squad`, `register_map_dispenser` |
 
 ### Algoritmos Implementados em SharedMap

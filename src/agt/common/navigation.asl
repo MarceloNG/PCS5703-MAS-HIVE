@@ -3,28 +3,8 @@
 // Chamado quando connect_protocol e collection nao interceptam o step
 // ============================================================
 
-// --- Collector: chegou ao meeting point → sinalizar pronto ---
-
-+step(N)
-    : has_destination(DX, DY) & my_pos(MX, MY) & DX == MX & DY == MY
-      & navigating_to_meeting_point(SquadId)
-    <- -has_destination(DX, DY);
-       -navigating_to_meeting_point(SquadId);
-       .my_name(Me);
-       signal_ready(SquadId, Me);
-       .concat("{\"squad\":\"", SquadId, "\"}", AMJson);
-       !dash_log("arrived_meeting", AMJson);
-       .print("[NAV] Step ", N, ": Cheguei ao meeting point! Sinalizando pronto.");
-       action("skip").
-
-// --- Assembler: chegou ao meeting point para connect ---
-
-+step(N)
-    : has_destination(DX, DY) & my_pos(MX, MY) & DX == MX & DY == MY
-      & navigating_to_meeting_for_connect(SquadId, _, TaskName)
-    <- -has_destination(DX, DY);
-       .print("[NAV] Step ", N, ": Assembler no meeting point para task ", TaskName);
-       action("skip").
+// (Chegada ao meeting-point squad-era removida no #53 — sem rendezvous; a trilha
+//  única é solo. As primitivas connect ficam inertes em connect_protocol.asl.)
 
 // --- Destino generico alcancado ---
 

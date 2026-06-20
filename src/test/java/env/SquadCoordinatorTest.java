@@ -1,15 +1,16 @@
 package env;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import cartago.OpFeedbackParam;
 import org.junit.jupiter.api.Test;
 
 /**
- * Lógica de coordenação do SquadCoordinator (backfill Track 1, P2): composição
- * de squads, distância toroidal e escolha do soloist livre mais próximo.
- * Instancia o artefato e testa em-lugar (visibilidade afrouxada).
+ * Registro leve pós-#53: o regime squad-era e seus testes (composição de squads,
+ * distância toroidal, soloist livre mais próximo) foram removidos junto com os métodos.
+ * Restam os hooks ainda chamados pelo regime único (posição + busy/free do allocator #40).
  */
 class SquadCoordinatorTest {
 
@@ -20,37 +21,21 @@ class SquadCoordinatorTest {
     }
 
     @Test
-    void composicaoDeSquadsPadrao() {
+    void updateAgentPosArmazenaPosicao() {
         SquadCoordinator sc = coordinator();
-        assertEquals("squad1", sc.agentSquad.get("connectionA4"));
-        assertEquals("leader", sc.squadRole.get("connectionA1"));
-        assertEquals("collector", sc.squadRole.get("connectionA4"));
-        assertEquals("assembler", sc.squadRole.get("connectionA10"));
-        assertEquals("sentinel", sc.squadRole.get("connectionA13"));
-        assertEquals(3, sc.squadMembers.size());
-        assertTrue(sc.squadMembers.get("squad1").contains("connectionA1"));
+        sc.update_agent_pos("connectionA4", 10, 20);
+        int[] pos = sc.agentPositions.get("connectionA4");
+        assertEquals(10, pos[0]);
+        assertEquals(20, pos[1]);
     }
 
     @Test
-    void wrapDistToroidal() {
+    void markBusyEFreeAlternamEstado() {
         SquadCoordinator sc = coordinator();
-        assertEquals(1, sc.wrapDist(0, 39, 40)); // dá a volta
-        assertEquals(5, sc.wrapDist(0, 5, 40));
-        assertEquals(1, sc.wrapDist(0, 69, 70));
-        assertEquals(35, sc.wrapDist(0, 35, 70));
-    }
-
-    @Test
-    void soloistLivreMaisProximo() {
-        SquadCoordinator sc = coordinator();
-        sc.agentPositions.put("connectionA4", new int[]{10, 10});
-        sc.agentPositions.put("connectionA5", new int[]{2, 2});  // livre, perto de (0,0)
-        sc.agentPositions.put("connectionA6", new int[]{1, 1});  // mais perto, mas ocupado
-        sc.soloistBusy.put("connectionA6", true);
-
-        OpFeedbackParam<String> winner = new OpFeedbackParam<>();
-        sc.find_free_soloist(0, 0, winner);
-
-        assertEquals("connectionA5", winner.get()); // A6 mais perto, mas ocupado
+        assertNull(sc.soloistBusy.get("connectionA4")); // mapa começa vazio; ausência ≠ false
+        sc.mark_busy("connectionA4");
+        assertTrue(sc.soloistBusy.get("connectionA4"));
+        sc.mark_free("connectionA4");
+        assertFalse(sc.soloistBusy.get("connectionA4"));
     }
 }

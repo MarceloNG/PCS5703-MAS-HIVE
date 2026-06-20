@@ -284,7 +284,6 @@
       & not my_active_task(_, _) & not collecting(_, _, _)
       & not pending_submit(_) & not submitted_task(_)
       & not needs_clear_blocks(_) & not searching_dispenser(_)
-      & not navigating_to_meeting_point(_) & not navigating_to_meeting_for_connect(_, _, _)
       & not waiting_connect_collector(_) & not waiting_connect_result(_, _)
       & not pending_connect(_, _, _, _) & not ready_to_connect(_, _, _, _)
       & my_pos(MX, MY) & step(CS)
@@ -645,22 +644,12 @@
        .print("[CONNECT] Step ", N, ": Connect falhou: ", R, ". Retentando.");
        +pending_connect(AsmName, AX, AY, TS).
 
-// --- ASSEMBLER: chegou ao meeting point, iniciar connect ---
-
-+step(N)
-    : navigating_to_meeting_for_connect(SquadId, _, TaskName)
-      & my_pos(MX, MY) & not has_destination(_, _)
-    <- -navigating_to_meeting_for_connect(SquadId, _, TaskName);
-       .print("[ASSEMBLER] Step ", N, ": No meeting point para task ", TaskName);
-       get_squad_collectors(SquadId, Col1, Col2);
-       !dash_task_phase(TaskName, "connect", 0);
-       TargetStep = N + 5;
-       if (Col1 \== "none") {
-           !request_connect(Col1, TargetStep);
-           +ready_to_connect(Col1, MX, MY, TaskName);
-           .print("[ASSEMBLER] Solicitando connect com ", Col1)
-       };
-       action("skip").
+// === Rendezvous squad-era REMOVIDO (#53): o trigger de meeting-point do assembler
+// (get_squad_collectors + navigating_to_meeting_for_connect) saiu junto do regime squad.
+//
+// As primitivas connect/ready_to_connect/pending_connect ABAIXO ficam INERTES de
+// propósito (decisão #53): sem trigger vivo pós-#53, são o scaffolding documentado para
+// a tarefa cooperativa descentralizada (#21/#44) reusar sobre frame compartilhado (U9/#17).
 
 // --- TRY CONNECT: assembler — detectar entidade adjacente via thing ---
 
@@ -697,7 +686,7 @@
 // FIXME Fase D (#2, cross-frame): AsmX,AsmY vem do connect_request no frame do
 // ASSEMBLER; MX,MY e o frame do collector (origens distintas pre-fusao). CDX/CDY
 // abaixo mistura frames -> navegacao ao ponto de connect fica incorreta no oficial.
-// Mesmo problema dos sites ja marcados (communication.asl, squad_leader.asl). A U9
+// Mesmo problema dos sites ja marcados (communication.asl). A U9
 // (frame compartilhado) resolve; ate la, vale connect so por adjacencia percebida.
 +step(N)
     : pending_connect(AsmName, AsmX, AsmY, TS) & my_pos(MX, MY)

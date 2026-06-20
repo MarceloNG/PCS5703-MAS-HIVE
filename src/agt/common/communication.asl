@@ -15,7 +15,6 @@
 
 +connect_request(AssemblerName, AsmX, AsmY, TargetStep)[source(S)]
     <- .print("[COMM] Recebi pedido de connect de ", AssemblerName, " para step ", TargetStep);
-       .abolish(navigating_to_meeting_point(_));
        .abolish(has_destination(_, _));
        +pending_connect(AssemblerName, AsmX, AsmY, TargetStep).
 

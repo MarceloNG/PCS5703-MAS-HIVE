@@ -108,8 +108,7 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
                // R2/R3: reserva atômica de footprint (goal-zone cell) via TaskBoard
                select_task(Me, TaskName, Reward, GZX, GZY, Won);
                if (Won) {
-                   // Ganhou: limpa dispersal e procede à coleta solo (R5)
-                   .abolish(dispersal_step(_));
+                   // Ganhou: procede à coleta solo (R5)
                    .print("[ROLE] Step ", N, ": allocated task=", TaskName, " gz=(", GZX, ",", GZY, ") — solo (#40)");
                    mark_busy(Me);
                    +my_active_task(TaskName, "solo");
@@ -120,12 +119,10 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
                    +has_destination(DX, DY);
                    action("skip")
                } else {
-                   // R4: goal-zone reservada — DISPERSAR e bloquear coleta oportunista.
-                   // dispersal_step(N) impede +new_dispenser de coletar "por conta própria"
-                   // enquanto outro agente tem a reserva ativa (limpa ao ganhar ou finalizar).
+                   // R4: goal-zone reservada por outro agente — DISPERSAR (explorar) em vez de
+                   // empilhar na goal-zone. (#53: o flag dispersal_step que bloqueava a coleta
+                   // oportunista saiu junto do regime squad — agora só o do_explore importa.)
                    .print("[ROLE] Step ", N, ": goal-zone (", GZX, ",", GZY, ") ocupada — dispersando (#40).");
-                   .abolish(dispersal_step(_));
-                   +dispersal_step(N);
                    !do_explore(MX, MY)
                }
            }

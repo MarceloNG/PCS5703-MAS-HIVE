@@ -1,8 +1,8 @@
 /* organization.asl (U2 — Track 3, Fase A)
    Participação MOISE+ mínima-mas-real.
 
-   - Os agentes adotam o role organizacional (squad_leader/collector/assembler/sentinel)
-     automaticamente, via a lista 'players' do bloco 'organisation' no hive.jcm (U1).
+   - O tipo único `hive_agent` (time flat, #38) participa da organização como agente
+     polivalente; não há mais squad_leader/collector/assembler/sentinel (#53).
    - Aqui eles reagem às OBRIGAÇÕES emitidas pelo scheme ativo (task_execution_scheme):
      comprometem-se com a mission obrigada pela norma (n_collect, n_assemble, n_submit).
 
