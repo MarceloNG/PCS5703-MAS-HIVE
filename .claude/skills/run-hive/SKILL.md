@@ -40,7 +40,7 @@ Configs (passar em `--conf`):
 
 Subcomandos: `run` · `score` (mostra o `results/*.json` mais recente) · `analyze [replay] [args]` · `assert [args]` (PASS/FAIL de capacidade, ver abaixo) · `stop` (mata servidor+agentes desta máquina — por padrão de jar/launcher, nunca o teu shell).
 
-Flags de `run`: `--conf F` | `--scenario NN-nome` (cenário controlado) · `--steps N` · `--port P` (sim paralela isolada) · `--assert` (PASS/FAIL do bloco `assert` do cenário ao fim; exit 0/1) · `--monitor`.
+Flags de `run`: `--conf F` | `--scenario NN-nome` (cenário controlado) · `--steps N` · `--port P` (sim paralela isolada) · `--assert` (PASS/FAIL do bloco `assert` do cenário ao fim; exit 0/1) · `--monitor [PORT]` (monitor web; PORT opcional, default 8000).
 
 **Regressão de cenários (suíte "na mão"):** `.claude/skills/run-hive/regression.sh [--nn NN] [nomes...]` roda **em série** todos os `conf/scenarios/*.json` com bloco `assert` (ou só os nomes passados) e imprime PASS/FAIL de cada um (exit !=0 se algum falhar). É **caro** (1 sim/cenário) — rode **antes de mexer em arquivo core** (`perception`/`navigation`/`role_adoption`) ou antes de mesclar, **não** toda vez. Cada cenário com `assert` funciona como um teste e2e da sua capacidade isolada. `--nn NN` (2 dígitos) isola as portas e habilita o monitor: sim na porta `123NN`, monitor em `http://localhost:80NN/` — evita colisão com outra sim rodando em paralelo.
 
@@ -80,7 +80,7 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
   .claude/skills/run-hive/analyzers/submit_strategy.py <replay_dir> --json
   .claude/skills/run-hive/analyzers/submit_strategy.py <replay_dir> --check --max-zone-rotations 0
   ```
-- **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/norms.py` (multas vs reward). (`submit_strategy.py` feito: #50/#52.) Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
+- **A fazer conforme a necessidade** (convenção, ainda não criados): `analyzers/navigation.py` (livelock/stuck/oscilação), `analyzers/norms.py` (multas vs reward). Cada track de trabalho pode pedir um analyzer próprio — **crie e melhore-os aqui**.
 
 ## Run (human path) — assistir ao vivo
 
@@ -89,12 +89,12 @@ A verdade está no replay. `analyzers/` começa com a view **geral**; **adicione
 .claude/skills/run-hive/run-hive.sh run --conf conf/OfficialRolesConfig.json --monitor
 ```
 
-Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/score). `--monitor` é só para um humano assistir — qualquer replay também pode ser revisto depois no replay-viewer do monitor. Para rodar **duas sims em paralelo** sem colidir, use `--port P` (isola porta, eismassimconfig, `results/`/`replays/`/`logs/` em `/tmp/hive-run-P/`); sem `--port` é **série** (default 12300 compartilhado).
+Por padrão o driver roda **sem** monitor (headless: a verdade vem do replay/score). `--monitor [PORT]` é só para um humano assistir — qualquer replay também pode ser revisto depois no replay-viewer do monitor. Para rodar **duas sims em paralelo** sem colidir, use `--port P --monitor PORT` (isola porta, eismassimconfig, `results/`/`replays/`/`logs/` em `/tmp/hive-run-P/`; monitor na porta PORT); sem `--port` é **série** (default 12300 compartilhado).
 
 ## Gotchas (cicatrizes reais desta sessão)
 
 - **`run_in_background` + redirect = log vazio.** Se você roda algo em background E redireciona `> arquivo`, o arquivo de output da task fica 0 byte (a saída foi para o seu redirect). O driver evita isso gerenciando os próprios logs; ao chamá-lo, **não** redirecione.
-- **Sem agentes conectados → servidor roda vazio e sai com score 0.** O `gradle run` precisa subir dentro da janela `launch` (25s) da config. O driver pré-aquece `gradle classes` e só lança os agentes **depois** que a porta 12300 abre, justamente para vencer essa corrida.
+- **Sem agentes conectados → servidor roda vazio e sai com score 0.** O `gradle run` precisa subir dentro da janela `launch` (25s) da config. O driver pré-aquece `gradle classes` e só lança os agentes **depois** que a porta configurada (default 12300) abre, justamente para vencer essa corrida.
 - **O log não é confiável; o replay é.** O log dos agentes mistura buffer do gradle + ruído de shutdown (`Socket closed`, `Error receiving json object. Stop receiving.` — isso é o **fim normal**, não crash). Para saber o que aconteceu, **rode o analyzer no replay**.
 - **`gradle run` deixa um daemon Gradle 9.x vivo** (extensão do VSCode) — não confunda com a sim. Identifique a sim por `server-2022-...jar` e `jacamo.infra.JaCaMoLauncher` (o que o `stop` mata).
 - **Java compila mudança de `.java`, mas `.asl` só é exercitado no `gradle run`** (parse em runtime). Erro de parse de `.asl` → agentes não sobem → servidor vazio → score 0.
