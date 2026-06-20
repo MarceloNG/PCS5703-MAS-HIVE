@@ -254,15 +254,43 @@
            !collect_block(BType)
        }.
 
+// --- SUBMIT: guard de pré-rotação — abortar após 3 falhas acumuladas (#47) --------
+// Contador: rotate_pre_submit_fails(TaskName, F) — cumulativo nesta tentativa de submit.
+// Sincronizar o literal 3 com RotationGuard.MAX_CONSECUTIVE_FAILS (src/java/hive/RotationGuard.java).
+// Prioridade: P0 (abort F>=3) > P1 (incrementa em falha) > P2 (rotaciona se F<3).
+// P0: abortar — skip ANTES de finalize para garantir envio ao servidor mesmo se finalize falhar
++step(N)
+    : pending_submit(TaskName) & goalZone(0, 0) & not submitted_task(_)
+      & rotate_pre_submit_fails(TaskName, F) & F >= 3
+    <- .print("[SUBMIT] Step ", N, ": Abort pre-rotacao apos ", F, " falhas acumuladas em ", TaskName, ". Liberando task.");
+       .abolish(rotate_pre_submit_fails(TaskName, _));
+       action("skip");
+       !finalize_task(TaskName).
+
+// P1: detectar falha de rotate e incrementar contador (limite=3, ver RotationGuard.java)
++step(N)
+    : pending_submit(TaskName) & goalZone(0, 0) & not submitted_task(_)
+      & lastAction(rotate) & lastActionResult(failed)
+    <- if (rotate_pre_submit_fails(TaskName, F)) {
+           .abolish(rotate_pre_submit_fails(TaskName, _));
+           NF = F + 1;
+           +rotate_pre_submit_fails(TaskName, NF)
+       } else {
+           +rotate_pre_submit_fails(TaskName, 1)
+       };
+       action("skip").
+
 // --- SUBMIT: pré-rotação ótima antes do submit (Eixo 7a' — estendido para single-block) ---
 // Se o bloco não está alinhado com os requisitos da task, rotaciona com direção ótima
 // ANTES de submeter — sem tentativa-e-erro. RotationsNeeded é chamado por step (lê os
 // percepts `attached` atuais) e recalcula quantas rotações ainda faltam após cada giro.
 // Cai no plano de submit abaixo quando alinhado (RotationsNeeded retorna false).
 // Mesma mecânica do Eixo 7a' (#18) para multi-bloco; aqui estendido para single-block solo.
+// P2: guard ativo — dois braços explícitos para evitar variável F não-vinculada após NAF
 +step(N)
     : pending_submit(TaskName) & goalZone(0, 0) & not submitted_task(_)
       & hive.RotationsNeeded(TaskName, R, Dir)
+      & (not rotate_pre_submit_fails(TaskName, _) | (rotate_pre_submit_fails(TaskName, F) & F < 3))
     <- .print("[SUBMIT] Step ", N, ": Pre-rotacao pre-submit: ", Dir, " (", R, " restantes) p/ ", TaskName, " (Eixo 7a').");
        .concat("rotate(", Dir, ")", Act); action(Act).
 
