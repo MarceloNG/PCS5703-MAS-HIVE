@@ -22,6 +22,10 @@
 // worker via !ensure_worker_role e auto-iniciam coleta solo via SELF-ASSIGN (plano (c)).
 // ============================================================
 
+// ÚNICO PONTO DE ADOÇÃO: para reintroduzir explorer/constructor,
+// trocar para [explorer, worker] (e adicionar arm role(explorer) + defensivo abaixo).
+role_adoption_path([worker]).
+
 // ------------------------------------------------------------
 // Gate config-agnóstico: o role MAPC ATUAL já pode PONTUAR?
 // `can_score_role` é verdadeiro quando o role atual (my_role) tem `submit` no
@@ -39,8 +43,7 @@
 // mostrou que a derivação `+role(R)→my_role` não refletia o worker de forma confiável no gate.
 // worker/constructor SEMPRE pontuam; a 3ª cláusula cobre o DEV (default permissivo) cruzando
 // o role atual (role/1) com o catálogo (role/6) para ver se tem submit.
-// `explorer` é estado intermediário no path default→explorer→worker: NÃO pontua (sem submit)
-// mas está em trânsito → !ensure_worker_role continua gerenciando a transição step-a-step.
+// (#54: path colapsado para default→worker direto — explorer removido do fluxo de adoção.)
 can_score_role :- role(worker).
 can_score_role :- role(constructor).
 can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts).
@@ -137,21 +140,20 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
 +!ensure_worker_role : can_score_role
     <- true.
 
-// explorer sobre a role-zone → segundo passo do path default→explorer→worker
-+!ensure_worker_role : role(explorer) & roleZone(0, 0)
-    <- .print("[ROLE] Explorer sobre role-zone — adopt(worker).");
+// default sobre a role-zone → adotar o próximo role no path (worker hoje — #54)
+// not role(Next): evita re-adoptar o mesmo role em loop se o path for [explorer, worker]
++!ensure_worker_role : roleZone(0, 0) & role_adoption_path([Next|_]) & not role(Next)
+    <- .print("[ROLE] Default sobre role-zone — adopt(", Next, ") direto.");
+       .abolish(has_destination(_, _));
+       .concat("adopt(", Next, ")", Act);
+       action(Act).
+
+// fallback defensivo: role_adoption_path ausente mas agente sobre a role-zone
+// (garante adoção mesmo se o fato for acidentalmente removido)
++!ensure_worker_role : roleZone(0, 0)
+    <- .print("[ROLE] WARN: role_adoption_path ausente — fallback adopt(worker).");
        .abolish(has_destination(_, _));
        action("adopt(worker)").
-
-// explorer fora da role-zone → buscar com speed=3 (herdado de default via merge aditivo)
-+!ensure_worker_role : role(explorer) & my_pos(MX, MY)
-    <- !seek_role_zone(MX, MY).
-
-// default sobre a role-zone → primeiro passo: adopt explorer (speed=3 para chegar ao worker)
-+!ensure_worker_role : roleZone(0, 0)
-    <- .print("[ROLE] Default sobre role-zone — adopt(explorer).");
-       .abolish(has_destination(_, _));
-       action("adopt(explorer)").
 
 // tem posição → buscar a role-zone (lembrada via A*, ou explorar p/ achá-la)
 +!ensure_worker_role : my_pos(MX, MY)
