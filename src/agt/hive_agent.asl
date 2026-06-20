@@ -21,6 +21,7 @@ my_role_type(hive_agent).
 +!start
     <- .my_name(Me);
        .print("[AGENT] ", Me, " iniciado.");
+       hive.AgentNr(Nr); +my_agent_nr(Nr);
        !setup_shared_map;
        !try_set_grid_dims;
        !setup_task_board;

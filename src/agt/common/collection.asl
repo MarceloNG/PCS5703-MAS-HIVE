@@ -127,8 +127,10 @@
 
 // --- Retry dispenser search periodically while exploring ---
 
+// my_agent_nr escalonado: cada agente dispara num slot diferente para evitar
+// tempestade síncrona de 15 chamadas Java no mesmo tick (fix #56).
 +step(N)
-    : searching_dispenser(Type) & my_pos(MX, MY) & (N mod 10) == 0
+    : searching_dispenser(Type) & my_pos(MX, MY) & my_agent_nr(AgNr) & (N mod 10) == (AgNr mod 10)
       & not collecting(_, _, _) & not waiting_request(_, _) & not waiting_attach_result(_, _)
     <- get_nearest_dispenser(MX, MY, Type, DX, DY);
        if (DX \== -1) {
