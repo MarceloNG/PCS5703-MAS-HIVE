@@ -1,8 +1,15 @@
 # HIVE — Backlog
 
-Itens de trabalho futuros, **não priorizados** (a ordem aqui não implica prioridade) — **exceto** a
-tabela em "Prioridades (revisão vs spec, 2026-06-18)" abaixo, fruto do cruzamento com o livro oficial
-do MAPC 2022 e os arquivos de config.
+> **📍 Fonte da verdade.** Este arquivo é a **narrativa, o rationale e os aprendizados** (revisão do
+> livro MAPC, achados de fase, parking lot). **Não é a fonte de status nem de ordem:**
+> - **Status** de uma tarefa (aberta/fechada, DoD) → **a issue** no GitHub (`MarceloNG/PCS5703-MAS-HIVE`).
+> - **Ordem de execução + visão + índice** → **🗺️ issue #24 (o board)**.
+> - **Por quê / abordagem** → [STRATEGY.md](../STRATEGY.md). **Glossário** → [CONCEPTS.md](../CONCEPTS.md).
+>
+> Se este backlog divergir de uma issue (status) ou do #24 (ordem), **eles vencem** — este arquivo é
+> subordinado. As tabelas de prioridade abaixo são *snapshots de rationale datados*, não a ordem viva.
+
+Itens de trabalho com o cruzamento contra o livro oficial do MAPC 2022 e os arquivos de config.
 
 ## Status — o que já landou vs WIP (2026-06-20)
 
@@ -140,7 +147,7 @@ Observações do livro (organizers, cap. "The MAPC 2022"):
 
 | # | Item | Fundamento | DoD |
 |---|------|------------|-----|
-| **1 — ESTRUTURAL** | **Abandonar squad_leader → flat workers.** Remover `squad_leader.asl` e `sentinel.asl` como tipos de agente JaCaMo. Todos os 15 agentes (ou mais) partem de um único tipo capaz de adotar `worker`. MOISE+ mantém roles organizacionais (quem coordena) mas sem bloquear adoção de role MAPC. | Nenhum time competitivo usou squad_leader. O HIVE com squad_leader tem: (a) SELF-ASSIGN sem `can_score_role` → squad_leaders fazem `request` → `failed_role` ×21 no último run; (b) sentinels (A13-A15) nunca podem adotar worker; (c) apenas 9/15 agentes são candidatos a worker. | Todos os 15 agentes no `hive.jcm` incluem `role_adoption.asl`. Zero `failed_role` de agentes squad_leader/sentinel em replay. |
+| **1 — ESTRUTURAL** | ✅ **FEITO (#38, `d0f63a9`).** **Abandonar squad_leader → flat workers.** Removidos `squad_leader.asl`/`sentinel.asl`; todos os 15 agentes partem de `hive_agent.asl`. *(Resíduo: comportamentos squad-era ainda vivos em `hive_agent.asl` → #53.)* MOISE+ mantém roles organizacionais sem bloquear adoção de role MAPC. | Nenhum time competitivo usou squad_leader. O HIVE com squad_leader tem: (a) SELF-ASSIGN sem `can_score_role` → squad_leaders fazem `request` → `failed_role` ×21 no último run; (b) sentinels (A13-A15) nunca podem adotar worker; (c) apenas 9/15 agentes são candidatos a worker. | Todos os 15 agentes no `hive.jcm` incluem `role_adoption.asl`. Zero `failed_role` de agentes squad_leader/sentinel em replay. |
 | **2 — PIPELINE** | **≥1 submit confirmado no oficial** (`OfficialRolesConfig.json`). Engloba sub-itens da Fase C: (a) gate de re-adoção sem adopt-spam; (b) ≥10/15 alcançam role-zone em 300 steps; (c) worker adotado executa `request`/`attach`/`submit`; (d) elo MOISE+ U4 fecha. | Prerequisito de tudo — sem score não há nada para multiplicar. Heading-balanceado testado → delta neutro → fix de navegação (handedness no escape, `failed_path`) ainda necessário para chegar à role-zone. | ≥1 `submit` confirmado no replay com `OfficialRolesConfig.json`. |
 | **3 — MAPA** | **U9 — fusão de mapas cross-agente (mutual sighting).** Quando dois agentes se veem no mesmo step, calcular o offset entre frames e mesclar SharedMaps. | Teto sem U9: single-block solo (um agente coleta e submete sozinho — workers não sabem onde estão dispensers/goal-zones de colegas). Com U9: multi-block coordenado (`connect`) viável → muito mais score. LI(A)RA (Jason, 4th) fez isso como diferencial. `SharedMap.translateCells(dX,dY)` já implementa a álgebra — falta o handshake. | ≥2 agentes fundem mapas após avistamento mútuo em replay. Workers encontram dispensers/goal-zones de colegas via SharedMap fundido. |
 | **4 — OTIMIZAÇÃO** | **Constructor + decisão deliberada de ignorar normas (MMD-style).** Alguns agentes adotam `constructor` (speed=2 vazio, speed=1 com ≤2 blocos) para coverage rápida e multi-block delivery. Normas: eat-the-penalty deliberadamente (não conformidade automática). | MMD venceu com worker+constructor+ignorar normas. Single-block tem "very small compensation". Constructor move rápido vazio → encontra role-zones, dispensers, goal-zones mais rápido. Normas são raras (chance:15) e baratas (multas 1-10 energia) — conformidade pode custar mais que a multa. | Score cresce vs baseline de Priority 2. Constructor adotado e movendo. |

@@ -12,15 +12,34 @@ competição contra a turma. Visão geral completa em [README.md](README.md).
 
 Leia **antes de propor ou implementar** qualquer mudança. Não re-derive o que já está aqui.
 
+- **🗺️ Issue #24 (o BOARD) — comece por aqui.** Visão, estado atual → estado-alvo, as **decisões
+  registradas** e o **índice de todas as issues abertas**. É o ponto de entrada único.
 - **[STRATEGY.md](STRATEGY.md) — a âncora de prioridade.** Problema-alvo, abordagem
   (medir → mudar em isolamento → promover só por evidência), métricas (score/submits) e os
   **tracks** de trabalho. Se uma tarefa não serve a um track, questione antes de fazer.
 - **[CONCEPTS.md](CONCEPTS.md) — o glossário do domínio.** Vocabulário com sentido específico do
   projeto (SharedMap, frame local, livelock, **role do cenário** vs **role organizacional**, etc.).
   Use estes termos com precisão; a confusão entre os dois tipos de "role" é o erro clássico aqui.
-- **[docs/backlog.md](docs/backlog.md) — o que fazer e em que ordem.** Itens de trabalho com a
-  tabela de **Prioridades (revisão vs spec)**, o que já landou vs WIP, o parking lot (gated por
-  evidência) e o sequenciamento (Fase C → medir → fusão de mapas U9).
+- **[docs/backlog.md](docs/backlog.md) — narrativa, rationale e aprendizados.** Revisão do livro
+  MAPC, achados de fase, parking lot (gated por evidência). **Subordinado às issues e ao board**
+  (não é lista de prioridade concorrente — a ordem viva está no #24).
+
+### Fonte da verdade (não há uma fonte p/ tudo — há uma por tipo de fato)
+
+A duplicação de *status* em vários lugares é o que gera contradição. Cada fato tem **um** dono; os
+outros documentos **linkam**, não copiam:
+
+| Tipo de fato | Fonte da verdade |
+|---|---|
+| Visão, estado-alvo, **ordem de execução**, índice | **Issue #24 (board)** — central; quem chega começa aqui |
+| Escopo + **status** (aberta/fechada, DoD) de uma tarefa | **A issue** correspondente (o board linka, não duplica) |
+| Por quê / abordagem / métricas | [STRATEGY.md](STRATEGY.md) |
+| Narrativa / rationale / aprendizados | [docs/backlog.md](docs/backlog.md) (subordinado) |
+| Glossário | [CONCEPTS.md](CONCEPTS.md) |
+
+**Se divergirem:** para *status*, a issue vence; para *ordem/visão*, o board (#24) vence o backlog.
+⚠️ As issues vivem no fork **`MarceloNG/PCS5703-MAS-HIVE`** (sem permissão de escrita no `origin`/
+`THIAGONOMA`); use `gh issue --repo MarceloNG/PCS5703-MAS-HIVE` e os `#NN` dos commits resolvem lá.
 
 Contexto de apoio: `docs/plans/` (planos por feature), `docs/brainstorms/`, `docs/ideation/`,
 `docs/solutions/` (aprendizados passados — consulte antes de re-resolver um problema). A spec
@@ -61,8 +80,10 @@ Driver único parametrizado por config + analyzers de replay. Detalhes e gotchas
 
 ## Mapa do repositório
 
-- `src/agt/` — agentes Jason (`.asl`): `squad_leader`, `collector`, `assembler`, `sentinel`;
-  `src/agt/common/` para planos compartilhados (ex.: `role_adoption.asl`).
+- `src/agt/` — agentes Jason (`.asl`): tipo **único** `hive_agent.asl` (time flat, #38) + `dummy.asl`;
+  `src/agt/common/` para os planos compartilhados (`role_adoption`, `perception`, `navigation`,
+  `connect_protocol`, `collection`, `communication`, `organization`, …). *(Não há mais
+  `squad_leader`/`collector`/`assembler`/`sentinel` — removidos no #38.)*
 - `src/java/hive/` — lógica Java pura testável (internal actions, scoring, A*, frame).
 - `src/env/` — artefatos CArtAgO (SharedMap, TaskBoard, HiveDashboard, conexão eismassim).
 - `src/org/` — organização MOISE+ (`hive_org.xml`).
