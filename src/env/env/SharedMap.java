@@ -15,6 +15,7 @@ public class SharedMap extends Artifact {
     ConcurrentHashMap<String, int[]> occupancy;           // nome -> {x, y, step}
     int occupancyStep = 0;                                // ultimo step reportado (p/ expirar entradas obsoletas)
     private static final int TEAMMATE_PENALTY = 16;
+    private static final int PEER_FRONTIER_PENALTY = 3;    // penalidade aditiva: afasta agentes de fronteiras já ocupadas por colegas
     int gridWidth = 0;
     int gridHeight = 0;
     List<int[]> cachedFrontiers = new ArrayList<>();       // package-private p/ teste
@@ -307,28 +308,39 @@ public class SharedMap extends Artifact {
         int idx = extractAgentIndex(agentName);
         if (idx >= 0) heading = idx % 4;  // 0=N, 1=E, 2=S, 3=W
 
-        int[] r = pickFrontier(agX, agY, heading, true);    // evitando becos
-        if (r == null) r = pickFrontier(agX, agY, heading, false);  // fallback: aceita beco
+        List<int[]> peers = peerPositions(agentName);
+        int[] r = pickFrontier(agX, agY, heading, true, peers);    // evitando becos
+        if (r == null) r = pickFrontier(agX, agY, heading, false, peers);  // fallback: aceita beco
         return r != null ? r : new int[]{agX, agY};
+    }
+
+    // Score peer-aware de fronteira F para agente em (agX,agY): adiciona PEER_FRONTIER_PENALTY
+    // se algum colega fresco está estritamente mais próximo de F — empate não penaliza.
+    int peerAwareScore(int agX, int agY, int fx, int fy, List<int[]> peers) {
+        int base = wrappedManhattan(agX, agY, fx, fy);
+        for (int[] p : peers) {
+            if (wrappedManhattan(p[0], p[1], fx, fy) < base) return base + PEER_FRONTIER_PENALTY;
+        }
+        return base;
     }
 
     // Setor preferencial primeiro; global se o setor vazia. Com avoidCulDeSac, pula
     // fronteiras que o isCulDeSacFrontier marca. Devolve null se nada elegível.
-    private int[] pickFrontier(int agX, int agY, int heading, boolean avoidCulDeSac) {
+    private int[] pickFrontier(int agX, int agY, int heading, boolean avoidCulDeSac, List<int[]> peers) {
         int bestDist = Integer.MAX_VALUE;
         int bx = -1, by = -1;
         if (heading >= 0) {
             for (int[] f : cachedFrontiers) {
                 if (!inPreferredDirection(f[0], f[1], agX, agY, heading)) continue;
                 if (avoidCulDeSac && isCulDeSacFrontier(agX, agY, f[0], f[1])) continue;
-                int dist = wrappedManhattan(f[0], f[1], agX, agY);
+                int dist = peerAwareScore(agX, agY, f[0], f[1], peers);
                 if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
             }
         }
         if (bestDist == Integer.MAX_VALUE) {
             for (int[] f : cachedFrontiers) {
                 if (avoidCulDeSac && isCulDeSacFrontier(agX, agY, f[0], f[1])) continue;
-                int dist = wrappedManhattan(f[0], f[1], agX, agY);
+                int dist = peerAwareScore(agX, agY, f[0], f[1], peers);
                 if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
             }
         }
@@ -472,6 +484,19 @@ public class SharedMap extends Artifact {
             case 3: return fx < agX;   // W
             default: return false;
         }
+    }
+
+    // Retorna posições {x,y} de colegas frescos em occupancy: exclui self e entradas
+    // com step < occupancyStep - 1 (mesmo gate de frescor do A*, linha ~590).
+    List<int[]> peerPositions(String selfName) {
+        List<int[]> result = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : occupancy.entrySet()) {
+            int[] pos = e.getValue();
+            if (e.getKey().equals(selfName)) continue;
+            if (pos[2] < occupancyStep - 1) continue;
+            result.add(new int[]{pos[0], pos[1]});
+        }
+        return result;
     }
 
     @OPERATION

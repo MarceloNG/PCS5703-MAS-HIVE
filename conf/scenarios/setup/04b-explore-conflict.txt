@@ -1,0 +1,22 @@
+# =====================================================================
+# Setup do cenário 04b-explore-conflict (Eixo 4b / issue #28).
+#
+# OBJETIVO: medir divergência de exploração entre agentes com mesmo heading.
+# Pares com heading idêntico (A/B por idx%4):
+#   agentA1 (E) + agentA5 (E): posicionados na metade W, separados em Y
+#   agentA2 (S) + agentA6 (S): posicionados na metade N, separados em X
+#   agentA3 (W) e agentA4 (N): controles — headings únicos, não conflitam
+#
+# Grid 20×20 aberto, sem role-zones, dispensers ou tasks.
+# absolutePosition:true, randomFail:0, randomSeed:17, steps:80.
+#
+# A/B: rodar PRÉ-fix (branch marcelo) e PÓS-fix (branch feat/nav-peer-aware).
+# Comparar max_stuck no replay analysis. Threshold DoD: max_stuck ≤ 5 pós-fix.
+# =====================================================================
+
+move 4 5 agentA1
+move 4 14 agentA5
+move 10 3 agentA2
+move 16 3 agentA6
+move 15 10 agentA3
+move 10 16 agentA4

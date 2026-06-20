@@ -1,0 +1,59 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 80,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 6 },
+      "clusterBounds": [1, 1],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 20,
+        "width": 20,
+        "instructions": [],
+        "goals": { "number": 0, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 0, "size": [1, 1] }
+      },
+      "blockTypes": [1, 1],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 0, "iterations": [0, 0], "maxDuration": [0, 0] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/04b-explore-conflict.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "role_adoption", "min": 0 },
+  "//": "Cenário 04b-explore-conflict (Eixo 4b / issue #28). A/B: mede max_stuck com e sem peer-aware frontier. 6 agentes, grid 20×20 aberto, steps:80, absolutePosition:true, randomFail:0, randomSeed:17. Pares com mesmo heading: A1(E)+A5(E) e A2(S)+A6(S); controles A3(W) e A4(N). assert trivial (min:0) — métrica real é max_stuck via replay analyzer. ATENÇÃO: get_nearest_frontier_biased não está conectado ao ASL atual (Bug0); A/B compara comportamento Bug0 como linha de base; habilitar frontier-based explore e re-rodar para validar o fix Java diretamente. PRÉ-FIX max_stuck: [PENDENTE — rodar em marcelo]. PÓS-FIX max_stuck: [PENDENTE — rodar em feat/nav-peer-aware]. DoD: max_stuck ≤ 5 pós-fix com frontier-based explore ativo.",
+  "//setup": "A1=(4,5) heading E; A5=(4,14) heading E; A2=(10,3) heading S; A6=(16,3) heading S; A3=(15,10) heading W; A4=(10,16) heading N."
+}
