@@ -1,7 +1,7 @@
 ---
 title: "feat: Objetividade do submit — pré-alinhar no dispenser + submit objetivo na zona"
 type: feat
-status: active
+status: completed
 date: 2026-06-20
 issues: [50, 52]
 closes_as_duplicate: [51]
