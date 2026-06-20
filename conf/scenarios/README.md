@@ -27,12 +27,30 @@ Combine com um ou mais limiares: `min`, `max`, `equals`. Métricas disponíveis
 (em [`.claude/skills/run-hive/analyzers/assert_metric.py`](../../.claude/skills/run-hive/analyzers/assert_metric.py)
 — adicione irmãs lá conforme novos cenários precisarem):
 
-| `metric`        | mede                                              | melhor |
-|-----------------|---------------------------------------------------|--------|
-| `role_adoption` | nº de agentes que adotaram `worker` (1º step)     | maior  |
-| `final_workers` | nº de agentes com role final == `worker`          | maior  |
-| `submits_ok`    | total de submits bem-sucedidos do time            | maior  |
-| `max_stuck`     | pior corrida de `failed_path` (proxy de livelock) | menor  |
+| `metric`          | mede                                                      | melhor | params      |
+|-------------------|-----------------------------------------------------------|--------|-------------|
+| `role_adoption`   | nº de agentes que adotaram `worker` (1º step)             | maior  | —           |
+| `final_workers`   | nº de agentes com role final == `worker`                  | maior  | —           |
+| `submits_ok`      | total de submits bem-sucedidos do time                    | maior  | —           |
+| `max_stuck`       | pior corrida de `failed_path` (proxy de livelock)         | menor  | —           |
+| `failed_path_total` | total de eventos `failed_path` no time                  | menor  | —           |
+| `exited_region`   | último step com posição DENTRO da box (prova de escape)   | menor  | `region`    |
+| `entered_region`  | nº de agentes que entraram na box (prova de evitação)     | menor  | `region`    |
+
+As métricas de **posição** (`exited_region`/`entered_region`, issue #27) leem o ground-truth do replay
+(a posição absoluta independe de `absolutePosition`, que afeta só o que o *agente* percebe) e exigem o
+param `region: [x0,y0,x1,y1]` (box inclusiva, coords do servidor).
+
+### `assert` em lista (gate com múltiplas métricas)
+
+O bloco `assert` aceita **uma lista** de checagens — todas precisam passar (exit 0 só se todas PASS):
+
+```json
+"assert": [
+  { "metric": "exited_region", "max": 30, "region": [5, 2, 10, 11] },
+  { "metric": "max_stuck", "max": 5 }
+]
+```
 
 ## Rodar um cenário (com PASS/FAIL)
 

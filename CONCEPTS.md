@@ -28,6 +28,15 @@ Direção preferencial de exploração derivada do nome do agente (índice mod 4
 ### Handedness
 Tiebreak consistente no escape reativo: quando múltiplos candidatos estão empatados na menor distância ao destino, o agente escolhe o primeiro na ordem horária (N → L → S → O), em vez de escolha aleatória. Quebra a simetria do deadlock de corredor frente-a-frente (ambos giram para o mesmo lado → passam), substituindo o jitter aleatório do `pick_escape`.
 
+### Beco sem saída (cul-de-sac / U-shape)
+Região livre cercada por paredes em **3 lados, com uma só boca** (um U). É **distinto** de uma trema `¨` (dois obstáculos isolados) e de uma barra dupla `||` (corredor de **duas** saídas = passagem) — só o enclausuramento de uma boca é beco. Detecção em `SharedMap.isCulDeSacFrontier`: flood-fill das células livres a partir da fronteira candidata **bloqueando o anel-1 do agente** (o gargalo); se a região fecha dentro do orçamento → beco. Limitada pela **visão** (issue #27): só o que o agente VÊ (paredes em `obstacles`, via #15) pode ser classificado; U maior que a visão não é detectável → cai no regime de escape.
+
+### Preso (stuck por confinamento)
+Modo de falha de **exploração** (sem destino de tarefa) em que o agente oscila num ciclo pequeno **sem progredir** — distinto da oscilação ping-pong (que tem destino ativo) e do livelock de aglomeração. É o **ponto cego do `max_stuck`**: oscilar entre células **livres** não gera `failed_path`. Detectado por **bounding-box**: se as posições recentes (janela de 8-10 steps) cabem num quadrado ≤ 3×3 → preso (`SharedMap.isStuck`). Medido no replay pela métrica de posição `exited_region` (não por `failed_path`).
+
+### Escape por abertura (ray-cast)
+Resposta ao "preso" (issue #27 — "não ficar preso, SAIR"): o agente acha a **boca** por ray-casting (a direção cardinal com **mais células livres** até bater parede = a abertura) e mira fundo nela; o A\* (ciente das paredes via #15) roteia para **fora** do beco pela boca. Funciona de **qualquer ângulo de entrada**, pequeno ou grande. Substitui o wall-following literal (regra da mão-direita), que **espirala** em pocket aberto (2-3 células de largura) por não estar colado a uma parede — só funciona em corredor.
+
 ## Organização & Roles
 
 ### Role organizacional (MOISE+)

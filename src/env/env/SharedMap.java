@@ -19,6 +19,9 @@ public class SharedMap extends Artifact {
     int gridHeight = 0;
     List<int[]> cachedFrontiers = new ArrayList<>();       // package-private p/ teste
     private int lastFrontierVisitedSize = -1;
+    final ArrayDeque<int[]> recentPos = new ArrayDeque<>(); // #27: posições recentes (detecção de preso)
+    static final int RECENT_WINDOW = 10;                    // janela p/ medir confinamento
+    static final int STUCK_SPAN = 3;                        // bbox <= 3x3 na janela → preso
 
     void init() {
         cells = new ConcurrentHashMap<>();
@@ -296,31 +299,159 @@ public class SharedMap extends Artifact {
     }
 
     // Núcleo testável: seleciona frontier mais próxima no setor preferencial do agente;
-    // fallback para frontier global quando o setor está vazio.
+    // fallback para frontier global quando o setor está vazio. Issue #27 (Cap A): pula
+    // fronteiras em cul-de-sac (beco visível); se TODAS forem beco, não filtra (evita
+    // ficar sem destino).
     int[] nearestFrontierBiased(int agX, int agY, String agentName) {
         int heading = -1;
         int idx = extractAgentIndex(agentName);
         if (idx >= 0) heading = idx % 4;  // 0=N, 1=E, 2=S, 3=W
 
-        int bestDist = Integer.MAX_VALUE;
-        int bx = agX, by = agY;
+        int[] r = pickFrontier(agX, agY, heading, true);    // evitando becos
+        if (r == null) r = pickFrontier(agX, agY, heading, false);  // fallback: aceita beco
+        return r != null ? r : new int[]{agX, agY};
+    }
 
+    // Setor preferencial primeiro; global se o setor vazia. Com avoidCulDeSac, pula
+    // fronteiras que o isCulDeSacFrontier marca. Devolve null se nada elegível.
+    private int[] pickFrontier(int agX, int agY, int heading, boolean avoidCulDeSac) {
+        int bestDist = Integer.MAX_VALUE;
+        int bx = -1, by = -1;
         if (heading >= 0) {
             for (int[] f : cachedFrontiers) {
                 if (!inPreferredDirection(f[0], f[1], agX, agY, heading)) continue;
+                if (avoidCulDeSac && isCulDeSacFrontier(agX, agY, f[0], f[1])) continue;
                 int dist = wrappedManhattan(f[0], f[1], agX, agY);
                 if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
             }
         }
-
         if (bestDist == Integer.MAX_VALUE) {
             for (int[] f : cachedFrontiers) {
+                if (avoidCulDeSac && isCulDeSacFrontier(agX, agY, f[0], f[1])) continue;
                 int dist = wrappedManhattan(f[0], f[1], agX, agY);
                 if (dist < bestDist) { bestDist = dist; bx = f[0]; by = f[1]; }
             }
         }
+        return bestDist == Integer.MAX_VALUE ? null : new int[]{bx, by};
+    }
 
-        return new int[]{bx, by};
+    // ===== issue #27 (Cap A): detecção de cul-de-sac (beco de UMA boca) =====
+    // Vista do agente, F é cul-de-sac se, expandindo SÓ para o lado OPOSTO a ele
+    // (células não mais próximas do agente que F), a região livre FECHA — cercada por
+    // obstáculos — dentro do orçamento. A "boca" fica ENTRE F e o agente (lado mais
+    // próximo) e por isso não é explorada: corredores (2 saídas) e campo aberto
+    // estouram o orçamento e NÃO são marcados; só o beco real fecha. Reconhece o U de
+    // 3 paredes/1 boca, não a trema (¨) nem a barra dupla (||). Puro → testável (ms).
+    // Conservador: na dúvida (região grande) devolve false (não recusa corredor).
+    static final int CULDESAC_BUDGET = 64;   // ~cabe um beco até a visão; aberto estoura
+
+    boolean isCulDeSacFrontier(int agX, int agY, int fx, int fy) {
+        agX = normX(agX); agY = normY(agY);
+        fx = normX(fx); fy = normY(fy);
+        String fk = fx + "," + fy;
+        if (obstacles.containsKey(fk)) return false;   // F é parede: não conta
+        // Bloqueia obstáculos + o anel-1 ao redor do agente (o gargalo). Se a ÚNICA
+        // saída de F p/ o espaço aberto passa pela vizinhança do agente, a região fecha
+        // dentro do orçamento → beco. Sela a boca mesmo com o agente colado nela (onde o
+        // corte por distância falhava). Vale dos dois lados: evitar (agente fora, anel
+        // sela a boca) e escapar (agente dentro, anel sela o fundo → fronteira p/ a saída
+        // NÃO fecha → é escolhida). Aberto/corredor/2-pontos estouram o orçamento.
+        Set<String> blocked = new HashSet<>(obstacles.keySet());
+        int[][] ring = {{0,0},{0,-1},{0,1},{-1,0},{1,0},{-1,-1},{-1,1},{1,-1},{1,1}};
+        for (int[] r : ring) {
+            String k = normX(agX + r[0]) + "," + normY(agY + r[1]);
+            if (!k.equals(fk)) blocked.add(k);
+        }
+        int[][] dirs = {{0,-1},{0,1},{-1,0},{1,0}};
+        Deque<int[]> stack = new ArrayDeque<>();
+        Set<String> seen = new HashSet<>();
+        stack.push(new int[]{fx, fy});
+        seen.add(fk);
+        while (!stack.isEmpty()) {
+            if (seen.size() > CULDESAC_BUDGET) return false;      // região grande → aberto
+            int[] c = stack.pop();
+            for (int[] d : dirs) {
+                int nx = normX(c[0] + d[0]);
+                int ny = normY(c[1] + d[1]);
+                String nk = nx + "," + ny;
+                if (seen.contains(nk) || blocked.contains(nk)) continue;
+                seen.add(nk);
+                stack.push(new int[]{nx, ny});
+            }
+        }
+        return true;   // fechou dentro do orçamento → beco
+    }
+
+    // @OPERATION fino p/ o .asl (KTD8, meia-volta antecipada): expõe a detecção sobre a
+    // célula-destino atual. 1 = é beco (deve dar meia-volta), 0 = segue.
+    @OPERATION
+    void is_cul_de_sac(Object oagX, Object oagY, Object otx, Object oty,
+                       OpFeedbackParam<Integer> res) {
+        res.set(isCulDeSacFrontier(toInt(oagX), toInt(oagY), toInt(otx), toInt(oty)) ? 1 : 0);
+    }
+
+    // ===== issue #27 (Cap B): "não ficar preso, SAIR" — escape por A*-para-longe =====
+    // Detecta preso por POSIÇÃO (oscilação num ciclo pequeno) — gatilho fácil e robusto,
+    // ao contrário de detectar "isto é um beco?" (chokepoint, difícil). Quando preso, o
+    // agente mira uma fronteira LONGE e não-beco; o A* (ciente das paredes via #15) roteia
+    // para FORA do pocket pela boca e embora — sai de qualquer ângulo, pequeno ou grande.
+
+    @OPERATION
+    void note_recent_pos(Object ox, Object oy) {
+        recentPos.addLast(new int[]{normX(toInt(ox)), normY(toInt(oy))});
+        while (recentPos.size() > RECENT_WINDOW) recentPos.removeFirst();
+    }
+
+    @OPERATION
+    void is_stuck(OpFeedbackParam<Integer> res) {
+        res.set(isStuck() ? 1 : 0);
+    }
+
+    // Preso = CONFINADO a uma bounding-box pequena na janela recente (o agente oscila
+    // num cantinho, mesmo visitando >4 células distintas no ciclo). Mais robusto que
+    // contar distintas — pega ciclos de 6-8 células num quadrado 3x3.
+    boolean isStuck() {
+        if (recentPos.size() < RECENT_WINDOW) return false;
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+        for (int[] p : recentPos) {
+            minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+            minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+        }
+        return (maxX - minX) <= STUCK_SPAN && (maxY - minY) <= STUCK_SPAN;
+    }
+
+    // Alvo de escape por RAY-CASTING: a direção cardinal com MAIS células livres até
+    // bater parede é a abertura (boca) do pocket. Mira fundo nela; o A* (ciente das
+    // paredes) roteia p/ fora. Robusto p/ U axis-aligned, não depende de existir
+    // fronteira distante (o agente preso não explorou p/ fora).
+    static final int ESCAPE_RAY = 10;     // alcance do raio
+    static final int ESCAPE_REACH = 8;    // quão fundo mirar na abertura
+
+    @OPERATION
+    void get_escape_target(Object oagX, Object oagY,
+                           OpFeedbackParam<Integer> resX, OpFeedbackParam<Integer> resY) {
+        int[] r = escapeTarget(normX(toInt(oagX)), normY(toInt(oagY)));
+        resX.set(r[0]);
+        resY.set(r[1]);
+    }
+
+    int[] escapeTarget(int agX, int agY) {
+        int[][] dirs = {{0,-1},{0,1},{-1,0},{1,0}};   // N,S,O,L
+        int bestDir = -1, bestFree = -1;
+        for (int d = 0; d < 4; d++) {
+            int free = 0;
+            for (int s = 1; s <= ESCAPE_RAY; s++) {
+                int nx = normX(agX + dirs[d][0] * s);
+                int ny = normY(agY + dirs[d][1] * s);
+                if (obstacles.containsKey(nx + "," + ny)) break;
+                free++;
+            }
+            if (free > bestFree) { bestFree = free; bestDir = d; }
+        }
+        if (bestDir < 0) return new int[]{agX, agY};
+        return new int[]{ normX(agX + dirs[bestDir][0] * ESCAPE_REACH),
+                          normY(agY + dirs[bestDir][1] * ESCAPE_REACH) };
     }
 
     // Extrai o sufixo numérico do nome do agente (ex: "connectionA7" → 7; sem dígitos → -1).

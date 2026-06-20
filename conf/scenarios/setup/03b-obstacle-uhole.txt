@@ -1,0 +1,50 @@
+# =====================================================================
+# Setup do cenário 03b-obstacle-uhole (issue #27 — Cap B: ESCAPAR do U).
+#
+# OBJETIVO: o agente está DENTRO de um U de 3 paredes (boca ao sul), mais
+# fundo que a visão=5, e deve SAIR sem oscilar (wall-following horário se o
+# A* sozinho não bastar). Mede exited_region <= 30 E max_stuck <= 5.
+#
+# Layout (coordenadas absolutas do servidor; absolutePosition:true):
+#   Parede N: y=2,  x=5..10
+#   Parede O: x=5,  y=2..10
+#   Parede L: x=10, y=2..10
+#   Boca sul: aberta em x=6..9 (sem terreno em y>=11)
+#   Interior: x=6..9, y=3..10   |   Agente em (7,4)
+#
+# Do spawn (7,4), visão=5 alcança y<=9 — o agente NÃO vê a boca (y=11):
+# tem de descobrir a saída ao sul. Box de escape: [5,2,10,11]; sai p/ y>=12.
+#
+# grid 16x16: células (0..15, 0..15). absolutePosition:true → sem drift.
+# =====================================================================
+
+# Parede norte (topo do U)
+terrain 5 2 obstacle
+terrain 6 2 obstacle
+terrain 7 2 obstacle
+terrain 8 2 obstacle
+terrain 9 2 obstacle
+terrain 10 2 obstacle
+
+# Parede oeste
+terrain 5 3 obstacle
+terrain 5 4 obstacle
+terrain 5 5 obstacle
+terrain 5 6 obstacle
+terrain 5 7 obstacle
+terrain 5 8 obstacle
+terrain 5 9 obstacle
+terrain 5 10 obstacle
+
+# Parede leste
+terrain 10 3 obstacle
+terrain 10 4 obstacle
+terrain 10 5 obstacle
+terrain 10 6 obstacle
+terrain 10 7 obstacle
+terrain 10 8 obstacle
+terrain 10 9 obstacle
+terrain 10 10 obstacle
+
+# Agente dentro do U, perto do fundo
+move 7 4 agentA1

@@ -438,7 +438,31 @@ re-derivar. **Não são trabalho pronto:** quase todas são alavanca *indireta* 
 movimento, não em submit) e os próprios docs as condicionam a evidência. Promover **só** se o
 "experimento de alavanca" (acima) mostrar que vale. (Confiança das ideias na ideação: 60–82%.)
 
-- **Navegação — wall-follower horário como fallback de `failed_path` (ideia do dono, 2026-06-18).** Quando o A* não consegue calcular rota (`failed_path`), o agente está "cego" — só aprende obstáculos por colisão. Ideia: ao invés de um passo de escape isolado, engajar um **wall-follower clockwise (regra da mão direita)** persistente até o A* voltar a enxergar o destino. É puramente local/reativo, sem infra nova — mas precisa do **GPS** para a condição de parada (saber quando contornou o suficiente e o destino está no campo de visão). **Gated pelo GPS.** Observado em run com HeadingValidationConfig (grade aberta) e OfficialRolesConfig: agentes entram em "buracos" de obstáculos sem conseguir sair; o escape reativo atual faz um passo lateral e o A* os manda de volta ao obstáculo → oscilação. O heading-bias (U2, 2026-06-18) não resolve isso — é o mesmo `failed_path` de 40-60% visto no monitor.
+- **✅ LANDOU (issue #27, 2026-06-19) — sair de beco (U-shape) "não ficar preso, SAIR".** Promoção
+  do ex-parking-lot "wall-follower horário". **Achados que reformataram a ideia (medir → mudar por
+  evidência):**
+  - **O gate do GPS dissolveu com o #15.** A ideia original era gateada "pelo GPS" (condição de parada).
+    Mas o #15 (paredes percebidas → `obstacles`, confirmado por diagnóstico: obst=9-11) deu a condição
+    de parada de graça — o A\* já roteia para fora quando há rota limpa.
+  - **O wall-follower LITERAL (mão-direita) NÃO serve aqui:** **espirala** em pocket aberto (interior
+    2-3 células) por não estar colado a uma parede — é algoritmo de corredor/labirinto. Provado por
+    teste (girava no interior sem achar a boca).
+  - **O `max_stuck` tem ponto cego:** o agente preso oscila entre células **livres** → zero `failed_path`
+    → `max_stuck=0` enquanto está preso. Resolvido com **métricas de posição** (`exited_region`/
+    `entered_region`, leem o ground-truth do replay) — ver `assert_metric.py`.
+  - **Detecção de cul-de-sac robusta de todo ângulo = chokepoint/min-cut, difícil** (3 heurísticas
+    testadas; cada uma vaza em algum ângulo). O dono **reframou**: o requisito é "**não ficar preso,
+    sair**" (gatilho fácil: "estou preso?" por posição) e não "isto é um beco?" (difícil).
+  - **Solução entregue:** detecção de **preso por bounding-box** (`isStuck`: posições recentes num
+    quadrado ≤3×3) → **escape por ray-cast da abertura** (`get_escape_target`: a direção cardinal mais
+    aberta = a boca) → A\* roteia para fora. Funciona de qualquer ângulo, pequeno ou grande, limitado
+    pela visão. **Bônus:** filtro de cul-de-sac na seleção de fronteira (`isCulDeSacFrontier`, anel do
+    agente) reduz a entrada (não robusto de todo ângulo — o escape é a garantia).
+  - **Cercado por cenários (PASS):** `03b-obstacle-uhole` (começa dentro, sai), `03c-obstacle-uavoid`
+    (entra e escapa, qualquer ângulo). Plano: [`2026-06-19-008-...`](plans/2026-06-19-008-feat-ushape-avoid-escape-plan.md).
+  - **Resíduo p/ competição (não isolável barato):** o `failed_path` 40-60% no oficial 70×70 é o
+    **greedy-fallback** do A\* (`astar` cai em `greedy()` cego quando `mDist>60`) + contenção
+    multi-agente — fenômeno emergente, não o U isolado de 1 agente. Esse é o próximo alvo de navegação.
 - **Navegação — resíduos do livelock.** #7 custo de congestão/anti-aglomeração no A*; #8 ceder por
   prioridade determinística + jitter; #5 / B8 reserva de célula/footprint (pathfinding cooperativo);
   B1a-em-A* / B1b (o A* hoje penaliza só a célula central — footprint próprio só no escape; footprint

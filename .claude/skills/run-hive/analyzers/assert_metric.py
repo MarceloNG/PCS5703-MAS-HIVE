@@ -40,34 +40,76 @@ from replay_analyze import (  # noqa: E402
 # replay_analyze.analyze) e devolve (valor:number, detalhe:str).
 # ---------------------------------------------------------------------------
 
-def m_role_adoption(results):
+# Métricas plugáveis: assinatura (results, spec) — `spec` carrega params opcionais
+# (ex.: `region` para as métricas de posição). As que não usam params ignoram `spec`.
+
+def m_role_adoption(results, spec=None):
     """Quantos dos N agentes chegaram a adotar `worker` (1º step como worker)."""
     adopted = [n for n, d in results.items() if d.get("worker_first_step") is not None]
     return len(adopted), f"{len(adopted)}/{len(results)} adotaram worker"
 
 
-def m_final_workers(results):
+def m_final_workers(results, spec=None):
     """Quantos agentes terminaram a sim com role final == worker."""
     fin = [n for n, d in results.items() if d.get("final_role") == "worker"]
     return len(fin), f"{len(fin)}/{len(results)} terminaram como worker"
 
 
-def m_submits_ok(results):
+def m_submits_ok(results, spec=None):
     """Total de submits bem-sucedidos no time (capacidade de entrega)."""
     total = sum(d.get("submits_ok", 0) for d in results.values())
     return total, f"{total} submits OK no time"
 
 
-def m_max_stuck(results):
+def m_max_stuck(results, spec=None):
     """Maior corrida de failed_path entre os agentes (proxy de livelock — MENOR é melhor)."""
     worst = max((d.get("max_stuck_run", 0) for d in results.values()), default=0)
     return worst, f"pior corrida de failed_path = {worst} steps"
 
 
-def m_failed_path_total(results):
+def m_failed_path_total(results, spec=None):
     """Total de eventos failed_path no time (MENOR é melhor — issue #15)."""
     total = sum(d.get("results", {}).get("failed_path", 0) for d in results.values())
     return total, f"{total} failed_path total no time"
+
+
+# --- Métricas de POSIÇÃO (issue #27). Leem o ground-truth do replay (a posição
+# absoluta independe de absolutePosition, que afeta só o que o AGENTE percebe).
+# Precisam de spec["region"]=[x0,y0,x1,y1] (box inclusiva, coords do servidor).
+
+def _region_box(spec):
+    box = (spec or {}).get("region")
+    if not box or len(box) != 4:
+        raise SystemExit("ERRO: métrica de região precisa de spec['region']=[x0,y0,x1,y1].")
+    return box
+
+
+def _inside(x, y, box):
+    x0, y0, x1, y1 = box
+    return x0 <= x <= x1 and y0 <= y <= y1
+
+
+def m_exited_region(results, spec=None):
+    """Maior, entre os agentes, do ÚLTIMO step com posição DENTRO da box (MENOR é melhor).
+    Prova de escape (#27): o agente saiu da região e ficou fora até esse step."""
+    box = _region_box(spec)
+    worst = 0
+    for d in results.values():
+        last_in = 0
+        for r in d.get("rows", []):
+            if _inside(r[1], r[2], box):
+                last_in = r[0]
+        worst = max(worst, last_in)
+    return worst, f"último step dentro de {box} = {worst}"
+
+
+def m_entered_region(results, spec=None):
+    """Nº de agentes que em ALGUM step estiveram dentro da box (MENOR é melhor).
+    Prova de evitação (#27): 0 = nenhum agente entrou no beco visível."""
+    box = _region_box(spec)
+    n = sum(1 for d in results.values()
+            if any(_inside(r[1], r[2], box) for r in d.get("rows", [])))
+    return n, f"{n} agente(s) entraram em {box}"
 
 
 METRICS = {
@@ -76,18 +118,20 @@ METRICS = {
     "submits_ok": m_submits_ok,
     "max_stuck": m_max_stuck,
     "failed_path_total": m_failed_path_total,
+    "exited_region": m_exited_region,
+    "entered_region": m_entered_region,
 }
 
 
-def evaluate(spec, results):
-    """Aplica a spec (`metric` + `min`/`max`/`equals`) à medição. Devolve dict do veredito."""
+def evaluate_one(spec, results):
+    """Uma checagem: `metric` + `min`/`max`/`equals` (+ params como `region`)."""
     metric = spec.get("metric")
     fn = METRICS.get(metric)
     if fn is None:
         raise SystemExit(
             f"ERRO: métrica desconhecida '{metric}'. Conhecidas: {', '.join(sorted(METRICS))}"
         )
-    value, detail = fn(results)
+    value, detail = fn(results, spec)
 
     checks = []
     if "min" in spec:
@@ -107,6 +151,22 @@ def evaluate(spec, results):
         "checks": [{"ok": ok, "desc": desc} for ok, desc in checks],
         "pass": passed,
     }
+
+
+def evaluate(spec, results):
+    """`spec` pode ser um objeto único OU uma LISTA de checagens (todas precisam passar)."""
+    if isinstance(spec, list):
+        subs = [evaluate_one(s, results) for s in spec]
+        return {
+            "metric": " + ".join(s["metric"] for s in subs),
+            "value": [s["value"] for s in subs],
+            "detail": " | ".join(s["detail"] for s in subs),
+            "checks": [{"ok": c["ok"], "desc": f"{s['metric']}: {c['desc']}"}
+                       for s in subs for c in s["checks"]],
+            "pass": all(s["pass"] for s in subs),
+            "subs": subs,
+        }
+    return evaluate_one(spec, results)
 
 
 def load_spec(args):

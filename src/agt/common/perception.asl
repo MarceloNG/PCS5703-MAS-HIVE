@@ -107,6 +107,7 @@ dr_pos(0, 0).
 
 +!try_update_pos(Me, X, Y)
     <- update_agent_pos(Me, X, Y);
+       note_recent_pos(X, Y);                       // #27: histórico p/ detecção de preso
        if (step(S)) { update_occupancy(Me, X, Y, S) }
        else { update_occupancy(Me, X, Y, 0) }.
 -!try_update_pos(_, _, _) <- true.

@@ -1,0 +1,44 @@
+# =====================================================================
+# Setup do cenário 03c-obstacle-uavoid (issue #27 — Cap A: NÃO ENTRAR).
+#
+# OBJETIVO (discriminante): U pequeno com boca a OESTE, fundo a LESTE, INTEIRO
+# dentro do diamante de visão (Manhattan<=5) do agente em (5,5), que tem viés
+# de heading LESTE (agentA1 idx 1). O agente naive segue o viés e ENTRA
+# (baseline FAIL: entered_region>=1). COM a Cap A (U4) ele vê as 3 paredes +
+# 1 boca, reconhece o cul-de-sac e NÃO entra (entered_region==0).
+#
+# IMPORTANTE: a visão do MAPC é DIAMANTE (Manhattan<=vision), não Chebyshev.
+# Por isso o fundo precisa caber em Manhattan<=5: do (5,5), o fundo x=9 em
+# (9,4)=5,(9,5)=4,(9,6)=5 — todos visíveis. Um U mais fundo (fundo invisível)
+# cairia no regime de ESCAPE (Cap B), não de evitação.
+#
+# Layout (coordenadas absolutas do servidor; absolutePosition:true):
+#   Parede N: y=3, x=6..9
+#   Parede S: y=7, x=6..9
+#   Parede L (fundo): x=9, y=4..6
+#   Boca oeste: aberta em x=6, y=4..6
+#   Interior (box a evitar): x=7..8, y=4..6
+#   Agente em (5,5) — 1 célula a oeste da boca; vê o U inteiro no step 1
+#
+# grid 16x16: células (0..15, 0..15). absolutePosition:true → sem drift.
+# =====================================================================
+
+# Parede norte (topo do U)
+terrain 6 3 obstacle
+terrain 7 3 obstacle
+terrain 8 3 obstacle
+terrain 9 3 obstacle
+
+# Parede sul (base do U)
+terrain 6 7 obstacle
+terrain 7 7 obstacle
+terrain 8 7 obstacle
+terrain 9 7 obstacle
+
+# Parede leste (fundo do beco)
+terrain 9 4 obstacle
+terrain 9 5 obstacle
+terrain 9 6 obstacle
+
+# Agente FORA do U, a oeste da boca, com viés de heading leste
+move 5 5 agentA1

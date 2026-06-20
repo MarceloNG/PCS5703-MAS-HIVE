@@ -99,13 +99,25 @@
            .print("[NAV] Step ", N, ": nav to goal zone (", DX, ",", DY, ") for submit ", TN, " from (", MX, ",", MY, ")")
        }.
 
+// Issue #27 (Cap A+B unificada): a CADA step re-avalia se o destino virou um
+// cul-de-sac visível (paredes agora percebidas). Se sim, abandona e re-explora —
+// o filtro de frontier então escolhe uma fronteira ABERTA. Dentro de um beco o
+// agente já viu as paredes → o destino interior classifica como beco → ele
+// busca a saída (meia-volta p/ evitar entrar; rota p/ fora se já entrou).
 +step(N)
     : has_destination(DX, DY) & my_pos(MX, MY)
-    <- compute_next_move(MX, MY, DX, DY, Dir);
-       .abolish(last_attempted_dir(_));
-       +last_attempted_dir(Dir);
-       .concat("move(", Dir, ")", Act);
-       action(Act).
+    <- is_cul_de_sac(MX, MY, DX, DY, IsBeco);
+       if (IsBeco == 1) {
+           .abolish(has_destination(_, _));
+           .print("[NAV] Step ", N, ": destino (", DX, ",", DY, ") é cul-de-sac visível — meia-volta, re-explora");
+           !do_explore(MX, MY)
+       } else {
+           compute_next_move(MX, MY, DX, DY, Dir);
+           .abolish(last_attempted_dir(_));
+           +last_attempted_dir(Dir);
+           .concat("move(", Dir, ")", Act);
+           action(Act)
+       }.
 
 // --- Exploracao (sem destino) ---
 
@@ -130,7 +142,15 @@
 
 +!do_explore(MX, MY)
     <- .my_name(Me);
-       get_nearest_frontier_biased(MX, MY, Me, FX, FY);
+       is_stuck(Stuck);
+       if (Stuck == 1) {
+           // #27: preso (oscilando) → acha a ABERTURA (ray-cast) e mira fundo nela; o A*
+           // roteia p/ fora do pocket pela boca
+           get_escape_target(MX, MY, FX, FY);
+           .print("[NAV] PRESO em (", MX, ",", MY, ") — escape p/ abertura (", FX, ",", FY, ")")
+       } else {
+           get_nearest_frontier_biased(MX, MY, Me, FX, FY)
+       };
        if (FX == MX & FY == MY) {
            if (last_attempted_dir(PrevDir)) {
                if (PrevDir == n) { Dir = e }

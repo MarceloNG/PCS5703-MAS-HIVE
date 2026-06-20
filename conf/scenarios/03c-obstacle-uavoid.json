@@ -1,0 +1,62 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 40,
+      "randomSeed": 17,
+      "randomFail": 0,
+      "entities": { "standard": 1 },
+      "clusterBounds": [1, 1],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 16,
+        "width": 16,
+        "instructions": [],
+        "goals": { "number": 0, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 0, "size": [1, 1] }
+      },
+      "blockTypes": [1, 1],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 0, "iterations": [0, 0], "maxDuration": [0, 0] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/03c-obstacle-uavoid.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": [
+    { "metric": "exited_region", "max": 28, "region": [7, 4, 8, 6] },
+    { "metric": "max_stuck", "max": 5 }
+  ],
+  "//": "Cenário 03c-obstacle-uavoid (issue #27 — Cap B: NÃO FICAR PRESO, SAIR). U raso com boca a OESTE, fundo a LESTE, INTEIRO no diamante de visão (Manhattan<=5) do agente em (5,5), viés de heading LESTE → o agente ENTRA no beco (qualquer ângulo). O requisito (reframe do dono): NÃO ficar preso — tem que SAIR. Detecção de preso por posição (oscilação) + escape por A*-para-longe (mira fronteira não-beco distante; o A*, ciente das paredes via #15, roteia p/ fora pela boca). Métrica: exited_region (último step DENTRO do interior [7,4,8,6]) <= 28 E max_stuck <= 5. O filtro de cul-de-sac (bônus) reduz a entrada; o escape é a garantia. absolutePosition:true, seed 17, randomFail:0.",
+  "//setup": "Paredes (terreno): N=y3 x6..9; S=y7 x6..9; L=x9 y4..6 (fundo); boca oeste aberta x6 y4..6. Interior x7..8 y4..6 (box a evitar). Agente em (5,5), 1 célula a oeste da boca, vê o U inteiro (Manhattan<=5) no step 1."
+}
