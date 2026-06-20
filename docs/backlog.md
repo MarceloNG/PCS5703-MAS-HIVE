@@ -40,22 +40,36 @@ do MAPC 2022 e os arquivos de config.
   IsolationRolesConfig 300 steps: `[STUCK] Detach ABORT` 2× confirmado (exatamente 4 failed_target
   de detach vs 107 antes). Score $20 (2 submits). Revelou 2 novos bugs: #50 e #51.
 
+**✅ #50 + #52 — Objetividade do submit + direção do NORM detach (commit `81ca995`, 2026-06-20).**
+  #52: loop cego `rotate(cw)×4` substituído por decisão objetiva (R3 finaliza quando `AllReqsSatisfied`,
+  R4 re-entra rotação bounded quando desalinhado — `connect_protocol.asl:99-212`). #50: direção do detach
+  derivada de `attached(AX,AY)`. Issues fechadas no tracker.
+
 **⚠️ Regressões em aberto (frente:pontuar):**
-- **#50 — NORM detach com direção errada:** handler de norma usa `detach(w)` hardcoded quando bloco
-  está a leste → `failed_target` × 62 (agentA12, run #48). Direção deve ser derivada de `attached(AX,AY)`.
 - **#51 — NORM handler dispara antes do submit:** `+step(N)` de norma precede o de submit; agente
-  em goal zone com `pending_submit` tenta detach (falha) em vez de submeter.
-- **#52 — Loop de rotação pós-submit não detecta posição correta:** após `failed` no submit, código
-  rotaciona cw × 4 (= identidade: bloco volta ao mesmo lugar). Se `att(X,Y)` já bate `treq(X,Y,T)`,
-  o problema NÃO é rotação — deve pular o loop e tratar como "goal zone errada" ou "task expirada".
+  em goal zone com `pending_submit` tenta detach (falha) em vez de submeter. **Confirmado ainda aberto
+  (2026-06-20):** o handler de detach-norma (`perception.asl:308`) só tem `not solo_mode`, sem guard
+  `not pending_submit`.
 
-**🚧 Gaps de navegação em aberto (frente:mover-mapear):**
-- **#49 — Navegação robusta (Eixo N):** SharedMap vazio → A* falha → agentes em skip 257-282/300 steps.
-  Exploração não dirigida → 6/15 alcançam role-zone no oficial. Sub-itens: N1 (fallback A*), N2 (setor de exploração), N3 (approach com clearance).
+**🏗️ Achado arquitetural (2026-06-20, 360 vs visão-alvo do dono) — DOIS REGIMES sobrepostos:**
+O #38 achatou os *tipos* de agente mas deixou os *comportamentos* da era-squad vivos em `hive_agent.asl`.
+Convivem o **regime novo** (#40: select_task por valor → solo) e o **regime velho fantasma** (coleta
+oportunista `new_dispenser:71`, meeting-point `:89-105`, `soloist_task:109` órfã sem emissor). O regime
+velho é a **causa-raiz** dos espirais STUCK→detach→rotação-thrash (agente coleta na exploração, fica
+híbrido sem `solo_mode`, cai nos guards reativos). Issues novas:
+- **#53 — Desligar o regime squad-era** (remove as rotinas fantasma; dissolve a classe de bug; deve
+  consertar `06c-single-collect` FAIL sem novo guard).
+- **#54 — Colapsar para papel único `default→worker`** (dropar escada `explorer`, mantendo arquitetura
+  extensível p/ reintroduzir explorer/constructor depois — decisão do dono).
+- **#49 — diagnóstico do N1 CORRIGIDO:** o A* **não** trata desconhecido como obstáculo (é otimista,
+  `SharedMap.java:583`); `failed_path` vem do cliff `mDist>60→greedy()` cego + contenção, e o skip-loop
+  é majoritariamente o regime squad-era (#53), não o A*. N2 (exploração por setor) é a "fase de
+  exploração espalhada" da visão-alvo.
 
-**Próximo:** #50 (NORM dir errada) + #52 (submit ignora posição já correta) → #51 (NORM prioridade) →
-#49 N1 (fallback A*) → #49 N2 (exploração por setor) → ≥10/15 role-zone no oficial → #32 (capstone) →
-U9 (mapa merge).
+**Próximo (revisado 2026-06-20):** #53 (desligar squad-era) → #54 (papel único) → re-medir
+`06c-single-collect` + regressão → #49 N2 (exploração por setor) + #28 (frontier peer-aware) →
+≥10/15 role-zone no oficial → #32 (capstone) → #17 U9 (mapa merge). #51 encaixa junto do #53 (ambos
+mexem na borda NORM/submit). #49 N1 (greedy ciente) depende de #53 primeiro.
 
 > **Decisão do dono (2026-06-19, via revisão da espinha #30):** a U9 **não é mais "pós-entrega"** — é
 > **escopo comprometido** da frente Mover & Mapear (issue #17), a ser **entregue antes do delivery** e
@@ -71,10 +85,12 @@ Lista única de issues por prioridade de execução, derivada do diagnóstico do
 |---|-------|-----------|---------------------------|-----|
 | ~~**P0**~~ | ~~**#47** — Loop pré-rotação~~ | ~~fix · frente:pontuar~~ | ✅ landed `4b50e15` | ✅ |
 | ~~**P0**~~ | ~~**#48** — Loop detach no STUCK recovery~~ | ~~fix · frente:mover-mapear~~ | ✅ landed `192b014` | ✅ |
-| **P0** | **#50** — NORM detach direção errada (`w` vs leste) | fix · frente:pontuar | agentA12: 62 failed_target de detach no run #48. Dir hardcoded `w`; bloco estava a leste. | `failed_target:detach(norm) < 5/agente` |
-| **P0** | **#52** — Loop rotação pós-submit ignora posição já correta | fix · frente:pontuar | `att(0,1)` bate `treq(0,1,b1)` → submit falha → gira cw×4 = identidade → falha de novo × loop. Evidência: 34/36 submits falharam. Diagnóstico: verificar se `att` já bate `treq` antes de girar. | rotação só quando `att≠treq`; submit sucede quando já alinhado |
-| **P1** | **#51** — NORM handler prioridade: bloqueia submit na goal zone | fix · frente:pontuar | `+step(N)` de norma precede submit; agente com `pending_submit + goalZone` faz detach em vez de submeter. Agrava #50 (detach falha e consume step). | sem norma-detach quando `pending_submit & goalZone(0,0)` |
-| **P1** | **#49 N1** — Fallback A* quando mapa vazio | feat · frente:mover-mapear | A1/A4/A11/A12: 257-282 skips com bloco em mãos. SharedMap vazio → skip-loop. | `skip < 50/300` para agentes com bloco |
+| ~~**P0**~~ | ~~**#50** — NORM detach direção errada~~ | ~~fix · frente:pontuar~~ | ✅ landed `81ca995` | ✅ |
+| ~~**P0**~~ | ~~**#52** — Loop rotação pós-submit ignora posição já correta~~ | ~~fix · frente:pontuar~~ | ✅ landed `81ca995` (R3/R4 objetivo) | ✅ |
+| **P0** | **#53** — Desligar regime squad-era (rotinas fantasma) | refactor · frente:pontuar | Dois regimes sobrepostos em `hive_agent.asl`; o velho (`new_dispenser:71`, meeting-point, `soloist_task` órfã) é causa-raiz dos espirais STUCK→detach→thrash + do FAIL `06c-single-collect`. | `06c-single-collect` PASS sem novo guard; regressão toda verde |
+| **P1** | **#54** — Papel único `default→worker` (extensível) | refactor · frente:pontuar | Escada `explorer` intermediária sem ganho comprovado; colapsar p/ 1 degrau mantendo extensível p/ reintroduzir depois (dono). | zero `adopt(explorer)` no replay; adoção não regride |
+| **P1** | **#51** — NORM handler prioridade: bloqueia submit na goal zone | fix · frente:pontuar | `+step(N)` de norma precede submit; `perception.asl:308` sem guard `not pending_submit`. Encaixa junto do #53 (borda NORM/submit). | sem norma-detach quando `pending_submit & goalZone(0,0)` |
+| **P2** | **#49 N1** — Greedy ciente de obstáculo (cliff mDist>60) | feat · frente:mover-mapear | Diagnóstico corrigido: A* é otimista (`SharedMap.java:583`); `failed_path` vem do greedy cego do cliff + contenção; skip-loop é majoritariamente regime velho. Depende de #53. | `skip < 50/300` p/ agentes com bloco após #53 |
 | **P1** | **#49 N2** — Exploração dirigida por setor | feat · frente:mover-mapear | 6/15 alcançam role-zone no oficial. Exploração aleatória não cobre o grid a tempo. | ≥10/15 adotam worker no OfficialRolesConfig |
 | **P2** | **#32** — Eixo M: capstone navegação oficial | validação · frente:mover-mapear | Capstone que integra #47+#48+#49 na escala real (70×70, 15 ag). | ≥10/15 role-zone + `failed_path < 20%` |
 | **P3** | **#17** — U9 fusão de mapas (map-merge) | feat · frente:mover-mapear | Com mapa fundido: dispensers/goal-zones compartilhados → menos re-exploração; habilita multi-bloco. | ≥2 agentes fundem mapas no replay oficial |
