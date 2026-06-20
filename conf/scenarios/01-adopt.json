@@ -54,6 +54,6 @@
     "A": { "prefix": "agent", "password": "1" }
   },
   "assert": { "metric": "role_adoption", "min": 10 },
-  "//": "Cenario 01-adopt (Eixo 1 / issue #12). ISOLA a adocao de role: grid 15x15 VAZIO (sem obstaculo -> tira navegacao da equacao), randomFail:0 + seed fixa (determinismo), eventos/normas OFF, absolutePosition:true (sem drift de dead-reckoning), 60 steps. ROLE-ZONES densas (5) -> alcance trivial. METRICA: quantos dos 15 adotam worker (path default->explorer->worker) e quantas RE-adocoes (adopt-spam). NAO mede score/submit (isso e o 06-single-block).",
+  "//": "Cenario 01-adopt (Eixo 1 / issue #12). ISOLA a adocao de role: grid 15x15 VAZIO (sem obstaculo -> tira navegacao da equacao), randomFail:0 + seed fixa (determinismo), eventos/normas OFF, absolutePosition:true (sem drift de dead-reckoning), 60 steps. ROLE-ZONES densas (5) -> alcance trivial. METRICA: quantos dos 15 adotam worker (path default->worker direto, #54) e quantas RE-adocoes (adopt-spam). NAO mede score/submit (isso e o 06-single-block).",
   "//setup": "O setup file (conf/scenarios/setup/01-adopt.txt) TELEPORTA cada agente nomeado p/ uma role-zone (terrain+move por NOME, executado DEPOIS do spawn -> determinismo SEM conhecer o spawn seed-dependente), tirando a navegacao da equacao por completo. PATH: resolvido relativo ao cwd do servidor (massim_2022/server/), por isso '../../conf/...'. Remova a chave 'setup' p/ medir adocao COM navegacao (spawn aleatorio -> role-zone)."
 }

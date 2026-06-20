@@ -38,7 +38,7 @@ move 1 10 agentA15
 move 5 5 agentA4
 
 # 3) role-zone + goal-zone na MESMA célula do agentA4:
-#    - role-zone: adota worker (path default->explorer->worker, provado em #12)
+#    - role-zone: adota worker (path default->worker direto, #54 — #12 provou adoção)
 #    - goal-zone: já está sobre ela -> submit dispara sem navegação
 terrain 5 5 role
 terrain 5 5 goal

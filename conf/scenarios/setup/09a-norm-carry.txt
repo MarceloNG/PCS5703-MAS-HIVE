@@ -1,0 +1,48 @@
+# =====================================================================
+# Setup determinístico do cenário 09a-norm-carry (Eixo 9a / issue #51).
+# DoD de norma carry: isola o HANDLER NORM — agente na goal-zone com
+# EXCESSO de bloco (carry_limit=1, 2 blocos pré-anexados) e um task block.
+#
+# DESIGN (v4 — mecanismo real): Jason usa PREPEND ao atualizar crenças de
+# percept. spanArea itera dx=-5..+5 (oeste→leste): o percept de maior dx
+# é enviado POR ÚLTIMO → prepended POR ÚLTIMO → fica no TOPO da belief
+# base → NORM casa attached(AX,AY) PRIMEIRO com o bloco mais a LESTE.
+#
+# Logo: EXCESS a LESTE (+1,0) — dx máximo → topo da belief base → NORM
+#        pega EXCESS → detach(e) ✓
+#        TASK a OESTE (-1,0) — dx menor → segundo na belief base → sobrevive.
+#        Task req: -1,0,b1 (oeste).
+#
+# FLUXO ESPERADO:
+#   step 0: agentA4 sobre role-zone, role(default) → adopt(worker)
+#           [+norm percept chega; !check_carry_norm seta carry_limit(1)]
+#   step 1: NORM: .count(attached,2)>1; attached(1,0) no topo → detach(e) → SUCCESS
+#   step 2: .count(attached,1)=carry_limit(1); attached(-1,0)+task_req(t1,-1,0,b1)
+#           → BLOCO-NA-MÃO → pending_submit(t1) + skip
+#   step 3: pending_submit + goalZone(0,0) → submit(t1) → submits_ok++
+#
+# 1 agente apenas (entities:1) — evita interferência no grid 12×12.
+#
+# ASSERT: submits_ok >= 1
+#
+# Gramática: move X Y agentN | terrain X Y role|goal | add X Y block <tipo>
+#            attach X1 Y1 X2 Y2 | create task <n> <dl> bx,by,t
+# Eixos MASSim: x=leste(+), y=sul(+). Grid 12×12.
+# =====================================================================
+
+# 1) Agente-alvo em (5,5), sobre role-zone + goal-zone
+move 5 5 agentA1
+terrain 5 5 role
+terrain 5 5 goal
+
+# 2) TASK block a OESTE (4,5) = relativo (-1,0) — menor dx → segundo na belief base → sobrevive
+add 4 5 block b1
+attach 5 5 4 5
+
+# 3) EXCESS block a LESTE (6,5) = relativo (1,0) — MAIOR dx → último percept → PREPEND → TOPO
+#    NORM: attached(1,0) → elif (AX==1) { DDir=e } → detach(e) → excesso removido ✓
+add 6 5 block b1
+attach 5 5 6 5
+
+# 4) Task t1: bloco b1 no offset (-1,0) = oeste = onde o task block está
+create task t1 100 -1,0,b1

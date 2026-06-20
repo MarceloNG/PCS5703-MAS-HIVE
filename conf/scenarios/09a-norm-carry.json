@@ -15,11 +15,11 @@
   },
   "match": [
     {
-      "steps": 68,
+      "steps": 20,
       "randomSeed": 17,
       "randomFail": 0,
-      "entities": { "standard": 15 },
-      "clusterBounds": [1, 3],
+      "entities": { "standard": 1 },
+      "clusterBounds": [1, 1],
       "roles": [
         { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
         { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
@@ -55,18 +55,18 @@
             "duration": [70, 70],
             "punishment": [5, 5],
             "weight": 1,
-            "optional": { "quantity": [2, 2] }
+            "optional": { "quantity": [1, 1] }
           }
         ]
       },
       "absolutePosition": true,
-      "setup": "../../conf/scenarios/setup/06c-single-collect.txt"
+      "setup": "../../conf/scenarios/setup/09a-norm-carry.txt"
     }
   ],
   "teams": {
     "A": { "prefix": "agent", "password": "1" }
   },
   "assert": { "metric": "submits_ok", "min": 1 },
-  "//": "Cenário 09a-norm-carry (Eixo 9a / issue #19) — REGRESSÃO de norma Carry. Garante que o percept +norm(...) é recebido e parseado sem travar o ciclo do agente, e que a presença de uma norma Carry(max=2) não impede o submit. chance:100 injeta a norma no step 1 (announcement=2 → ativa no step 3). quantity=[2,2] fixa carry_limit=2: agentes com 1 bloco são sempre compliance (carry_limit(2), N=1 < 2 → norm_allows_carry=true). Punição 5/step — se houver violação, energia cai e agente deativado → submits_ok=0 → FAIL. Mesma geometria do 06c (coleta real de bloco).",
-  "//regulation": "chance:100 + announcement:[2,2] fixos → norma determinística. ranges [X,X] tornam os sorteios de RNG irrelevantes (min=max). weight:1 (única subject → seleção trivial). Não usar chance<100 aqui: a seed 17 pode não sortear norma no step 1 com chance baixa."
+  "//": "Cenário 09a-norm-carry (Eixo 9a / issue #51 DoD). Isola o handler NORM com carry_limit=1: agentA4 pré-posicionado na goal+role-zone com 2 blocos pré-anexados (excesso a oeste + task block a leste). Verifica que NORM emite detach(w) correto [fix #51: filtro math.abs==1 + else{DDir=w} só alcançado por bloco adjacente real], task block sobrevive, e submit ocorre na sequência. quantity=[1,1] fixa carry_limit=1 (violação determinística com 2 blocos). chance:100 + announcement:[2,2] = norma ativa no step 3 (antes do handler disparar). ASSERT: submits_ok >= 1.",
+  "//regulation": "chance:100 + announcement:[2,2] fixos → norma determinística (ativa step 3). ranges [X,X] tornam os sorteios de RNG irrelevantes (min=max). weight:1 (única subject → seleção trivial). quantity=[1,1]: carry_limit=1 fixo — 2 blocos pré-anexados = violação garantida."
 }

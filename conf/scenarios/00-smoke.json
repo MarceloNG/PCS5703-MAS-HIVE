@@ -53,5 +53,5 @@
     "A": { "prefix": "agent", "password": "1" }
   },
   "assert": { "metric": "role_adoption", "min": 1 },
-  "//": "Cenario 00-smoke (harness #11): EXEMPLO de fiacao do harness, nao um experimento. Grid 15x15 deterministico (seed 17, randomFail 0, eventos/normas OFF, absolutePosition true), 40 steps, role-zones densas. METRICA de CAPACIDADE (nao score): role_adoption >= 1 (ao menos um agente adota worker => a cadeia default->explorer->worker fechou). O setup conf/scenarios/setup/00-smoke.txt e injetado no campo 'setup' pelo run-hive. Para um experimento real de adocao use o 01-adopt (issue #12); aqui o foco e so demonstrar/testar o harness."
+  "//": "Cenario 00-smoke (harness #11): EXEMPLO de fiacao do harness, nao um experimento. Grid 15x15 deterministico (seed 17, randomFail 0, eventos/normas OFF, absolutePosition true), 40 steps, role-zones densas. METRICA de CAPACIDADE (nao score): role_adoption >= 1 (ao menos um agente adota worker => adoção default->worker direto (#54)). O setup conf/scenarios/setup/00-smoke.txt e injetado no campo 'setup' pelo run-hive. Para um experimento real de adocao use o 01-adopt (issue #12); aqui o foco e so demonstrar/testar o harness."
 }

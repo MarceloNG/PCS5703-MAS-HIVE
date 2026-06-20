@@ -22,8 +22,8 @@
 // worker via !ensure_worker_role e auto-iniciam coleta solo via SELF-ASSIGN (plano (c)).
 // ============================================================
 
-// ÚNICO PONTO DE ADOÇÃO: para reintroduzir explorer/constructor,
-// trocar para [explorer, worker] (e adicionar arm role(explorer) + defensivo abaixo).
+// ÚNICO PONTO DE ADOÇÃO: alterar este fato para reintroduzir degraus intermediários.
+// Decisão: explorer removido do path em #54 (sem evidência de ganho de speed=3).
 role_adoption_path([worker]).
 
 // ------------------------------------------------------------
@@ -141,7 +141,7 @@ can_score_role :- role(Cur) & role(Cur, _, Acts, _, _, _) & .member(submit, Acts
     <- true.
 
 // default sobre a role-zone → adotar o próximo role no path (worker hoje — #54)
-// not role(Next): evita re-adoptar o mesmo role em loop se o path for [explorer, worker]
+// not role(Next): evita re-adoptar o mesmo role em loop (idempotência do adopt)
 +!ensure_worker_role : roleZone(0, 0) & role_adoption_path([Next|_]) & not role(Next)
     <- .print("[ROLE] Default sobre role-zone — adopt(", Next, ") direto.");
        .abolish(has_destination(_, _));
