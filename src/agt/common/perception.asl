@@ -119,6 +119,16 @@ dr_pos(0, 0).
     <- update_cell(MX + X, MY + Y, Type, Details);
        !dash_map_dispenser(MX + X, MY + Y, Details).
 
+// U9/#17: ao perceber colega do mesmo time, registra a celula e faz broadcast
+// i_see_mate para iniciar o handshake de fusao de mapa. Guard not(X==0&Y==0)
+// exclui self-percept (precaucao; MASSim nao envia). Deve vir antes do catch-all.
++thing(X, Y, entity, Team)
+    : my_pos(MX, MY) & my_team(Team) & step(S) & not (X == 0 & Y == 0)
+    <- update_cell(MX + X, MY + Y, entity, Team);
+       !mark_entity_occupancy(entity, Team, X, Y, MX, MY);
+       .my_name(Me);
+       .broadcast(tell, i_see_mate(Me, S, MX, MY, X, Y)).
+
 +thing(X, Y, Type, Details)
     : my_pos(MX, MY)
     <- update_cell(MX + X, MY + Y, Type, Details);
