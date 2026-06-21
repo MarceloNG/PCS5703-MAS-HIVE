@@ -119,6 +119,13 @@ dr_pos(0, 0).
     <- update_cell(MX + X, MY + Y, Type, Details);
        !dash_map_dispenser(MX + X, MY + Y, Details).
 
+// U10/#20: marker de clear-event (ci/clear/cp) percebido — registra no mapa.
+// Escape reativo acontece em survival.asl via +step(N) com prioridade maxima.
++thing(X, Y, marker, Type)
+    : my_pos(MX, MY)
+    <- update_cell(MX + X, MY + Y, marker, Type);
+       .print("[SURVIVAL] marker=", Type, " rel=(", X, ",", Y, ")").
+
 +thing(X, Y, Type, Details)
     : my_pos(MX, MY)
     <- update_cell(MX + X, MY + Y, Type, Details);

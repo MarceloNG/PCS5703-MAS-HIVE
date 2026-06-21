@@ -92,6 +92,8 @@ def analyze(replay_dir, goal, role_zone, stuck_n, agent_filter):
     agent_rows = defaultdict(list)
     agent_actions = defaultdict(lambda: defaultdict(int))
     agent_results = defaultdict(lambda: defaultdict(int))
+    agent_prev_deactivated = defaultdict(lambda: False)
+    agent_deactivated_count = defaultdict(int)
 
     for step, entities in steps:
         for e in entities:
@@ -106,6 +108,10 @@ def analyze(replay_dir, goal, role_zone, stuck_n, agent_filter):
             result = e.get("actionResult", "none")
             role = e.get("role", "?")
             attached = e.get("attached", [])
+            deactivated = e.get("deactivated", False)
+            if deactivated and not agent_prev_deactivated[name]:
+                agent_deactivated_count[name] += 1
+            agent_prev_deactivated[name] = deactivated
             g_dist = manhattan(x, y, *goal) if goal else None
             rz_dist = manhattan(x, y, *role_zone) if role_zone else None
             agent_rows[name].append((step, x, y, g_dist, rz_dist, action, result, role, len(attached)))
@@ -135,6 +141,7 @@ def analyze(replay_dir, goal, role_zone, stuck_n, agent_filter):
             "stuck_at_step": stuck_at_step if max_stuck >= stuck_n else None,
             "final_role": rows[-1][7] if rows else "?",
             "submits_ok": sum(1 for r in rows if r[5] == "submit" and r[6] == "success"),
+            "deactivated_count": agent_deactivated_count.get(name, 0),
         }
     return results
 

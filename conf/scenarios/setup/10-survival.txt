@@ -1,0 +1,42 @@
+# =====================================================================
+# Setup do cenário 10-survival (U10/#20) — fuga de clear-events.
+#
+# OBJETIVO: distribuir 15 agentes uniformemente no grid 20x20 para
+# garantir que eventos (chance:100, radius:3) sempre alcancem ao
+# menos um agente — tornando o FAIL sem o handler praticamente certo.
+#
+# Layout: 5 colunas (x=2,6,10,14,18) × 3 linhas (y=4,10,16) = 15 pos.
+# Espaçamento de 4 células entre agentes; com radius:3 qualquer ponto
+# do grid está a no máximo 2 células de um agente.
+#
+# Não há role-zones nem goal-zones neste cenário (sobrevivência pura).
+# Agentes spawnam aleatoriamente e são teleportados por nome para as
+# posições fixas antes do step 1 (DEPOIS da criação das entidades —
+# ver GameState). Isso elimina dependência do randomSeed de spawn.
+#
+# GOTCHA DE PATH: cwd do servidor = massim_2022/server/. O campo
+# 'setup' no JSON usa '../../conf/scenarios/setup/10-survival.txt'
+# (relativo ao cwd do servidor). O run-hive.sh injeta o path absoluto
+# automaticamente na cópia temporária do config.
+# =====================================================================
+
+# --- Linha y=4 (5 agentes) ---
+move 2 4 agentA1
+move 6 4 agentA2
+move 10 4 agentA3
+move 14 4 agentA4
+move 18 4 agentA5
+
+# --- Linha y=10 (5 agentes) ---
+move 2 10 agentA6
+move 6 10 agentA7
+move 10 10 agentA8
+move 14 10 agentA9
+move 18 10 agentA10
+
+# --- Linha y=16 (5 agentes) ---
+move 2 16 agentA11
+move 6 16 agentA12
+move 10 16 agentA13
+move 14 16 agentA14
+move 18 16 agentA15

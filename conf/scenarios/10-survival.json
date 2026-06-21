@@ -1,0 +1,192 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 60,
+      "randomSeed": 42,
+      "randomFail": 0,
+      "entities": {
+        "standard": 15
+      },
+      "clusterBounds": [
+        1,
+        1
+      ],
+      "roles": [
+        {
+          "name": "default",
+          "vision": 5,
+          "actions": [
+            "skip",
+            "move",
+            "rotate",
+            "adopt",
+            "detach",
+            "clear"
+          ],
+          "speed": [
+            1
+          ],
+          "clear": {
+            "chance": 0.7,
+            "maxDistance": 1
+          }
+        },
+        {
+          "name": "worker",
+          "actions": [
+            "request",
+            "attach",
+            "connect",
+            "disconnect",
+            "submit"
+          ],
+          "speed": [
+            2,
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "constructor",
+          "actions": [
+            "request",
+            "attach",
+            "connect",
+            "disconnect",
+            "submit"
+          ],
+          "speed": [
+            1
+          ]
+        },
+        {
+          "name": "explorer",
+          "vision": 7,
+          "actions": [
+            "survey",
+            "attach"
+          ],
+          "speed": [
+            3,
+            0
+          ]
+        },
+        {
+          "name": "digger",
+          "speed": [
+            1,
+            0
+          ],
+          "clear": {
+            "chance": 1,
+            "maxDistance": 5
+          }
+        }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 15,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [
+        32,
+        16,
+        8,
+        4,
+        2,
+        1
+      ],
+      "attachLimit": 10,
+      "grid": {
+        "height": 20,
+        "width": 20,
+        "instructions": [],
+        "goals": {
+          "number": 0,
+          "size": [
+            1,
+            1
+          ],
+          "moveProbability": 0.0
+        },
+        "roleZones": {
+          "number": 0,
+          "size": [
+            1,
+            1
+          ]
+        }
+      },
+      "blockTypes": [
+        1,
+        1
+      ],
+      "dispensers": [
+        0,
+        0
+      ],
+      "tasks": {
+        "size": [
+          1,
+          1
+        ],
+        "concurrent": 0,
+        "iterations": [
+          0,
+          0
+        ],
+        "maxDuration": [
+          200,
+          400
+        ]
+      },
+      "events": {
+        "chance": 5,
+        "radius": [
+          2,
+          2
+        ],
+        "warning": 5,
+        "create": [
+          0,
+          0
+        ],
+        "perimeter": 1
+      },
+      "regulation": {
+        "simultaneous": 1,
+        "chance": 0,
+        "subjects": []
+      },
+      "absolutePosition": true,
+      "setup": "../../conf/scenarios/setup/10-survival.txt"
+    }
+  ],
+  "teams": {
+    "A": {
+      "prefix": "agent",
+      "password": "1"
+    }
+  },
+  "assert": {
+    "metric": "deactivated_count",
+    "max": 0
+  },
+  "//": "Cenario 10-survival (U10/#20) \u2014 sobrevivencia a clear-events. Isola a fuga reativa de markers ci/clear em survival.asl. Grid 20x20, 60 steps, randomFail:0, seed 17 (determinismo). events.chance:100 (evento a cada step), radius:[3,3] (area fixa, facilita calibracao), warning:10 (10 steps de aviso \u2014 folga para fuga 1-step). Setup: 15 agentes distribuidos uniformemente (5 colunas x 3 linhas) pelo grid. absolutePosition:true: sem drift de dead-reckoning. PASS = deactivated_count == 0 (nenhum agente desativado). FAIL sem handler: agentes nao fogem -> desativados. NOTA: seed 17 produz eventos deterministicos; re-calibre seed se FAIL nao ocorrer sem handler (agentes fora de todas as zonas de evento por acaso).",
+  "//setup": "setup/10-survival.txt posiciona os 15 agentes em grid uniforme 5x3 no espaco 20x20. Path resolvido relativo ao cwd do servidor (massim_2022/server/), por isso '../../conf/...'. O run-hive.sh injeta o path absoluto automaticamente na copia temporaria do config."
+}
