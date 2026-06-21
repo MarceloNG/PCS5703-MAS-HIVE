@@ -1,0 +1,72 @@
+# ===========================================================
+# Setup determinístico — cenário 05-map-merge (U9/#17).
+# FUSAO DE MAPA: 2 agentes ativos + 13 estacionados.
+# Grid 25x15 (x=0..24, y=0..14). absolutePosition:false.
+#
+# A1 (agentA1) fica no lado OESTE perto do dispenser b0.
+# A2 (agentA2) fica no lado LESTE perto do dispenser b1.
+# Barreira vertical em x=12 (y=0..6 e y=8..13) — corredor em y=7.
+# Os dois agentes cruzam pelo corredor e se avistam la:
+#   -> +thing(X,Y,entity,team) dispara i_see_mate
+#   -> handshake de fusao: A2 aprende b0, A1 aprende b1
+#   -> cada agente navega ao dispenser do colega via known_offset
+# METRICA: requests_ok >= 1 (request bem-sucedido apos fusao)
+#
+# Gramática MASSim (GameState.handleCommand):
+#   move X Y agentN  |  add X Y dispenser|block T
+#   terrain X Y obstacle|goal|role  |  create task N dl x,y,t
+#   attach X1 Y1 X2 Y2
+# Eixos: x=leste(+), y=sul(+). PATH relativo ao cwd do servidor
+# (massim_2022/server/), por isso '../../conf/...'.
+# ===========================================================
+
+# 1) Estacionar os 13 agentes nao-alvo em y=14 (linha sul, fora da acao)
+move 0 14 agentA3
+move 1 14 agentA4
+move 2 14 agentA5
+move 3 14 agentA6
+move 4 14 agentA7
+move 5 14 agentA8
+move 6 14 agentA9
+move 7 14 agentA10
+move 8 14 agentA11
+move 9 14 agentA12
+move 10 14 agentA13
+move 11 14 agentA14
+move 12 14 agentA15
+
+# 2) Posicionar A1 no lado OESTE e A2 no lado LESTE
+move 1 7 agentA1
+move 23 7 agentA2
+
+# 3) Role-zone no corredor (y=7, x=12) — agentes adotam worker ao cruzar
+terrain 12 7 role
+
+# 4) Goal-zone sul do corredor (y=8, x=12)
+terrain 12 8 goal
+
+# 5) Barreira vertical em x=12 — bloqueia y=0..6 e y=8..13
+#    (corredor aberto em y=7; y=14 aberto p/ nao colidir com o estacionamento)
+terrain 12 0 obstacle
+terrain 12 1 obstacle
+terrain 12 2 obstacle
+terrain 12 3 obstacle
+terrain 12 4 obstacle
+terrain 12 5 obstacle
+terrain 12 6 obstacle
+terrain 12 9 obstacle
+terrain 12 10 obstacle
+terrain 12 11 obstacle
+terrain 12 12 obstacle
+terrain 12 13 obstacle
+
+# 6) Dispensers nas extremidades (visiveis apenas do proprio lado,
+#    alem do alcance visao=5 desde o corredor em x=12):
+#    b0 em x=0 — visivel por A1 em (1,7) ao nascer; invisivel para A2
+#    b1 em x=24 — visivel por A2 em (23,7) ao nascer; invisivel para A1
+add 0 7 dispenser b0
+add 24 7 dispenser b1
+
+# 7) Task pre-criada exigindo b0 — forca A2 a aprender b0 via fusao
+#    para completar (sem fusao, A2 nao sabe onde esta o dispenser b0)
+create task tmerge 200 1,0,b0

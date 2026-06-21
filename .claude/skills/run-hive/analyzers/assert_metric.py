@@ -73,6 +73,15 @@ def m_failed_path_total(results, spec=None):
     return total, f"{total} failed_path total no time"
 
 
+def m_requests_ok(results, spec=None):
+    """Total de request actions com resultado success (U9/#17 — fusao de mapa)."""
+    total = sum(
+        sum(1 for r in d["rows"] if r[5] == "request" and r[6] == "success")
+        for d in results.values()
+    )
+    return total, f"{total} requests bem-sucedidos no time"
+
+
 # --- Métricas de POSIÇÃO (issue #27). Leem o ground-truth do replay (a posição
 # absoluta independe de absolutePosition, que afeta só o que o AGENTE percebe).
 # Precisam de spec["region"]=[x0,y0,x1,y1] (box inclusiva, coords do servidor).
@@ -118,6 +127,7 @@ METRICS = {
     "submits_ok": m_submits_ok,
     "max_stuck": m_max_stuck,
     "failed_path_total": m_failed_path_total,
+    "requests_ok": m_requests_ok,
     "exited_region": m_exited_region,
     "entered_region": m_entered_region,
 }

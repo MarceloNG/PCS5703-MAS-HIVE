@@ -1,0 +1,58 @@
+{
+  "server": {
+    "tournamentMode": "round-robin",
+    "teamsPerMatch": 1,
+    "launch": "25s",
+    "port": 12300,
+    "backlog": 10000,
+    "agentTimeout": 8000,
+    "resultPath": "results",
+    "logLevel": "normal",
+    "logPath": "logs",
+    "replayPath": "replays",
+    "maxPacketLength": 65536,
+    "waitBetweenSimulations": 5000
+  },
+  "match": [
+    {
+      "steps": 100,
+      "randomSeed": 42,
+      "randomFail": 0,
+      "entities": { "standard": 15 },
+      "clusterBounds": [1, 3],
+      "roles": [
+        { "name": "default", "vision": 5, "actions": ["skip", "move", "rotate", "adopt", "detach", "clear"], "speed": [1], "clear": { "chance": 0.7, "maxDistance": 1 } },
+        { "name": "worker", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [2, 1, 1, 0] },
+        { "name": "constructor", "actions": ["request", "attach", "connect", "disconnect", "submit"], "speed": [1] },
+        { "name": "explorer", "vision": 7, "actions": ["survey", "attach"], "speed": [3, 0] },
+        { "name": "digger", "speed": [1, 0], "clear": { "chance": 1, "maxDistance": 5 } }
+      ],
+      "clearEnergyCost": 2,
+      "deactivatedDuration": 10,
+      "maxEnergy": 100,
+      "refreshEnergy": 50,
+      "stepRecharge": 1,
+      "clearDamage": [32, 16, 8, 4, 2, 1],
+      "attachLimit": 10,
+      "grid": {
+        "height": 15,
+        "width": 25,
+        "instructions": [],
+        "goals": { "number": 0, "size": [1, 1], "moveProbability": 0.0 },
+        "roleZones": { "number": 0, "size": [1, 2] }
+      },
+      "blockTypes": [2, 2],
+      "dispensers": [0, 0],
+      "tasks": { "size": [1, 1], "concurrent": 1, "iterations": [5, 8], "maxDuration": [200, 400] },
+      "events": { "chance": 0, "radius": [2, 3], "warning": 5, "create": [0, 0], "perimeter": 2 },
+      "regulation": { "simultaneous": 1, "chance": 0, "subjects": [] },
+      "absolutePosition": false,
+      "setup": "../../conf/scenarios/setup/05-map-merge.txt"
+    }
+  ],
+  "teams": {
+    "A": { "prefix": "agent", "password": "1" }
+  },
+  "assert": { "metric": "requests_ok", "min": 1 },
+  "//": "Cenario 05-map-merge (U9/#17) — fusao de mapa por avistamento mutuo. 15 agentes, grid 25x15, absolutePosition:false, randomFail:0, seed 42. Setup: A1 em (1,7), A2 em (23,7); A3..A15 estacionados em y=14. Barreira vertical em x=12 (y=0..6 e y=8..13) com corredor em y=7 — agentes cruzam SO PELO CORREDOR. Dispenser b0 em (0,7) visivel so do lado de A1; b1 em (24,7) visivel so do lado de A2 (alem do alcance de visao=5 desde o corredor). Role-zone em (12,7): agentes adotam worker ao cruzar. Goal-zone em (12,8). METRICA: requests_ok >= 1 — ao menos um request bem-sucedido apos o handshake de fusao (A2 navega a b0 via known_offset aprendido no encontro)."
+}
